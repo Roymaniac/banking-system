@@ -4,7 +4,21 @@ declare(strict_types=1);
 
 namespace Shared\Domain\ValueObject;
 
-abstract class ValueObject
+use JsonSerializable;
+
+abstract class ValueObject implements JsonSerializable
 {
-    abstract public function equals(self $other): bool;
+
+    abstract protected function toArray(): array;
+
+    final public function equals(self $other): bool
+    {
+        return static::class === $other::class
+            && $this->toArray() === $other->toArray();
+    }
+
+    final public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
 }

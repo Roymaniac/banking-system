@@ -27,6 +27,17 @@ trait RecordDomainEvents
         return $events;
     }
 
+    /**
+     * @return list<DomainEvent>
+     */
+    public function recordedEvents(): array
+    {
+        return $this->recordedEvents;
+    }
+
+    /**
+     * @return bool
+     */
     public function hasRecordedEvents(): bool
     {
         return !empty($this->recordedEvents);

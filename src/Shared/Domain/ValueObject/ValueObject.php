@@ -9,6 +9,11 @@ use JsonSerializable;
 abstract class ValueObject implements JsonSerializable
 {
 
+    /**
+     * Return the scalar representation of this value object
+     *
+     * @return array<string, mixed>
+     */
     abstract protected function toArray(): array;
 
     final public function equals(self $other): bool
@@ -17,6 +22,11 @@ abstract class ValueObject implements JsonSerializable
             && $this->toArray() === $other->toArray();
     }
 
+    /**
+     * Serialize the value object into an array
+     *
+     * @return array<string, mixed>
+     */
     final public function jsonSerialize(): array
     {
         return $this->toArray();

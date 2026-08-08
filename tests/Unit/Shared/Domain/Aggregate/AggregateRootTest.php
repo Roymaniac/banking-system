@@ -4,42 +4,34 @@ declare(strict_types=1);
 
 use Shared\Domain\Aggregate\AggregateRoot;
 use Shared\Domain\Event\DomainEvent;
-use Shared\Domain\ValueObject\ValueObject;
+use Shared\Domain\Identifier\Identifier;
+use Shared\Domain\Identifier\Uuid;
 
-final class AggregateDummyId extends ValueObject
+final class AggregateDummyId extends Identifier
 {
     public function __construct(
         private string $value,
     ) {}
 
-    protected function toArray(): array
+    public function value(): string
     {
-        return [
-            'value' => $this->value,
-        ];
+        return $this->value;
     }
 }
 
-final class DummyEvent implements DomainEvent
+final readonly class DummyEvent extends DomainEvent
 {
     public function __construct(
-        private string $eventId,
-        private DateTimeImmutable $occurredOn,
-    ) {}
-
-    public function eventId(): string
-    {
-        return $this->eventId;
+        Uuid $eventId,
+        Identifier $aggregateId,
+        int $aggregateVersion,
+    ) {
+        parent::__construct($eventId, $aggregateId, $aggregateVersion, new DateTimeImmutable);
     }
 
-    public function eventName(): string
+    public static function eventName(): string
     {
         return 'dummy.event';
-    }
-
-    public function occurredOn(): DateTimeImmutable
-    {
-        return $this->occurredOn;
     }
 }
 
@@ -49,7 +41,7 @@ final class DummyAggregate extends AggregateRoot
         private readonly AggregateDummyId $id,
     ) {}
 
-    public function id(): ValueObject
+    public function id(): Identifier
     {
         return $this->id;
     }
@@ -58,8 +50,9 @@ final class DummyAggregate extends AggregateRoot
     {
         $this->record(
             new DummyEvent(
-                uniqid('', true),
-                new DateTimeImmutable()
+                Uuid::generate(),
+                $this->id(),
+                $this->version() + 1,
             )
         );
     }
@@ -75,15 +68,23 @@ it('records domain events', function (): void {
     expect($aggregate->recordedEvents())->toHaveCount(1);
 });
 
-it('releases recorded events', function (): void {
+it('pulls recorded events and clears the aggregate queue', function (): void {
     $aggregate = new DummyAggregate(
         new AggregateDummyId('aggregate-001')
     );
 
     $aggregate->doSomething();
 
-    $events = $aggregate->releaseEvents();
+    $events = $aggregate->pullDomainEvents();
 
     expect($events)->toHaveCount(1);
     expect($aggregate->recordedEvents())->toBeEmpty();
+});
+
+it('increments the aggregate version for each recorded event', function (): void {
+    $aggregate = new DummyAggregate(new AggregateDummyId('aggregate-001'));
+
+    $aggregate->doSomething();
+
+    expect($aggregate->version())->toBe(1);
 });

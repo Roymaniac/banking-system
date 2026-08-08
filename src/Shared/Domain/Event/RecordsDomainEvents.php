@@ -44,6 +44,6 @@ trait RecordsDomainEvents
      */
     final public function hasRecordedEvents(): bool
     {
-        return ! empty($this->recordedEvents);
+        return !empty($this->recordedEvents);
     }
 }

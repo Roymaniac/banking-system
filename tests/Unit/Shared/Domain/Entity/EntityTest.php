@@ -3,22 +3,19 @@
 declare(strict_types=1);
 
 use Shared\Domain\Entity\Entity;
-use Shared\Domain\ValueObject\ValueObject;
+use Shared\Domain\Identifier\Identifier;
 
-final class DummyId extends ValueObject
+final class EntityDummyId extends Identifier
 {
     public function __construct(
         private string $value,
     ) {}
 
-    protected function toArray(): array
+    public function value(): string
     {
-        return [
-            'value' => $this->value,
-        ];
+        return $this->value;
     }
 }
-
 
 final class DummyEntity extends Entity
 {
@@ -26,7 +23,7 @@ final class DummyEntity extends Entity
         private readonly DummyId $id,
     ) {}
 
-    public function id(): ValueObject
+    public function id(): Identifier
     {
         return $this->id;
     }

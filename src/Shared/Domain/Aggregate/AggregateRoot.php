@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Shared\Domain\Aggregate;
 
-use DomainException;
 use Shared\Domain\Entity\Entity;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\Event\RecordsDomainEvents;
+use Shared\Domain\Exception\DomainException;
 
 abstract class AggregateRoot extends Entity
 {

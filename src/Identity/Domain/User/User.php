@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Identity\Domain\User;
 
 use DateTimeImmutable;
+use Identity\Domain\User\Event\UserPasswordReset;
 use Identity\Domain\User\Event\UserRegistered;
 use Identity\Domain\User\ValueObject\EmailAddress;
 use Identity\Domain\User\ValueObject\PasswordHash;
@@ -89,5 +90,25 @@ final class User extends AggregateRoot
     public function registeredAt(): DateTimeImmutable
     {
         return $this->registeredAt;
+    }
+
+    /**
+     * Replaces the stored password hash and records a security event.
+     */
+    public function resetPassword(
+        PasswordHash $newPasswordHash,
+        DateTimeImmutable $resetAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        $this->passwordHash = $newPasswordHash;
+
+        $this->record(new UserPasswordReset(
+            eventId: $eventId,
+            userId: $this->id,
+            aggregateVersion: $this->version() + 1,
+            occurredOn: $resetAt,
+            correlationId: $correlationId,
+        ));
     }
 }

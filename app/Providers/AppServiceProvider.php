@@ -6,10 +6,14 @@ namespace App\Providers;
 
 use Identity\Application\Authentication\PasswordHasher;
 use Identity\Application\Authorization\AuthorizationChecker;
+use Identity\Application\EmailVerification\EmailVerificationTokenGenerator;
 use Identity\Application\PasswordReset\PasswordResetTokenGenerator;
+use Identity\Domain\EmailVerification\Repository\EmailVerificationRequestRepository;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
 use Identity\Infrastructure\Authentication\LaravelPasswordHasher;
 use Identity\Infrastructure\Authorization\LaravelGateAuthorizationChecker;
+use Identity\Infrastructure\EmailVerification\DatabaseEmailVerificationRequestRepository;
+use Identity\Infrastructure\EmailVerification\SecureEmailVerificationTokenGenerator;
 use Identity\Infrastructure\PasswordReset\DatabasePasswordResetRequestRepository;
 use Identity\Infrastructure\PasswordReset\SecurePasswordResetTokenGenerator;
 use Illuminate\Support\ServiceProvider;
@@ -31,6 +35,14 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(PasswordHasher::class, LaravelPasswordHasher::class);
         $this->app->singleton(AuthorizationChecker::class, LaravelGateAuthorizationChecker::class);
+        $this->app->singleton(
+            EmailVerificationTokenGenerator::class,
+            SecureEmailVerificationTokenGenerator::class,
+        );
+        $this->app->singleton(
+            EmailVerificationRequestRepository::class,
+            DatabaseEmailVerificationRequestRepository::class,
+        );
         $this->app->singleton(PasswordResetTokenGenerator::class, SecurePasswordResetTokenGenerator::class);
         $this->app->singleton(
             PasswordResetRequestRepository::class,

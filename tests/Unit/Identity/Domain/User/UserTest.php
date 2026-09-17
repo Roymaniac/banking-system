@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Identity\Domain\User\Event\UserEmailVerified;
 use Identity\Domain\User\Event\UserPasswordReset;
 use Identity\Domain\User\Event\UserRegistered;
 use Identity\Domain\User\User;
@@ -72,4 +73,25 @@ it('resets a password without placing secrets in the domain event', function ():
         ->and($events)->toHaveCount(1)
         ->and($events[0])->toBeInstanceOf(UserPasswordReset::class)
         ->and($events[0]->payload())->toBeEmpty();
+});
+
+it('verifies an email exactly once', function (): void {
+    $user = User::reconstitute(
+        UserId::generate(),
+        new EmailAddress('unverified@example.com'),
+        new PasswordHash(password_hash('secret-password', PASSWORD_BCRYPT)),
+        new DateTimeImmutable('2026-09-16T10:00:00+00:00'),
+        1,
+    );
+    $verifiedAt = new DateTimeImmutable('2026-09-16T10:15:00+00:00');
+
+    $user->verifyEmail($verifiedAt, Uuid::generate());
+    $user->verifyEmail($verifiedAt, Uuid::generate());
+    $events = $user->pullDomainEvents();
+
+    expect($user->isEmailVerified())->toBeTrue()
+        ->and($user->emailVerifiedAt())->toBe($verifiedAt)
+        ->and($user->version())->toBe(2)
+        ->and($events)->toHaveCount(1)
+        ->and($events[0])->toBeInstanceOf(UserEmailVerified::class);
 });

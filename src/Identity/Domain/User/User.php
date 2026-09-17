@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Identity\Domain\User;
 
 use DateTimeImmutable;
+use Identity\Domain\User\Event\UserEmailVerified;
 use Identity\Domain\User\Event\UserPasswordReset;
 use Identity\Domain\User\Event\UserRegistered;
 use Identity\Domain\User\ValueObject\EmailAddress;
@@ -12,7 +13,6 @@ use Identity\Domain\User\ValueObject\PasswordHash;
 use Identity\Domain\User\ValueObject\UserId;
 use Shared\Domain\Aggregate\AggregateRoot;
 use Shared\Domain\Identifier\CorrelationId;
-use Shared\Domain\Identifier\Identifier;
 use Shared\Domain\Identifier\Uuid;
 
 /**
@@ -29,6 +29,7 @@ final class User extends AggregateRoot
         private EmailAddress $email,
         private PasswordHash $passwordHash,
         private readonly DateTimeImmutable $registeredAt,
+        private ?DateTimeImmutable $emailVerifiedAt = null,
     ) {}
 
     /**
@@ -65,14 +66,15 @@ final class User extends AggregateRoot
         PasswordHash $passwordHash,
         DateTimeImmutable $registeredAt,
         int $version,
+        ?DateTimeImmutable $emailVerifiedAt = null,
     ): self {
-        $user = new self($id, $email, $passwordHash, $registeredAt);
+        $user = new self($id, $email, $passwordHash, $registeredAt, $emailVerifiedAt);
         $user->reconstituteAtVersion($version);
 
         return $user;
     }
 
-    public function id(): Identifier
+    public function id(): UserId
     {
         return $this->id;
     }
@@ -90,6 +92,40 @@ final class User extends AggregateRoot
     public function registeredAt(): DateTimeImmutable
     {
         return $this->registeredAt;
+    }
+
+    public function emailVerifiedAt(): ?DateTimeImmutable
+    {
+        return $this->emailVerifiedAt;
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerifiedAt !== null;
+    }
+
+    /**
+     * Marks the email as verified once. Repeated calls are harmless and do not
+     * create duplicate events.
+     */
+    public function verifyEmail(
+        DateTimeImmutable $verifiedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        if ($this->isEmailVerified()) {
+            return;
+        }
+
+        $this->emailVerifiedAt = $verifiedAt;
+
+        $this->record(new UserEmailVerified(
+            eventId: $eventId,
+            userId: $this->id,
+            aggregateVersion: $this->version() + 1,
+            occurredOn: $verifiedAt,
+            correlationId: $correlationId,
+        ));
     }
 
     /**

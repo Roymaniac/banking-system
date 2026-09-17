@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Identity\Application\Authentication;
 
+use Identity\Domain\Authentication\Exception\EmailNotVerified;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\User\Repository\UserRepository;
 use Identity\Domain\User\User;
@@ -32,6 +33,10 @@ final readonly class AuthenticateUser
 
         if ($user === null || ! $passwordMatches) {
             throw InvalidCredentials::create();
+        }
+
+        if (! $user->isEmailVerified()) {
+            throw EmailNotVerified::create();
         }
 
         return $user;

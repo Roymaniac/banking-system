@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Identity\Application\Authentication\AuthenticateUser;
 use Identity\Application\Authentication\AuthenticateUserCommand;
 use Identity\Application\Authentication\PasswordHasher;
+use Identity\Domain\Authentication\Exception\EmailNotVerified;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\User\Repository\UserRepository;
 use Identity\Domain\User\User;
@@ -67,6 +68,7 @@ function authenticationTestUser(): User
         new PasswordHash(password_hash('correct-password', PASSWORD_BCRYPT)),
         new DateTimeImmutable('2026-09-16T10:00:00+00:00'),
         1,
+        new DateTimeImmutable('2026-09-16T10:05:00+00:00'),
     );
 }
 
@@ -100,9 +102,25 @@ it('still verifies a password when the email is unknown', function (): void {
         $passwordHasher,
     );
 
-    expect(fn() => $service->handle(
+    expect(fn () => $service->handle(
         new AuthenticateUserCommand('missing@example.com', 'any-password'),
     ))->toThrow(InvalidCredentials::class, 'The supplied credentials are invalid.');
 
     expect($passwordHasher->verificationAttempts)->toBe(1);
 });
+
+it('rejects valid credentials until the email is verified', function (): void {
+    $user = User::reconstitute(
+        UserId::generate(),
+        new EmailAddress('unverified@example.com'),
+        new PasswordHash(password_hash('correct-password', PASSWORD_BCRYPT)),
+        new DateTimeImmutable('2026-09-16T10:00:00+00:00'),
+        1,
+    );
+    $service = new AuthenticateUser(
+        new AuthenticationTestUserRepository($user),
+        new AuthenticationTestPasswordHasher,
+    );
+
+    $service->handle(new AuthenticateUserCommand('unverified@example.com', 'correct-password'));
+})->throws(EmailNotVerified::class, 'The email address must be verified before signing in.');

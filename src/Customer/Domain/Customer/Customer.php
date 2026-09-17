@@ -4,7 +4,15 @@ declare(strict_types=1);
 
 namespace Customer\Domain\Customer;
 
+use Customer\Domain\Customer\Address\CustomerAddress;
+use Customer\Domain\Customer\Address\ValueObject\AddressId;
+use Customer\Domain\Customer\Address\ValueObject\AddressType;
+use Customer\Domain\Customer\Address\ValueObject\PostalAddress;
+use Customer\Domain\Customer\Event\CustomerAddressAdded;
+use Customer\Domain\Customer\Event\CustomerAddressUpdated;
 use Customer\Domain\Customer\Event\CustomerProfileCreated;
+use Customer\Domain\Customer\Exception\CustomerAddressNotFound;
+use Customer\Domain\Customer\Exception\DuplicateCustomerAddress;
 use Customer\Domain\Customer\ValueObject\CustomerId;
 use Customer\Domain\Customer\ValueObject\DateOfBirth;
 use Customer\Domain\Customer\ValueObject\PersonalName;
@@ -19,13 +27,19 @@ use Shared\Domain\Identifier\Uuid;
  */
 final class Customer extends AggregateRoot
 {
+    /** @var list<CustomerAddress> */
+    private array $addresses;
+
     private function __construct(
         private readonly CustomerId $id,
         private readonly UserId $userId,
         private PersonalName $name,
         private DateOfBirth $dateOfBirth,
         private readonly DateTimeImmutable $registeredAt,
-    ) {}
+        array $addresses = [],
+    ) {
+        $this->addresses = $addresses;
+    }
 
     public static function create(
         CustomerId $id,
@@ -56,8 +70,9 @@ final class Customer extends AggregateRoot
         DateOfBirth $dateOfBirth,
         DateTimeImmutable $registeredAt,
         int $version,
+        array $addresses = [],
     ): self {
-        $customer = new self($id, $userId, $name, $dateOfBirth, $registeredAt);
+        $customer = new self($id, $userId, $name, $dateOfBirth, $registeredAt, $addresses);
         $customer->reconstituteAtVersion($version);
 
         return $customer;
@@ -86,5 +101,81 @@ final class Customer extends AggregateRoot
     public function registeredAt(): DateTimeImmutable
     {
         return $this->registeredAt;
+    }
+
+    /** @return list<CustomerAddress> */
+    public function addresses(): array
+    {
+        return $this->addresses;
+    }
+
+    public function addAddress(
+        AddressId $addressId,
+        AddressType $type,
+        PostalAddress $details,
+        DateTimeImmutable $addedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        $this->guardAgainstDuplicateAddress($details);
+        $this->addresses[] = new CustomerAddress($addressId, $type, $details);
+
+        $this->record(new CustomerAddressAdded(
+            $eventId,
+            $this->id,
+            $this->version() + 1,
+            $addedAt,
+            $addressId,
+            $type,
+            $correlationId,
+        ));
+    }
+
+    public function updateAddress(
+        AddressId $addressId,
+        AddressType $type,
+        PostalAddress $details,
+        DateTimeImmutable $updatedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        $address = $this->findAddress($addressId);
+
+        foreach ($this->addresses as $existingAddress) {
+            if (! $existingAddress->id()->equals($addressId) && $existingAddress->details()->equals($details)) {
+                throw DuplicateCustomerAddress::create();
+            }
+        }
+
+        $address->update($type, $details);
+        $this->record(new CustomerAddressUpdated(
+            $eventId,
+            $this->id,
+            $this->version() + 1,
+            $updatedAt,
+            $addressId,
+            $type,
+            $correlationId,
+        ));
+    }
+
+    private function guardAgainstDuplicateAddress(PostalAddress $details): void
+    {
+        foreach ($this->addresses as $address) {
+            if ($address->details()->equals($details)) {
+                throw DuplicateCustomerAddress::create();
+            }
+        }
+    }
+
+    private function findAddress(AddressId $addressId): CustomerAddress
+    {
+        foreach ($this->addresses as $address) {
+            if ($address->id()->equals($addressId)) {
+                return $address;
+            }
+        }
+
+        throw CustomerAddressNotFound::create();
     }
 }

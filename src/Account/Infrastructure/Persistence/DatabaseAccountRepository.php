@@ -8,6 +8,7 @@ use Account\Domain\Account\Account;
 use Account\Domain\Account\Repository\AccountRepository;
 use Account\Domain\Account\ValueObject\AccountId;
 use Account\Domain\Account\ValueObject\AccountNumber;
+use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -31,6 +32,7 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             'type' => $account->type()->value,
             'currency' => $account->currency()->value(),
             'number' => $account->number()?->value(),
+            'status' => $account->status()->value,
             'created_at' => $account->createdAt(),
             'version' => $account->version(),
         ];
@@ -98,6 +100,7 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             createdAt: new DateTimeImmutable($record->created_at),
             version: (int) $record->version,
             number: $record->number === null ? null : new AccountNumber($record->number),
+            status: AccountStatus::from($record->status),
         );
     }
 }

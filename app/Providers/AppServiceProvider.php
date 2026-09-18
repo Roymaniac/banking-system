@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Account\Domain\Account\Repository\AccountRepository;
+use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
 use Identity\Application\Authentication\PasswordHasher;
@@ -35,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(AccountRepository::class, DatabaseAccountRepository::class);
         $this->app->singleton(CustomerRepository::class, DatabaseCustomerRepository::class);
         $this->app->singleton(PasswordHasher::class, LaravelPasswordHasher::class);
         $this->app->singleton(AuthorizationChecker::class, LaravelGateAuthorizationChecker::class);

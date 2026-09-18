@@ -9,6 +9,10 @@ use Customer\Domain\Customer\Address\ValueObject\AddressId;
 use Customer\Domain\Customer\Address\ValueObject\AddressType;
 use Customer\Domain\Customer\Address\ValueObject\CountryCode;
 use Customer\Domain\Customer\Address\ValueObject\PostalAddress;
+use Customer\Domain\Customer\Contact\CustomerContact;
+use Customer\Domain\Customer\Contact\ValueObject\ContactId;
+use Customer\Domain\Customer\Contact\ValueObject\ContactPoint;
+use Customer\Domain\Customer\Contact\ValueObject\ContactType;
 use Customer\Domain\Customer\Customer;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -77,6 +81,17 @@ final readonly class DatabaseCustomerRepository implements CustomerRepository
                 ],
             );
         }
+
+        foreach ($customer->contacts() as $contact) {
+            $this->connection->table('customer_contacts')->updateOrInsert(
+                ['id' => $contact->id()->value()],
+                [
+                    'customer_id' => $customer->id()->value(),
+                    'type' => $contact->contactPoint()->type()->value,
+                    'value' => $contact->contactPoint()->value(),
+                ],
+            );
+        }
     }
 
     public function findById(CustomerId $id): ?Customer
@@ -120,6 +135,15 @@ final readonly class DatabaseCustomerRepository implements CustomerRepository
                 ),
             ))
             ->all();
+        $contacts = $this->connection->table('customer_contacts')
+            ->where('customer_id', $record->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (object $contact): CustomerContact => new CustomerContact(
+                new ContactId($contact->id),
+                new ContactPoint(ContactType::from($contact->type), $contact->value),
+            ))
+            ->all();
 
         return Customer::reconstitute(
             id: new CustomerId($record->id),
@@ -129,6 +153,7 @@ final readonly class DatabaseCustomerRepository implements CustomerRepository
             registeredAt: $registeredAt,
             version: (int) $record->version,
             addresses: $addresses,
+            contacts: $contacts,
         );
     }
 }

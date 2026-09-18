@@ -6,6 +6,9 @@ use Customer\Domain\Customer\Address\ValueObject\AddressId;
 use Customer\Domain\Customer\Address\ValueObject\AddressType;
 use Customer\Domain\Customer\Address\ValueObject\CountryCode;
 use Customer\Domain\Customer\Address\ValueObject\PostalAddress;
+use Customer\Domain\Customer\Contact\ValueObject\ContactId;
+use Customer\Domain\Customer\Contact\ValueObject\ContactPoint;
+use Customer\Domain\Customer\Contact\ValueObject\ContactType;
 use Customer\Domain\Customer\Customer;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -91,5 +94,50 @@ it('stores and updates addresses as part of the customer aggregate', function ()
 
     expect($updated?->addresses()[0]->type())->toBe(AddressType::Mailing)
         ->and($updated?->addresses()[0]->details()->lineOne())->toBe('22 Marina Road')
+        ->and($updated?->version())->toBe(3);
+});
+
+it('stores and updates contacts as part of the customer aggregate', function (): void {
+    $repository = app(DatabaseCustomerRepository::class);
+    $now = new DateTimeImmutable('2026-09-17T10:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Ada', null, 'Lovelace'),
+        DateOfBirth::fromString('2000-01-01', $now),
+        $now,
+        Uuid::generate(),
+    );
+    $repository->save($customer);
+    $customer->pullDomainEvents();
+
+    $contactId = ContactId::generate();
+    $customer->addContact(
+        $contactId,
+        new ContactPoint(ContactType::Email, 'ADA@Example.com'),
+        $now,
+        Uuid::generate(),
+    );
+    $repository->save($customer);
+
+    $stored = $repository->findById($customer->id());
+
+    expect($stored?->contacts())->toHaveCount(1)
+        ->and($stored?->contacts()[0]->id()->equals($contactId))->toBeTrue()
+        ->and($stored?->contacts()[0]->contactPoint()->value())->toBe('ada@example.com')
+        ->and($stored?->recordedEvents())->toBeEmpty();
+
+    $stored?->updateContact(
+        $contactId,
+        new ContactPoint(ContactType::Phone, '+2348012345678'),
+        $now,
+        Uuid::generate(),
+    );
+    $repository->save($stored);
+
+    $updated = $repository->findById($customer->id());
+
+    expect($updated?->contacts()[0]->contactPoint()->type())->toBe(ContactType::Phone)
+        ->and($updated?->contacts()[0]->contactPoint()->value())->toBe('+2348012345678')
         ->and($updated?->version())->toBe(3);
 });

@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace Customer\Infrastructure\Persistence;
 
+use Customer\Domain\Customer\Address\CustomerAddress;
+use Customer\Domain\Customer\Address\ValueObject\AddressId;
+use Customer\Domain\Customer\Address\ValueObject\AddressType;
+use Customer\Domain\Customer\Address\ValueObject\CountryCode;
+use Customer\Domain\Customer\Address\ValueObject\PostalAddress;
+use Customer\Domain\Customer\Contact\CustomerContact;
+use Customer\Domain\Customer\Contact\ValueObject\ContactId;
+use Customer\Domain\Customer\Contact\ValueObject\ContactPoint;
+use Customer\Domain\Customer\Contact\ValueObject\ContactType;
 use Customer\Domain\Customer\Customer;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -41,20 +50,46 @@ final readonly class DatabaseCustomerRepository implements CustomerRepository
                 ...$values,
             ]);
 
-            return;
+        } else {
+            $expectedVersion = $customer->version() - 1;
+            $updated = $this->connection->table('customers')
+                ->where('id', $customer->id()->value())
+                ->where('version', $expectedVersion)
+                ->update($values);
+
+            if ($updated !== 1) {
+                throw ConcurrencyException::forAggregate(
+                    $customer->id(),
+                    $expectedVersion,
+                    (int) $storedVersion,
+                );
+            }
         }
 
-        $expectedVersion = $customer->version() - 1;
-        $updated = $this->connection->table('customers')
-            ->where('id', $customer->id()->value())
-            ->where('version', $expectedVersion)
-            ->update($values);
+        foreach ($customer->addresses() as $address) {
+            $this->connection->table('customer_addresses')->updateOrInsert(
+                ['id' => $address->id()->value()],
+                [
+                    'customer_id' => $customer->id()->value(),
+                    'type' => $address->type()->value,
+                    'line_one' => $address->details()->lineOne(),
+                    'line_two' => $address->details()->lineTwo(),
+                    'city' => $address->details()->city(),
+                    'state_or_region' => $address->details()->stateOrRegion(),
+                    'postal_code' => $address->details()->postalCode(),
+                    'country_code' => $address->details()->countryCode()->value(),
+                ],
+            );
+        }
 
-        if ($updated !== 1) {
-            throw ConcurrencyException::forAggregate(
-                $customer->id(),
-                $expectedVersion,
-                (int) $storedVersion,
+        foreach ($customer->contacts() as $contact) {
+            $this->connection->table('customer_contacts')->updateOrInsert(
+                ['id' => $contact->id()->value()],
+                [
+                    'customer_id' => $customer->id()->value(),
+                    'type' => $contact->contactPoint()->type()->value,
+                    'value' => $contact->contactPoint()->value(),
+                ],
             );
         }
     }
@@ -83,6 +118,32 @@ final readonly class DatabaseCustomerRepository implements CustomerRepository
         // The stored date was valid when written; using its registration date
         // as the reference still protects reconstitution from impossible data.
         $registeredAt = new DateTimeImmutable($record->registered_at);
+        $addresses = $this->connection->table('customer_addresses')
+            ->where('customer_id', $record->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (object $address): CustomerAddress => new CustomerAddress(
+                new AddressId($address->id),
+                AddressType::from($address->type),
+                new PostalAddress(
+                    $address->line_one,
+                    $address->line_two,
+                    $address->city,
+                    $address->state_or_region,
+                    $address->postal_code,
+                    new CountryCode($address->country_code),
+                ),
+            ))
+            ->all();
+        $contacts = $this->connection->table('customer_contacts')
+            ->where('customer_id', $record->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (object $contact): CustomerContact => new CustomerContact(
+                new ContactId($contact->id),
+                new ContactPoint(ContactType::from($contact->type), $contact->value),
+            ))
+            ->all();
 
         return Customer::reconstitute(
             id: new CustomerId($record->id),
@@ -91,6 +152,8 @@ final readonly class DatabaseCustomerRepository implements CustomerRepository
             dateOfBirth: DateOfBirth::fromString($record->date_of_birth, $registeredAt),
             registeredAt: $registeredAt,
             version: (int) $record->version,
+            addresses: $addresses,
+            contacts: $contacts,
         );
     }
 }

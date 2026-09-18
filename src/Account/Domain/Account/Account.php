@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Account\Domain\Account;
 
 use Account\Domain\Account\Event\AccountCreated;
+use Account\Domain\Account\Event\AccountNumberAssigned;
+use Account\Domain\Account\Exception\AccountNumberAlreadyAssigned;
 use Account\Domain\Account\ValueObject\AccountId;
+use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -25,6 +28,7 @@ final class Account extends AggregateRoot
         private readonly AccountType $type,
         private readonly CurrencyCode $currency,
         private readonly DateTimeImmutable $createdAt,
+        private ?AccountNumber $number = null,
     ) {}
 
     public static function create(
@@ -58,8 +62,9 @@ final class Account extends AggregateRoot
         CurrencyCode $currency,
         DateTimeImmutable $createdAt,
         int $version,
+        ?AccountNumber $number = null,
     ): self {
-        $account = new self($id, $customerId, $type, $currency, $createdAt);
+        $account = new self($id, $customerId, $type, $currency, $createdAt, $number);
         $account->reconstituteAtVersion($version);
 
         return $account;
@@ -88,5 +93,32 @@ final class Account extends AggregateRoot
     public function createdAt(): DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function number(): ?AccountNumber
+    {
+        return $this->number;
+    }
+
+    /** Assigns the public account number once; it cannot later be replaced. */
+    public function assignNumber(
+        AccountNumber $number,
+        DateTimeImmutable $assignedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        if ($this->number !== null) {
+            throw AccountNumberAlreadyAssigned::create();
+        }
+
+        $this->number = $number;
+        $this->record(new AccountNumberAssigned(
+            $eventId,
+            $this->id,
+            $this->version() + 1,
+            $assignedAt,
+            $number,
+            $correlationId,
+        ));
     }
 }

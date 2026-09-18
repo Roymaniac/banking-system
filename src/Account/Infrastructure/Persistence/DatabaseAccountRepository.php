@@ -7,6 +7,7 @@ namespace Account\Infrastructure\Persistence;
 use Account\Domain\Account\Account;
 use Account\Domain\Account\Repository\AccountRepository;
 use Account\Domain\Account\ValueObject\AccountId;
+use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -29,6 +30,7 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             'customer_id' => $account->customerId()->value(),
             'type' => $account->type()->value,
             'currency' => $account->currency()->value(),
+            'number' => $account->number()?->value(),
             'created_at' => $account->createdAt(),
             'version' => $account->version(),
         ];
@@ -62,6 +64,16 @@ final readonly class DatabaseAccountRepository implements AccountRepository
         return $this->hydrate($this->connection->table('accounts')->where('id', $id->value())->first());
     }
 
+    public function findByNumber(AccountNumber $number): ?Account
+    {
+        return $this->hydrate($this->connection->table('accounts')->where('number', $number->value())->first());
+    }
+
+    public function numberExists(AccountNumber $number): bool
+    {
+        return $this->connection->table('accounts')->where('number', $number->value())->exists();
+    }
+
     public function findByCustomerId(CustomerId $customerId): array
     {
         return $this->connection->table('accounts')
@@ -85,6 +97,7 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             currency: new CurrencyCode($record->currency),
             createdAt: new DateTimeImmutable($record->created_at),
             version: (int) $record->version,
+            number: $record->number === null ? null : new AccountNumber($record->number),
         );
     }
 }

@@ -11,8 +11,10 @@ use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
+use Account\Domain\Account\ValueObject\FreezeReason;
 use Customer\Domain\Customer\ValueObject\CustomerId;
 use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
 use Shared\Domain\Exception\ConcurrencyException;
 
@@ -33,7 +35,11 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             'currency' => $account->currency()->value(),
             'number' => $account->number()?->value(),
             'status' => $account->status()->value,
-            'created_at' => $account->createdAt(),
+            'freeze_reason' => $account->freezeReason()?->value,
+            // Store timestamps in UTC so the same instant survives database
+            // systems that do not preserve the original timezone offset.
+            'frozen_at' => $account->frozenAt()?->setTimezone(new DateTimeZone('UTC')),
+            'created_at' => $account->createdAt()->setTimezone(new DateTimeZone('UTC')),
             'version' => $account->version(),
         ];
 
@@ -101,6 +107,8 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             version: (int) $record->version,
             number: $record->number === null ? null : new AccountNumber($record->number),
             status: AccountStatus::from($record->status),
+            freezeReason: $record->freeze_reason === null ? null : FreezeReason::from($record->freeze_reason),
+            frozenAt: $record->frozen_at === null ? null : new DateTimeImmutable($record->frozen_at),
         );
     }
 }

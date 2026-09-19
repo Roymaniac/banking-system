@@ -6,7 +6,9 @@ namespace Account\Domain\Account;
 
 use Account\Domain\Account\Event\AccountActivated;
 use Account\Domain\Account\Event\AccountCreated;
+use Account\Domain\Account\Event\AccountFrozen;
 use Account\Domain\Account\Event\AccountNumberAssigned;
+use Account\Domain\Account\Event\AccountUnfrozen;
 use Account\Domain\Account\Exception\AccountNumberAlreadyAssigned;
 use Account\Domain\Account\Exception\AccountNumberRequired;
 use Account\Domain\Account\Exception\InvalidAccountStatusTransition;
@@ -15,6 +17,7 @@ use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
+use Account\Domain\Account\ValueObject\FreezeReason;
 use Customer\Domain\Customer\ValueObject\CustomerId;
 use DateTimeImmutable;
 use Shared\Domain\Aggregate\AggregateRoot;
@@ -34,6 +37,8 @@ final class Account extends AggregateRoot
         private readonly DateTimeImmutable $createdAt,
         private ?AccountNumber $number = null,
         private AccountStatus $status = AccountStatus::Pending,
+        private ?FreezeReason $freezeReason = null,
+        private ?DateTimeImmutable $frozenAt = null,
     ) {}
 
     public static function create(
@@ -69,8 +74,20 @@ final class Account extends AggregateRoot
         int $version,
         ?AccountNumber $number = null,
         AccountStatus $status = AccountStatus::Pending,
+        ?FreezeReason $freezeReason = null,
+        ?DateTimeImmutable $frozenAt = null,
     ): self {
-        $account = new self($id, $customerId, $type, $currency, $createdAt, $number, $status);
+        $account = new self(
+            $id,
+            $customerId,
+            $type,
+            $currency,
+            $createdAt,
+            $number,
+            $status,
+            $freezeReason,
+            $frozenAt,
+        );
         $account->reconstituteAtVersion($version);
 
         return $account;
@@ -114,6 +131,62 @@ final class Account extends AggregateRoot
     public function isActive(): bool
     {
         return $this->status === AccountStatus::Active;
+    }
+
+    public function freezeReason(): ?FreezeReason
+    {
+        return $this->freezeReason;
+    }
+
+    public function frozenAt(): ?DateTimeImmutable
+    {
+        return $this->frozenAt;
+    }
+
+    /** Restricts an active account and records why the restriction exists. */
+    public function freeze(
+        FreezeReason $reason,
+        DateTimeImmutable $frozenAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        if ($this->status !== AccountStatus::Active) {
+            throw InvalidAccountStatusTransition::fromTo($this->status, AccountStatus::Frozen);
+        }
+
+        $this->status = AccountStatus::Frozen;
+        $this->freezeReason = $reason;
+        $this->frozenAt = $frozenAt;
+        $this->record(new AccountFrozen(
+            $eventId,
+            $this->id,
+            $this->version() + 1,
+            $frozenAt,
+            $reason,
+            $correlationId,
+        ));
+    }
+
+    /** Restores a frozen account and clears its current freeze metadata. */
+    public function unfreeze(
+        DateTimeImmutable $unfrozenAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        if ($this->status !== AccountStatus::Frozen) {
+            throw InvalidAccountStatusTransition::fromTo($this->status, AccountStatus::Active);
+        }
+
+        $this->status = AccountStatus::Active;
+        $this->freezeReason = null;
+        $this->frozenAt = null;
+        $this->record(new AccountUnfrozen(
+            $eventId,
+            $this->id,
+            $this->version() + 1,
+            $unfrozenAt,
+            $correlationId,
+        ));
     }
 
     /** Makes a fully provisioned pending account available for banking. */

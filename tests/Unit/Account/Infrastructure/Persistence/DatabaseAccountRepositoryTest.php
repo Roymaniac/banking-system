@@ -9,6 +9,7 @@ use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
+use Account\Domain\Account\ValueObject\FreezeReason;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Customer\Domain\Customer\Customer;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -132,4 +133,47 @@ it('persists account status changes', function (): void {
         ->and($stored?->isActive())->toBeTrue()
         ->and($stored?->version())->toBe(3)
         ->and($stored?->recordedEvents())->toBeEmpty();
+});
+
+it('persists and clears account freeze details', function (): void {
+    $now = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Dorothy', null, 'Vaughan'),
+        DateOfBirth::fromString('1990-01-01', $now),
+        $now,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $frozenAt = new DateTimeImmutable('2026-09-18T12:00:00+01:00');
+    $account = Account::reconstitute(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Savings,
+        new CurrencyCode('NGN'),
+        $now,
+        3,
+        new AccountNumber('4567890123'),
+        AccountStatus::Active,
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+    $account->freeze(FreezeReason::ComplianceReview, $frozenAt, Uuid::generate());
+    $repository->save($account);
+
+    $stored = $repository->findById($account->id());
+
+    expect($stored?->status())->toBe(AccountStatus::Frozen)
+        ->and($stored?->freezeReason())->toBe(FreezeReason::ComplianceReview)
+        ->and($stored?->frozenAt()?->getTimestamp())->toBe($frozenAt->getTimestamp());
+
+    $stored?->unfreeze($now, Uuid::generate());
+    $repository->save($stored);
+    $restored = $repository->findById($account->id());
+
+    expect($restored?->status())->toBe(AccountStatus::Active)
+        ->and($restored?->freezeReason())->toBeNull()
+        ->and($restored?->frozenAt())->toBeNull();
 });

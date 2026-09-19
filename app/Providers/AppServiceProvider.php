@@ -23,6 +23,8 @@ use Identity\Infrastructure\EmailVerification\SecureEmailVerificationTokenGenera
 use Identity\Infrastructure\PasswordReset\DatabasePasswordResetRequestRepository;
 use Identity\Infrastructure\PasswordReset\SecurePasswordResetTokenGenerator;
 use Illuminate\Support\ServiceProvider;
+use Ledger\Domain\Ledger\Repository\LedgerRepository;
+use Ledger\Infrastructure\Persistence\DatabaseLedgerRepository;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
@@ -39,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(LedgerRepository::class, DatabaseLedgerRepository::class);
         $this->app->singleton(AccountNumberGenerator::class, SecureAccountNumberGenerator::class);
         $this->app->singleton(AccountRepository::class, DatabaseAccountRepository::class);
         $this->app->singleton(CustomerRepository::class, DatabaseCustomerRepository::class);

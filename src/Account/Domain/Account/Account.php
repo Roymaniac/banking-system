@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Account\Domain\Account;
 
 use Account\Domain\Account\Event\AccountActivated;
+use Account\Domain\Account\Event\AccountClosed;
 use Account\Domain\Account\Event\AccountCreated;
 use Account\Domain\Account\Event\AccountFrozen;
 use Account\Domain\Account\Event\AccountNumberAssigned;
@@ -16,6 +17,7 @@ use Account\Domain\Account\ValueObject\AccountId;
 use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
+use Account\Domain\Account\ValueObject\ClosureReason;
 use Account\Domain\Account\ValueObject\CurrencyCode;
 use Account\Domain\Account\ValueObject\FreezeReason;
 use Customer\Domain\Customer\ValueObject\CustomerId;
@@ -39,6 +41,8 @@ final class Account extends AggregateRoot
         private AccountStatus $status = AccountStatus::Pending,
         private ?FreezeReason $freezeReason = null,
         private ?DateTimeImmutable $frozenAt = null,
+        private ?ClosureReason $closureReason = null,
+        private ?DateTimeImmutable $closedAt = null,
     ) {}
 
     public static function create(
@@ -76,6 +80,8 @@ final class Account extends AggregateRoot
         AccountStatus $status = AccountStatus::Pending,
         ?FreezeReason $freezeReason = null,
         ?DateTimeImmutable $frozenAt = null,
+        ?ClosureReason $closureReason = null,
+        ?DateTimeImmutable $closedAt = null,
     ): self {
         $account = new self(
             $id,
@@ -87,6 +93,8 @@ final class Account extends AggregateRoot
             $status,
             $freezeReason,
             $frozenAt,
+            $closureReason,
+            $closedAt,
         );
         $account->reconstituteAtVersion($version);
 
@@ -141,6 +149,50 @@ final class Account extends AggregateRoot
     public function frozenAt(): ?DateTimeImmutable
     {
         return $this->frozenAt;
+    }
+
+    public function closureReason(): ?ClosureReason
+    {
+        return $this->closureReason;
+    }
+
+    public function closedAt(): ?DateTimeImmutable
+    {
+        return $this->closedAt;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->status === AccountStatus::Closed;
+    }
+
+    /**
+     * Permanently closes a provisioned account.
+     * Balance eligibility is checked by the Ledger workflow, not this aggregate.
+     */
+    public function close(
+        ClosureReason $reason,
+        DateTimeImmutable $closedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        if (! in_array($this->status, [AccountStatus::Active, AccountStatus::Frozen], true)) {
+            throw InvalidAccountStatusTransition::fromTo($this->status, AccountStatus::Closed);
+        }
+
+        $this->status = AccountStatus::Closed;
+        $this->closureReason = $reason;
+        $this->closedAt = $closedAt;
+        $this->freezeReason = null;
+        $this->frozenAt = null;
+        $this->record(new AccountClosed(
+            $eventId,
+            $this->id,
+            $this->version() + 1,
+            $closedAt,
+            $reason,
+            $correlationId,
+        ));
     }
 
     /** Restricts an active account and records why the restriction exists. */

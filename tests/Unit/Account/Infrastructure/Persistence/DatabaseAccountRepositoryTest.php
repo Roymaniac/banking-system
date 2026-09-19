@@ -8,6 +8,7 @@ use Account\Domain\Account\ValueObject\AccountId;
 use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
+use Account\Domain\Account\ValueObject\ClosureReason;
 use Account\Domain\Account\ValueObject\CurrencyCode;
 use Account\Domain\Account\ValueObject\FreezeReason;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
@@ -176,4 +177,41 @@ it('persists and clears account freeze details', function (): void {
     expect($restored?->status())->toBe(AccountStatus::Active)
         ->and($restored?->freezeReason())->toBeNull()
         ->and($restored?->frozenAt())->toBeNull();
+});
+
+it('persists permanent account closure details', function (): void {
+    $createdAt = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $closedAt = new DateTimeImmutable('2026-09-19T10:30:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Mary', null, 'Jackson'),
+        DateOfBirth::fromString('1990-01-01', $createdAt),
+        $createdAt,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $account = Account::reconstitute(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Current,
+        new CurrencyCode('NGN'),
+        $createdAt,
+        3,
+        new AccountNumber('5678901234'),
+        AccountStatus::Active,
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+    $account->close(ClosureReason::Inactivity, $closedAt, Uuid::generate());
+    $repository->save($account);
+
+    $stored = $repository->findById($account->id());
+
+    expect($stored?->status())->toBe(AccountStatus::Closed)
+        ->and($stored?->isClosed())->toBeTrue()
+        ->and($stored?->closureReason())->toBe(ClosureReason::Inactivity)
+        ->and($stored?->closedAt()?->getTimestamp())->toBe($closedAt->getTimestamp())
+        ->and($stored?->recordedEvents())->toBeEmpty();
 });

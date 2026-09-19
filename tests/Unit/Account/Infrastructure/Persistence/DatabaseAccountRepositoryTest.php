@@ -1,0 +1,217 @@
+<?php
+
+declare(strict_types=1);
+
+use Account\Domain\Account\Account;
+use Account\Domain\Account\Repository\AccountRepository;
+use Account\Domain\Account\ValueObject\AccountId;
+use Account\Domain\Account\ValueObject\AccountNumber;
+use Account\Domain\Account\ValueObject\AccountStatus;
+use Account\Domain\Account\ValueObject\AccountType;
+use Account\Domain\Account\ValueObject\ClosureReason;
+use Account\Domain\Account\ValueObject\CurrencyCode;
+use Account\Domain\Account\ValueObject\FreezeReason;
+use Account\Infrastructure\Persistence\DatabaseAccountRepository;
+use Customer\Domain\Customer\Customer;
+use Customer\Domain\Customer\ValueObject\CustomerId;
+use Customer\Domain\Customer\ValueObject\DateOfBirth;
+use Customer\Domain\Customer\ValueObject\PersonalName;
+use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
+use Identity\Domain\User\ValueObject\UserId;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Shared\Domain\Identifier\Uuid;
+use Tests\TestCase;
+
+uses(TestCase::class, RefreshDatabase::class);
+
+it('binds the account repository contract to its database adapter', function (): void {
+    expect(app(AccountRepository::class))->toBeInstanceOf(DatabaseAccountRepository::class);
+});
+
+it('stores and retrieves accounts by account and customer ID', function (): void {
+    $now = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Ada', null, 'Lovelace'),
+        DateOfBirth::fromString('2000-01-01', $now),
+        $now,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $account = Account::create(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Savings,
+        new CurrencyCode('NGN'),
+        $now,
+        Uuid::generate(),
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+
+    $byId = $repository->findById($account->id());
+    $forCustomer = $repository->findByCustomerId($customer->id());
+
+    expect($byId?->id()->equals($account->id()))->toBeTrue()
+        ->and($byId?->type())->toBe(AccountType::Savings)
+        ->and($byId?->currency()->value())->toBe('NGN')
+        ->and($byId?->recordedEvents())->toBeEmpty()
+        ->and($forCustomer)->toHaveCount(1)
+        ->and($forCustomer[0]->id()->equals($account->id()))->toBeTrue();
+});
+
+it('stores an assigned number and finds the account by that number', function (): void {
+    $now = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Grace', null, 'Hopper'),
+        DateOfBirth::fromString('1990-01-01', $now),
+        $now,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $account = Account::create(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Current,
+        new CurrencyCode('USD'),
+        $now,
+        Uuid::generate(),
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+    $account->pullDomainEvents();
+
+    $number = new AccountNumber('1234567890');
+    $account->assignNumber($number, $now, Uuid::generate());
+    $repository->save($account);
+
+    $stored = $repository->findByNumber($number);
+
+    expect($repository->numberExists($number))->toBeTrue()
+        ->and($stored?->id()->equals($account->id()))->toBeTrue()
+        ->and($stored?->number()?->equals($number))->toBeTrue()
+        ->and($stored?->version())->toBe(2)
+        ->and($stored?->recordedEvents())->toBeEmpty();
+});
+
+it('persists account status changes', function (): void {
+    $now = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Katherine', null, 'Johnson'),
+        DateOfBirth::fromString('1990-01-01', $now),
+        $now,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $account = Account::create(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Savings,
+        new CurrencyCode('NGN'),
+        $now,
+        Uuid::generate(),
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+    $account->pullDomainEvents();
+    $account->assignNumber(new AccountNumber('9876543210'), $now, Uuid::generate());
+    $repository->save($account);
+    $account->pullDomainEvents();
+    $account->activate($now, Uuid::generate());
+    $repository->save($account);
+
+    $stored = $repository->findById($account->id());
+
+    expect($stored?->status())->toBe(AccountStatus::Active)
+        ->and($stored?->isActive())->toBeTrue()
+        ->and($stored?->version())->toBe(3)
+        ->and($stored?->recordedEvents())->toBeEmpty();
+});
+
+it('persists and clears account freeze details', function (): void {
+    $now = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Dorothy', null, 'Vaughan'),
+        DateOfBirth::fromString('1990-01-01', $now),
+        $now,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $frozenAt = new DateTimeImmutable('2026-09-18T12:00:00+01:00');
+    $account = Account::reconstitute(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Savings,
+        new CurrencyCode('NGN'),
+        $now,
+        3,
+        new AccountNumber('4567890123'),
+        AccountStatus::Active,
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+    $account->freeze(FreezeReason::ComplianceReview, $frozenAt, Uuid::generate());
+    $repository->save($account);
+
+    $stored = $repository->findById($account->id());
+
+    expect($stored?->status())->toBe(AccountStatus::Frozen)
+        ->and($stored?->freezeReason())->toBe(FreezeReason::ComplianceReview)
+        ->and($stored?->frozenAt()?->getTimestamp())->toBe($frozenAt->getTimestamp());
+
+    $stored?->unfreeze($now, Uuid::generate());
+    $repository->save($stored);
+    $restored = $repository->findById($account->id());
+
+    expect($restored?->status())->toBe(AccountStatus::Active)
+        ->and($restored?->freezeReason())->toBeNull()
+        ->and($restored?->frozenAt())->toBeNull();
+});
+
+it('persists permanent account closure details', function (): void {
+    $createdAt = new DateTimeImmutable('2026-09-18T09:00:00+01:00');
+    $closedAt = new DateTimeImmutable('2026-09-19T10:30:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Mary', null, 'Jackson'),
+        DateOfBirth::fromString('1990-01-01', $createdAt),
+        $createdAt,
+        Uuid::generate(),
+    );
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $account = Account::reconstitute(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Current,
+        new CurrencyCode('NGN'),
+        $createdAt,
+        3,
+        new AccountNumber('5678901234'),
+        AccountStatus::Active,
+    );
+    $repository = app(DatabaseAccountRepository::class);
+    $repository->save($account);
+    $account->close(ClosureReason::Inactivity, $closedAt, Uuid::generate());
+    $repository->save($account);
+
+    $stored = $repository->findById($account->id());
+
+    expect($stored?->status())->toBe(AccountStatus::Closed)
+        ->and($stored?->isClosed())->toBeTrue()
+        ->and($stored?->closureReason())->toBe(ClosureReason::Inactivity)
+        ->and($stored?->closedAt()?->getTimestamp())->toBe($closedAt->getTimestamp())
+        ->and($stored?->recordedEvents())->toBeEmpty();
+});

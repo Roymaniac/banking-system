@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Account\Application\Closure\AccountClosureBalanceChecker;
 use Account\Application\Number\AccountNumberGenerator;
 use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
@@ -22,9 +23,15 @@ use Identity\Infrastructure\EmailVerification\DatabaseEmailVerificationRequestRe
 use Identity\Infrastructure\EmailVerification\SecureEmailVerificationTokenGenerator;
 use Identity\Infrastructure\PasswordReset\DatabasePasswordResetRequestRepository;
 use Identity\Infrastructure\PasswordReset\SecurePasswordResetTokenGenerator;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Ledger\Application\Balance\ProjectLedgerBalance;
+use Ledger\Domain\Balance\Repository\BalanceProjectionRepository;
+use Ledger\Domain\Entry\Event\LedgerEntryPosted;
 use Ledger\Domain\Entry\Repository\LedgerEntryRepository;
 use Ledger\Domain\Ledger\Repository\LedgerRepository;
+use Ledger\Infrastructure\Balance\ProjectedAccountClosureBalanceChecker;
+use Ledger\Infrastructure\Persistence\DatabaseBalanceProjectionRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerEntryRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerRepository;
 use Shared\Contracts\Clock;
@@ -43,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(AccountClosureBalanceChecker::class, ProjectedAccountClosureBalanceChecker::class);
+        $this->app->singleton(BalanceProjectionRepository::class, DatabaseBalanceProjectionRepository::class);
         $this->app->singleton(LedgerEntryRepository::class, DatabaseLedgerEntryRepository::class);
         $this->app->singleton(LedgerRepository::class, DatabaseLedgerRepository::class);
         $this->app->singleton(AccountNumberGenerator::class, SecureAccountNumberGenerator::class);
@@ -74,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Balance projection is a reaction to a committed posted-entry event.
+        Event::listen(LedgerEntryPosted::class, ProjectLedgerBalance::class);
     }
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Account\Application\Closure\AccountClosureBalanceChecker;
 use Account\Application\Closure\CloseAccount;
 use Account\Application\Closure\CloseAccountCommand;
 use Account\Domain\Account\Account;
@@ -71,9 +72,12 @@ it('closes, saves, and publishes an account', function (): void {
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->once()->andReturn(Uuid::generate());
     $publisher = new CloseAccountTestPublisher;
+    $balanceChecker = Mockery::mock(AccountClosureBalanceChecker::class);
+    $balanceChecker->shouldReceive('assertZeroBalance')->once()->with($account->id());
 
     (new CloseAccount(
         $accounts,
+        $balanceChecker,
         new CloseAccountTestClock,
         $ids,
         new CloseAccountTestTransactions,
@@ -91,6 +95,7 @@ it('rejects an unknown account', function (): void {
 
     (new CloseAccount(
         $accounts,
+        Mockery::mock(AccountClosureBalanceChecker::class),
         new CloseAccountTestClock,
         Mockery::mock(UuidGenerator::class),
         new CloseAccountTestTransactions,

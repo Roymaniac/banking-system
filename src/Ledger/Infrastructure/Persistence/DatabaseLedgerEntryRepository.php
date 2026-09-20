@@ -13,7 +13,12 @@ use Ledger\Domain\Entry\ValueObject\EntryDescription;
 use Ledger\Domain\Entry\ValueObject\EntryReference;
 use Ledger\Domain\Entry\ValueObject\EntryStatus;
 use Ledger\Domain\Entry\ValueObject\LedgerEntryId;
+use Ledger\Domain\Ledger\ValueObject\LedgerCurrency;
 use Ledger\Domain\Ledger\ValueObject\LedgerId;
+use Ledger\Domain\Posting\Posting;
+use Ledger\Domain\Posting\ValueObject\PostingAmount;
+use Ledger\Domain\Posting\ValueObject\PostingId;
+use Ledger\Domain\Posting\ValueObject\PostingSide;
 use Shared\Domain\Exception\ConcurrencyException;
 
 /** Stores ledger-entry headers separately from their future posting lines. */
@@ -43,17 +48,29 @@ final readonly class DatabaseLedgerEntryRepository implements LedgerEntryReposit
                 ...$values,
             ]);
 
-            return;
+        } else {
+            $expectedVersion = $entry->version() - 1;
+            $updated = $this->connection->table('ledger_entries')
+                ->where('id', $entry->id()->value())
+                ->where('version', $expectedVersion)
+                ->update($values);
+
+            if ($updated !== 1) {
+                throw ConcurrencyException::forAggregate($entry->id(), $expectedVersion, (int) $storedVersion);
+            }
         }
 
-        $expectedVersion = $entry->version() - 1;
-        $updated = $this->connection->table('ledger_entries')
-            ->where('id', $entry->id()->value())
-            ->where('version', $expectedVersion)
-            ->update($values);
-
-        if ($updated !== 1) {
-            throw ConcurrencyException::forAggregate($entry->id(), $expectedVersion, (int) $storedVersion);
+        foreach ($entry->postings() as $posting) {
+            $this->connection->table('ledger_postings')->updateOrInsert(
+                ['id' => $posting->id()->value()],
+                [
+                    'entry_id' => $entry->id()->value(),
+                    'ledger_id' => $posting->ledgerId()->value(),
+                    'side' => $posting->side()->value,
+                    'minor_units' => $posting->amount()->minorUnits(),
+                    'currency' => $posting->amount()->currency()->value(),
+                ],
+            );
         }
     }
 
@@ -84,6 +101,21 @@ final readonly class DatabaseLedgerEntryRepository implements LedgerEntryReposit
             return null;
         }
 
+        $postings = $this->connection->table('ledger_postings')
+            ->where('entry_id', $record->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (object $posting): Posting => new Posting(
+                new PostingId($posting->id),
+                new LedgerId($posting->ledger_id),
+                PostingSide::from($posting->side),
+                new PostingAmount(
+                    (int) $posting->minor_units,
+                    new LedgerCurrency($posting->currency),
+                ),
+            ))
+            ->all();
+
         return LedgerEntry::reconstitute(
             id: new LedgerEntryId($record->id),
             ledgerId: new LedgerId($record->ledger_id),
@@ -93,6 +125,7 @@ final readonly class DatabaseLedgerEntryRepository implements LedgerEntryReposit
             recordedAt: new DateTimeImmutable($record->recorded_at),
             status: EntryStatus::from($record->status),
             version: (int) $record->version,
+            postings: $postings,
         );
     }
 }

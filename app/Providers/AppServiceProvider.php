@@ -43,7 +43,9 @@ use Shared\Infrastructure\Event\LaravelEventPublisher;
 use Shared\Infrastructure\Identifier\NativeUuidGenerator;
 use Shared\Infrastructure\Persistence\LaravelTransactionManager;
 use Transaction\Domain\Deposit\Repository\DepositRepository;
+use Transaction\Domain\Withdrawal\Repository\WithdrawalRepository;
 use Transaction\Infrastructure\Persistence\DatabaseDepositRepository;
+use Transaction\Infrastructure\Persistence\DatabaseWithdrawalRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -53,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(DepositRepository::class, DatabaseDepositRepository::class);
+        $this->app->singleton(WithdrawalRepository::class, DatabaseWithdrawalRepository::class);
         $this->app->singleton(AccountClosureBalanceChecker::class, ProjectedAccountClosureBalanceChecker::class);
         $this->app->singleton(BalanceProjectionRepository::class, DatabaseBalanceProjectionRepository::class);
         $this->app->singleton(LedgerEntryRepository::class, DatabaseLedgerEntryRepository::class);

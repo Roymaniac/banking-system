@@ -68,10 +68,21 @@ final readonly class DatabaseBalanceProjectionRepository implements BalanceProje
 
     public function find(LedgerId $ledgerId): ?LedgerBalance
     {
-        $record = $this->connection->table('ledger_balances')
+        return $this->hydrate($this->connection->table('ledger_balances')
             ->where('ledger_id', $ledgerId->value())
-            ->first();
+            ->first());
+    }
 
+    public function findForUpdate(LedgerId $ledgerId): ?LedgerBalance
+    {
+        return $this->hydrate($this->connection->table('ledger_balances')
+            ->where('ledger_id', $ledgerId->value())
+            ->lockForUpdate()
+            ->first());
+    }
+
+    private function hydrate(?object $record): ?LedgerBalance
+    {
         if ($record === null) {
             return null;
         }

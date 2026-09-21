@@ -15,4 +15,7 @@ interface BalanceProjectionRepository
     public function apply(LedgerEntry $entry, DateTimeImmutable $projectedAt): void;
 
     public function find(LedgerId $ledgerId): ?LedgerBalance;
+
+    /** Reads and locks a balance until the current database transaction finishes. */
+    public function findForUpdate(LedgerId $ledgerId): ?LedgerBalance;
 }

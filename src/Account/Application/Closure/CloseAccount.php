@@ -16,6 +16,7 @@ final readonly class CloseAccount
 {
     public function __construct(
         private AccountRepository $accounts,
+        private AccountClosureBalanceChecker $balanceChecker,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -29,6 +30,10 @@ final readonly class CloseAccount
         if ($account === null) {
             throw AccountNotFound::create();
         }
+
+        // Ledger owns the authoritative balance, so closure asks through a
+        // small contract instead of duplicating financial data in Account.
+        $this->balanceChecker->assertZeroBalance($account->id());
 
         $account->close(
             $command->reason,

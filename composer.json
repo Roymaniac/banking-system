@@ -34,6 +34,7 @@
             "Identity\\": "src/Identity/",
             "Customer\\": "src/Customer/",
             "Account\\": "src/Account/",
+            "Ledger\\": "src/Ledger/",
             "Transaction\\": "src/Transaction/",
             "Notification\\": "src/Notification/",
             "Audit\\": "src/Audit/",

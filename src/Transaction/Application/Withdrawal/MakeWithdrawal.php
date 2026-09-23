@@ -23,6 +23,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Withdrawal\Exception\AccountNotEligibleForWithdrawal;
 use Transaction\Domain\Withdrawal\Exception\DuplicateWithdrawalReference;
 use Transaction\Domain\Withdrawal\Exception\InsufficientFunds;
@@ -40,6 +41,7 @@ final readonly class MakeWithdrawal
         private LedgerEntryRepository $entries,
         private WithdrawalRepository $withdrawals,
         private BalanceProjectionRepository $balances,
+        private DailyTransactionLimitRepository $dailyLimits,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -61,7 +63,10 @@ final readonly class MakeWithdrawal
             throw WithdrawalLedgerUnavailable::create();
         }
 
-        if ($account->currency()->value() !== $customerLedger->currency()->value() || ! $customerLedger->currency()->equals($disbursementLedger->currency())) {
+        if (
+            $account->currency()->value() !== $customerLedger->currency()->value()
+            || ! $customerLedger->currency()->equals($disbursementLedger->currency())
+        ) {
             throw WithdrawalCurrencyMismatch::create();
         }
 
@@ -87,6 +92,14 @@ final readonly class MakeWithdrawal
             }
 
             $now = $this->clock->now();
+            // Reserving today's allowance here prevents concurrent requests bypassing it.
+            $this->dailyLimits->consume(
+                $account->id(),
+                $customerLedger->currency(),
+                $command->minorUnits,
+                $now
+            );
+
             $entry = LedgerEntry::draft(
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $customerLedger->id(),

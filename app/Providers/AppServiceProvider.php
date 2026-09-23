@@ -42,11 +42,13 @@ use Shared\Infrastructure\Clock\SystemClock;
 use Shared\Infrastructure\Event\LaravelEventPublisher;
 use Shared\Infrastructure\Identifier\NativeUuidGenerator;
 use Shared\Infrastructure\Persistence\LaravelTransactionManager;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Deposit\Repository\DepositRepository;
 use Transaction\Domain\MultipleTransfer\Repository\MultipleTransferRepository;
 use Transaction\Domain\Reversal\Repository\ReversalRepository;
 use Transaction\Domain\Transfer\Repository\TransferRepository;
 use Transaction\Domain\Withdrawal\Repository\WithdrawalRepository;
+use Transaction\Infrastructure\Persistence\DatabaseDailyTransactionLimitRepository;
 use Transaction\Infrastructure\Persistence\DatabaseDepositRepository;
 use Transaction\Infrastructure\Persistence\DatabaseMultipleTransferRepository;
 use Transaction\Infrastructure\Persistence\DatabaseReversalRepository;
@@ -61,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(DepositRepository::class, DatabaseDepositRepository::class);
+        $this->app->singleton(DailyTransactionLimitRepository::class, DatabaseDailyTransactionLimitRepository::class);
         $this->app->singleton(MultipleTransferRepository::class, DatabaseMultipleTransferRepository::class);
         $this->app->singleton(ReversalRepository::class, DatabaseReversalRepository::class);
         $this->app->singleton(TransferRepository::class, DatabaseTransferRepository::class);

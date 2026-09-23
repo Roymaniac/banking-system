@@ -27,6 +27,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransferCommand;
 use Transaction\Application\MultipleTransfer\TransferRecipient;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\MultipleTransfer\Event\MultipleTransferCompleted;
 use Transaction\Domain\MultipleTransfer\Exception\InsufficientMultipleTransferFunds;
 use Transaction\Domain\MultipleTransfer\Exception\InvalidMultipleTransfer;
@@ -115,6 +116,13 @@ it('pays every recipient through one atomic balanced entry', function (): void {
         )
     );
     $balances->shouldReceive('apply')->once();
+    $limits = Mockery::mock(DailyTransactionLimitRepository::class);
+    $limits->shouldReceive('consume')->once()->with(
+        $sender->id(),
+        $senderLedger->currency(),
+        30000,
+        Mockery::type(DateTimeImmutable::class)
+    );
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->times(11)->andReturn(...array_map(fn(): Uuid => Uuid::generate(), range(1, 11)));
     $publisher = new MultipleTransferTestPublisher;
@@ -125,6 +133,7 @@ it('pays every recipient through one atomic balanced entry', function (): void {
         $entries,
         $repository,
         $balances,
+        $limits,
         new MultipleTransferTestClock,
         $ids,
         new MultipleTransferTestTransactions,
@@ -133,7 +142,7 @@ it('pays every recipient through one atomic balanced entry', function (): void {
         $sender->id(),
         [
             new TransferRecipient($firstRecipient->id(), 10000),
-            new TransferRecipient($secondRecipient->id(), 20000)
+            new TransferRecipient($secondRecipient->id(), 20000),
         ],
         'batch-1001',
         new DateTimeImmutable('2026-09-22T09:55:00+01:00')
@@ -173,6 +182,7 @@ it('rejects the whole batch when the sender cannot cover its total', function ()
         Mockery::mock(LedgerEntryRepository::class),
         $repository,
         $balances,
+        Mockery::mock(DailyTransactionLimitRepository::class),
         new MultipleTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MultipleTransferTestTransactions,
@@ -192,6 +202,7 @@ it('rejects an empty recipient list', function (): void {
         Mockery::mock(LedgerEntryRepository::class),
         Mockery::mock(MultipleTransferRepository::class),
         Mockery::mock(BalanceProjectionRepository::class),
+        Mockery::mock(DailyTransactionLimitRepository::class),
         new MultipleTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MultipleTransferTestTransactions,

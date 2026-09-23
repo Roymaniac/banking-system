@@ -26,6 +26,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Withdrawal\MakeWithdrawal;
 use Transaction\Application\Withdrawal\MakeWithdrawalCommand;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Withdrawal\Event\WithdrawalCompleted;
 use Transaction\Domain\Withdrawal\Exception\InsufficientFunds;
 use Transaction\Domain\Withdrawal\Repository\WithdrawalRepository;
@@ -100,6 +101,8 @@ it('locks the balance and atomically completes a withdrawal', function (): void 
     $balances = Mockery::mock(BalanceProjectionRepository::class);
     $balances->shouldReceive('findForUpdate')->once()->with($customerLedger->id())->andReturn(new LedgerBalance($customerLedger->id(), $customerLedger->currency(), 0, 50000));
     $balances->shouldReceive('apply')->once()->with(Mockery::type(LedgerEntry::class), Mockery::type(DateTimeImmutable::class));
+    $limits = Mockery::mock(DailyTransactionLimitRepository::class);
+    $limits->shouldReceive('consume')->once()->with($account->id(), $customerLedger->currency(), 20000, Mockery::type(DateTimeImmutable::class));
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn(): Uuid => Uuid::generate(), range(1, 9)));
     $publisher = new MakeWithdrawalTestPublisher;
@@ -110,6 +113,7 @@ it('locks the balance and atomically completes a withdrawal', function (): void 
         $entries,
         $withdrawals,
         $balances,
+        $limits,
         new MakeWithdrawalTestClock,
         $ids,
         new MakeWithdrawalTestTransactions,
@@ -141,5 +145,22 @@ it('rejects a withdrawal when the locked balance is too low', function (): void 
     $balances = Mockery::mock(BalanceProjectionRepository::class);
     $balances->shouldReceive('findForUpdate')->once()->andReturn(new LedgerBalance($customerLedger->id(), $customerLedger->currency(), 0, 500));
 
-    (new MakeWithdrawal($accounts, $ledgers, Mockery::mock(LedgerEntryRepository::class), $withdrawals, $balances, new MakeWithdrawalTestClock, Mockery::mock(UuidGenerator::class), new MakeWithdrawalTestTransactions, new MakeWithdrawalTestPublisher))->handle(new MakeWithdrawalCommand($account->id(), $disbursementLedger->id(), 1000, 'atm-1002', new DateTimeImmutable('2026-09-21T09:55:00+01:00')));
+    (new MakeWithdrawal(
+        $accounts,
+        $ledgers,
+        Mockery::mock(LedgerEntryRepository::class),
+        $withdrawals,
+        $balances,
+        Mockery::mock(DailyTransactionLimitRepository::class),
+        new MakeWithdrawalTestClock,
+        Mockery::mock(UuidGenerator::class),
+        new MakeWithdrawalTestTransactions,
+        new MakeWithdrawalTestPublisher
+    ))->handle(new MakeWithdrawalCommand(
+        $account->id(),
+        $disbursementLedger->id(),
+        1000,
+        'atm-1002',
+        new DateTimeImmutable('2026-09-21T09:55:00+01:00')
+    ));
 })->throws(InsufficientFunds::class, 'does not have enough');

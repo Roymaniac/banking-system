@@ -23,6 +23,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Transfer\Exception\AccountNotEligibleForTransfer;
 use Transaction\Domain\Transfer\Exception\DuplicateTransferReference;
 use Transaction\Domain\Transfer\Exception\InsufficientTransferFunds;
@@ -41,6 +42,7 @@ final readonly class MakeTransfer
         private LedgerEntryRepository $entries,
         private TransferRepository $transfers,
         private BalanceProjectionRepository $balances,
+        private DailyTransactionLimitRepository $dailyLimits,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -98,6 +100,14 @@ final readonly class MakeTransfer
             }
 
             $now = $this->clock->now();
+            // A transfer consumes the sender's shared outgoing allowance for today.
+            $this->dailyLimits->consume(
+                $sender->id(),
+                $senderLedger->currency(),
+                $command->minorUnits,
+                $now
+            );
+
             $entry = LedgerEntry::draft(
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $senderLedger->id(),

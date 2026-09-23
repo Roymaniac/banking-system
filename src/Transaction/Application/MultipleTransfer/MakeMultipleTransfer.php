@@ -23,6 +23,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\MultipleTransfer\Exception\AccountNotEligibleForMultipleTransfer;
 use Transaction\Domain\MultipleTransfer\Exception\DuplicateMultipleTransferReference;
 use Transaction\Domain\MultipleTransfer\Exception\InsufficientMultipleTransferFunds;
@@ -42,6 +43,7 @@ final readonly class MakeMultipleTransfer
         private LedgerEntryRepository $entries,
         private MultipleTransferRepository $multipleTransfers,
         private BalanceProjectionRepository $balances,
+        private DailyTransactionLimitRepository $dailyLimits,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -137,6 +139,14 @@ final readonly class MakeMultipleTransfer
             }
 
             $now = $this->clock->now();
+            // The batch consumes its complete total once, not once per recipient.
+            $this->dailyLimits->consume(
+                $sender->id(),
+                $senderLedger->currency(),
+                $totalMinorUnits,
+                $now
+            );
+
             $entry = LedgerEntry::draft(
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $senderLedger->id(),

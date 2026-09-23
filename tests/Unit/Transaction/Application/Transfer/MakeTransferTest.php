@@ -26,6 +26,7 @@ use Shared\Domain\Identifier\Uuid;
 use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Transfer\MakeTransferCommand;
+use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Transfer\Event\TransferCompleted;
 use Transaction\Domain\Transfer\Exception\InsufficientTransferFunds;
 use Transaction\Domain\Transfer\Exception\SameAccountTransfer;
@@ -101,8 +102,27 @@ it('atomically debits the sender and credits the recipient', function (): void {
     $transfers->shouldReceive('referenceExists')->once()->andReturnFalse();
     $transfers->shouldReceive('save')->once()->with(Mockery::type(Transfer::class));
     $balances = Mockery::mock(BalanceProjectionRepository::class);
-    $balances->shouldReceive('findForUpdate')->once()->with($senderLedger->id())->andReturn(new LedgerBalance($senderLedger->id(), $senderLedger->currency(), 0, 50000));
-    $balances->shouldReceive('apply')->once()->with(Mockery::type(LedgerEntry::class), Mockery::type(DateTimeImmutable::class));
+    $balances->shouldReceive('findForUpdate')->once()->with($senderLedger->id())->andReturn(
+        new LedgerBalance(
+            $senderLedger->id(),
+            $senderLedger->currency(),
+            0,
+            50000
+        )
+    );
+    $balances->shouldReceive('apply')->once()->with(
+        Mockery::type(LedgerEntry::class),
+        Mockery::type(DateTimeImmutable::class)
+    );
+    $limits = Mockery::mock(DailyTransactionLimitRepository::class);
+
+    $limits->shouldReceive('consume')->once()->with(
+        $sender->id(),
+        $senderLedger->currency(),
+        12500,
+        Mockery::type(DateTimeImmutable::class)
+    );
+
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn(): Uuid => Uuid::generate(), range(1, 9)));
     $publisher = new MakeTransferTestPublisher;
@@ -113,6 +133,7 @@ it('atomically debits the sender and credits the recipient', function (): void {
         $entries,
         $transfers,
         $balances,
+        $limits,
         new MakeTransferTestClock,
         $ids,
         new MakeTransferTestTransactions,
@@ -144,7 +165,9 @@ it('rejects a transfer when the locked sender balance is too low', function (): 
     $transfers = Mockery::mock(TransferRepository::class);
     $transfers->shouldReceive('referenceExists')->once()->andReturnFalse();
     $balances = Mockery::mock(BalanceProjectionRepository::class);
-    $balances->shouldReceive('findForUpdate')->once()->andReturn(new LedgerBalance($senderLedger->id(), $senderLedger->currency(), 0, 500));
+    $balances->shouldReceive('findForUpdate')->once()->andReturn(
+        new LedgerBalance($senderLedger->id(), $senderLedger->currency(), 0, 500)
+    );
 
     (new MakeTransfer(
         $accounts,
@@ -152,6 +175,7 @@ it('rejects a transfer when the locked sender balance is too low', function (): 
         Mockery::mock(LedgerEntryRepository::class),
         $transfers,
         $balances,
+        Mockery::mock(DailyTransactionLimitRepository::class),
         new MakeTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeTransferTestTransactions,
@@ -174,6 +198,7 @@ it('rejects sending money back to the same account', function (): void {
         Mockery::mock(LedgerEntryRepository::class),
         Mockery::mock(TransferRepository::class),
         Mockery::mock(BalanceProjectionRepository::class),
+        Mockery::mock(DailyTransactionLimitRepository::class),
         new MakeTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeTransferTestTransactions,

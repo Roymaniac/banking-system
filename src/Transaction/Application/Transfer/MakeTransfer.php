@@ -91,6 +91,19 @@ final readonly class MakeTransfer
             $recipientLedger,
             $reference
         ): array {
+            // Lock both accounts in UUID order so closure, freezing, and opposite
+            // transfers cannot race or deadlock with this eligibility check.
+            $accountIds = [$sender->id(), $recipient->id()];
+            usort($accountIds, fn ($left, $right): int => $left->value() <=> $right->value());
+
+            foreach ($accountIds as $accountId) {
+                $lockedAccount = $this->accounts->findByIdForUpdate($accountId);
+
+                if ($lockedAccount === null || ! $lockedAccount->isActive()) {
+                    throw AccountNotEligibleForTransfer::create();
+                }
+            }
+
             // Lock the sender's balance so two requests cannot spend the same money.
             $balance = $this->balances->findForUpdate($senderLedger->id())
                 ?? LedgerBalance::zero($senderLedger->id(), $senderLedger->currency());
@@ -112,7 +125,7 @@ final readonly class MakeTransfer
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $senderLedger->id(),
                 new EntryReference($reference->value()),
-                new EntryDescription('Transfer ' . $reference->value()),
+                new EntryDescription('Transfer '.$reference->value()),
                 $command->occurredAt,
                 $now,
                 $this->uuidGenerator->generate(),

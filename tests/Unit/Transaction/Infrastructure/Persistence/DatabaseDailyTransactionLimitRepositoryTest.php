@@ -107,3 +107,37 @@ it('allows the full limit again on a later banking day', function (): void {
 
     expect(DB::table('daily_transaction_limit_usages')->where('account_id', $account->id()->value())->count())->toBe(2);
 });
+
+it('counts spending that happened before the first limit was configured', function (): void {
+    $now = new DateTimeImmutable('2026-09-23T09:00:00+01:00');
+    $customer = Customer::create(
+        CustomerId::generate(),
+        UserId::generate(),
+        new PersonalName('Earlier', null, 'Spending'),
+        DateOfBirth::fromString('2000-01-01', $now),
+        $now,
+        Uuid::generate()
+    );
+
+    app(DatabaseCustomerRepository::class)->save($customer);
+
+    $account = Account::reconstitute(
+        AccountId::generate(),
+        $customer->id(),
+        AccountType::Savings,
+        new CurrencyCode('NGN'),
+        $now,
+        3,
+        new AccountNumber('6234567890'),
+        AccountStatus::Active
+    );
+
+    app(DatabaseAccountRepository::class)->save($account);
+    $repository = app(DatabaseDailyTransactionLimitRepository::class);
+    $currency = new LedgerCurrency('NGN');
+
+    DB::transaction(fn() => $repository->consume($account->id(), $currency, 4000, $now));
+    $repository->save(DailyTransactionLimit::configure($account->id(), $currency, 5000, $now, Uuid::generate()));
+
+    DB::transaction(fn() => $repository->consume($account->id(), $currency, 1001, $now));
+})->throws(DailyTransactionLimitExceeded::class, 'exceed');

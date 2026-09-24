@@ -83,6 +83,12 @@ final readonly class MakeWithdrawal
             $disbursementLedger,
             $reference
         ): array {
+            $lockedAccount = $this->accounts->findByIdForUpdate($account->id());
+
+            if ($lockedAccount === null || ! $lockedAccount->isActive()) {
+                throw AccountNotEligibleForWithdrawal::create();
+            }
+
             // The lock stops two simultaneous withdrawals from spending the same balance.
             $balance = $this->balances->findForUpdate($customerLedger->id())
                 ?? LedgerBalance::zero($customerLedger->id(), $customerLedger->currency());
@@ -104,7 +110,7 @@ final readonly class MakeWithdrawal
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $customerLedger->id(),
                 new EntryReference($reference->value()),
-                new EntryDescription('Withdrawal ' . $reference->value()),
+                new EntryDescription('Withdrawal '.$reference->value()),
                 $command->occurredAt,
                 $now,
                 $this->uuidGenerator->generate(),

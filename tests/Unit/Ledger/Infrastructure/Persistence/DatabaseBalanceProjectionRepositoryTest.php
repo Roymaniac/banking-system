@@ -40,7 +40,7 @@ it('binds the balance projection contract to its database adapter', function ():
     expect(app(BalanceProjectionRepository::class))->toBeInstanceOf(DatabaseBalanceProjectionRepository::class);
 });
 
-it('projects posted debits and credits exactly once', function (): void {
+it('accumulates distinct entries while projecting each entry exactly once', function (): void {
     $now = new DateTimeImmutable('2026-09-20T09:00:00+01:00');
     $customerRepository = app(DatabaseCustomerRepository::class);
     $accountRepository = app(DatabaseAccountRepository::class);
@@ -118,14 +118,49 @@ it('projects posted debits and credits exactly once', function (): void {
     $repository->apply($entry, $now);
     $repository->apply($entry, $now); // Simulate redelivery of the same event.
 
+    $secondEntry = LedgerEntry::draft(
+        LedgerEntryId::generate(),
+        $ledgers[1]->id(),
+        new EntryReference('transfer-balance-2'),
+        new EntryDescription('Second projected transfer'),
+        $now,
+        $now,
+        Uuid::generate()
+    );
+    $entryRepository->save($secondEntry);
+    $secondEntry->pullDomainEvents();
+    $secondEntry->addPosting(
+        PostingId::generate(),
+        $ledgers[1]->id(),
+        PostingSide::Debit,
+        new PostingAmount(2000, new LedgerCurrency('NGN')),
+        $now,
+        Uuid::generate()
+    );
+    $entryRepository->save($secondEntry);
+    $secondEntry->pullDomainEvents();
+    $secondEntry->addPosting(
+        PostingId::generate(),
+        $ledgers[0]->id(),
+        PostingSide::Credit,
+        new PostingAmount(2000, new LedgerCurrency('NGN')),
+        $now,
+        Uuid::generate()
+    );
+    $entryRepository->save($secondEntry);
+    $secondEntry->pullDomainEvents();
+    $secondEntry->post($now, Uuid::generate());
+    $entryRepository->save($secondEntry);
+    $repository->apply($secondEntry, $now);
+
     $sender = $repository->find($ledgers[0]->id());
     $receiver = $repository->find($ledgers[1]->id());
 
     expect($sender?->debitMinorUnits())->toBe(5000)
-        ->and($sender?->creditMinorUnits())->toBe(0)
-        ->and($sender?->balanceMinorUnits())->toBe(-5000)
-        ->and($receiver?->debitMinorUnits())->toBe(0)
+        ->and($sender?->creditMinorUnits())->toBe(2000)
+        ->and($sender?->balanceMinorUnits())->toBe(-3000)
+        ->and($receiver?->debitMinorUnits())->toBe(2000)
         ->and($receiver?->creditMinorUnits())->toBe(5000)
-        ->and($receiver?->balanceMinorUnits())->toBe(5000)
-        ->and(DB::table('ledger_balance_contributions')->count())->toBe(2);
+        ->and($receiver?->balanceMinorUnits())->toBe(3000)
+        ->and(DB::table('ledger_balance_contributions')->count())->toBe(4);
 });

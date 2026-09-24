@@ -76,18 +76,22 @@ final readonly class DatabaseDailyTransactionLimitRepository implements DailyTra
         int $minorUnits,
         DateTimeImmutable $bankingTime
     ): void {
-        // Locking the limit row serializes every outgoing request for this account,
-        // including the first request of a new day when no usage row exists yet.
-        $limit = $this->connection->table('daily_transaction_limits')
-            ->where('account_id', $accountId->value())
+        // The account row exists even before a limit is configured, so it gives
+        // every outgoing request the same concurrency lock from day one.
+        $accountExists = $this->connection->table('accounts')
+            ->where('id', $accountId->value())
             ->lockForUpdate()
-            ->first();
+            ->exists();
 
-        if ($limit === null) {
+        if (! $accountExists) {
             return;
         }
 
-        if ($limit->currency !== $currency->value()) {
+        $limit = $this->connection->table('daily_transaction_limits')
+            ->where('account_id', $accountId->value())
+            ->first();
+
+        if ($limit !== null && $limit->currency !== $currency->value()) {
             throw DailyLimitCurrencyMismatch::create();
         }
 
@@ -97,7 +101,7 @@ final readonly class DatabaseDailyTransactionLimitRepository implements DailyTra
             ->where('usage_date', $date)
             ->value('used_minor_units') ?? 0);
 
-        if ($minorUnits <= 0 || $used > (int) $limit->maximum_minor_units - $minorUnits) {
+        if ($minorUnits <= 0 || ($limit !== null && $used > (int) $limit->maximum_minor_units - $minorUnits)) {
             throw DailyTransactionLimitExceeded::create();
         }
 
@@ -105,12 +109,12 @@ final readonly class DatabaseDailyTransactionLimitRepository implements DailyTra
             ->updateOrInsert(
                 [
                     'account_id' => $accountId->value(),
-                    'usage_date' => $date
+                    'usage_date' => $date,
                 ],
                 [
                     'currency' => $currency->value(),
                     'used_minor_units' => $used + $minorUnits,
-                    'updated_at' => $bankingTime->setTimezone(new DateTimeZone('UTC'))
+                    'updated_at' => $bankingTime->setTimezone(new DateTimeZone('UTC')),
                 ],
             );
     }

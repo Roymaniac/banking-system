@@ -93,6 +93,9 @@ it('atomically debits the sender and credits the recipient', function (): void {
     $accounts = Mockery::mock(AccountRepository::class);
     $accounts->shouldReceive('findById')->once()->with($sender->id())->andReturn($sender);
     $accounts->shouldReceive('findById')->once()->with($recipient->id())->andReturn($recipient);
+    $accounts->shouldReceive('findByIdForUpdate')->twice()->andReturnUsing(
+        fn(AccountId $id): Account => $id->equals($sender->id()) ? $sender : $recipient,
+    );
     $ledgers = Mockery::mock(LedgerRepository::class);
     $ledgers->shouldReceive('findByAccountId')->once()->with($sender->id())->andReturn($senderLedger);
     $ledgers->shouldReceive('findByAccountId')->once()->with($recipient->id())->andReturn($recipientLedger);
@@ -124,7 +127,10 @@ it('atomically debits the sender and credits the recipient', function (): void {
     );
 
     $ids = Mockery::mock(UuidGenerator::class);
-    $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn(): Uuid => Uuid::generate(), range(1, 9)));
+    $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(
+        fn(): Uuid => Uuid::generate(),
+        range(1, 9)
+    ));
     $publisher = new MakeTransferTestPublisher;
 
     $transfer = (new MakeTransfer(
@@ -160,6 +166,9 @@ it('rejects a transfer when the locked sender balance is too low', function (): 
     $recipientLedger = transferTestLedger($recipient->id());
     $accounts = Mockery::mock(AccountRepository::class);
     $accounts->shouldReceive('findById')->twice()->andReturn($sender, $recipient);
+    $accounts->shouldReceive('findByIdForUpdate')->twice()->andReturnUsing(
+        fn(AccountId $id): Account => $id->equals($sender->id()) ? $sender : $recipient,
+    );
     $ledgers = Mockery::mock(LedgerRepository::class);
     $ledgers->shouldReceive('findByAccountId')->twice()->andReturn($senderLedger, $recipientLedger);
     $transfers = Mockery::mock(TransferRepository::class);

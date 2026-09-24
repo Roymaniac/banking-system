@@ -67,7 +67,7 @@ function closeAccountUseCaseAccount(): Account
 it('closes, saves, and publishes an account', function (): void {
     $account = closeAccountUseCaseAccount();
     $accounts = Mockery::mock(AccountRepository::class);
-    $accounts->shouldReceive('findById')->once()->with($account->id())->andReturn($account);
+    $accounts->shouldReceive('findByIdForUpdate')->once()->with($account->id())->andReturn($account);
     $accounts->shouldReceive('save')->once()->with($account);
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->once()->andReturn(Uuid::generate());
@@ -91,7 +91,7 @@ it('closes, saves, and publishes an account', function (): void {
 
 it('rejects an unknown account', function (): void {
     $accounts = Mockery::mock(AccountRepository::class);
-    $accounts->shouldReceive('findById')->once()->andReturnNull();
+    $accounts->shouldReceive('findByIdForUpdate')->once()->andReturnNull();
 
     (new CloseAccount(
         $accounts,

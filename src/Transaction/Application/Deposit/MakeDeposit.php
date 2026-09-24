@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Transaction\Application\Deposit;
 
 use Account\Domain\Account\Repository\AccountRepository;
+use Ledger\Domain\Balance\Repository\BalanceProjectionRepository;
 use Ledger\Domain\Entry\LedgerEntry;
 use Ledger\Domain\Entry\Repository\LedgerEntryRepository;
 use Ledger\Domain\Entry\ValueObject\EntryDescription;
@@ -36,6 +37,7 @@ final readonly class MakeDeposit
         private LedgerRepository $ledgers,
         private LedgerEntryRepository $entries,
         private DepositRepository $deposits,
+        private BalanceProjectionRepository $balances,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -75,7 +77,7 @@ final readonly class MakeDeposit
             new LedgerEntryId($this->uuidGenerator->generate()->value()),
             $customerLedger->id(),
             new EntryReference($reference->value()),
-            new EntryDescription('Deposit '.$reference->value()),
+            new EntryDescription('Deposit ' . $reference->value()),
             $command->occurredAt,
             $now,
             $this->uuidGenerator->generate(),
@@ -113,12 +115,23 @@ final readonly class MakeDeposit
             $command->correlationId,
         );
 
-        $domainEvents = $this->transactions->run(function () use ($entry, $deposit): array {
-            $this->entries->save($entry);
-            $this->deposits->save($deposit);
+        $domainEvents = $this->transactions->run(
+            function () use ($command, $entry, $deposit, $now): array {
+                $lockedAccount = $this->accounts->findByIdForUpdate($command->accountId);
 
-            return [...$entry->pullDomainEvents(), ...$deposit->pullDomainEvents()];
-        });
+                if ($lockedAccount === null || ! $lockedAccount->isActive()) {
+                    throw AccountNotEligibleForDeposit::create();
+                }
+
+                $this->entries->save($entry);
+                $this->deposits->save($deposit);
+                // Project before commit so a completed deposit can never exist
+                // without its spendable balance, even if event delivery later fails.
+                $this->balances->apply($entry, $now);
+
+                return [...$entry->pullDomainEvents(), ...$deposit->pullDomainEvents()];
+            }
+        );
 
         $this->events->publish($domainEvents);
 

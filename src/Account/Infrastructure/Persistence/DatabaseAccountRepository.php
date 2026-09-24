@@ -72,17 +72,31 @@ final readonly class DatabaseAccountRepository implements AccountRepository
 
     public function findById(AccountId $id): ?Account
     {
-        return $this->hydrate($this->connection->table('accounts')->where('id', $id->value())->first());
+        return $this->hydrate($this->connection->table('accounts')
+            ->where('id', $id->value())
+            ->first());
+    }
+
+    public function findByIdForUpdate(AccountId $id): ?Account
+    {
+        return $this->hydrate($this->connection->table('accounts')
+            ->where('id', $id->value())
+            ->lockForUpdate()
+            ->first());
     }
 
     public function findByNumber(AccountNumber $number): ?Account
     {
-        return $this->hydrate($this->connection->table('accounts')->where('number', $number->value())->first());
+        return $this->hydrate($this->connection->table('accounts')
+            ->where('number', $number->value())
+            ->first());
     }
 
     public function numberExists(AccountNumber $number): bool
     {
-        return $this->connection->table('accounts')->where('number', $number->value())->exists();
+        return $this->connection->table('accounts')
+            ->where('number', $number->value())
+            ->exists();
     }
 
     public function findByCustomerId(CustomerId $customerId): array
@@ -91,7 +105,7 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             ->where('customer_id', $customerId->value())
             ->orderBy('created_at')
             ->get()
-            ->map(fn (object $record): Account => $this->hydrate($record))
+            ->map(fn(object $record): Account => $this->hydrate($record))
             ->all();
     }
 

@@ -130,6 +130,19 @@ final readonly class MakeMultipleTransfer
             $totalMinorUnits,
             $reference
         ): array {
+            $accountIds = [$sender->id(), ...array_map(fn ($item) => $item->recipientAccountId(), $items)];
+            usort($accountIds, fn ($left, $right): int => $left->value() <=> $right->value());
+
+            // Every account uses the same stable lock order, preventing closure
+            // races and deadlocks between overlapping batch transfers.
+            foreach ($accountIds as $accountId) {
+                $lockedAccount = $this->accounts->findByIdForUpdate($accountId);
+
+                if ($lockedAccount === null || ! $lockedAccount->isActive()) {
+                    throw AccountNotEligibleForMultipleTransfer::create();
+                }
+            }
+
             // One balance lock reserves the whole batch total before any recipient is paid.
             $balance = $this->balances->findForUpdate($senderLedger->id())
                 ?? LedgerBalance::zero($senderLedger->id(), $senderLedger->currency());
@@ -151,7 +164,7 @@ final readonly class MakeMultipleTransfer
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $senderLedger->id(),
                 new EntryReference($reference->value()),
-                new EntryDescription('Multiple transfer ' . $reference->value()),
+                new EntryDescription('Multiple transfer '.$reference->value()),
                 $command->occurredAt,
                 $now,
                 $this->uuidGenerator->generate(),

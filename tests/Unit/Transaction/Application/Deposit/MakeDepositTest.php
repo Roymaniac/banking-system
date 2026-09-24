@@ -10,6 +10,7 @@ use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
 use Customer\Domain\Customer\ValueObject\CustomerId;
+use Ledger\Domain\Balance\Repository\BalanceProjectionRepository;
 use Ledger\Domain\Entry\Event\LedgerEntryPosted;
 use Ledger\Domain\Entry\LedgerEntry;
 use Ledger\Domain\Entry\Repository\LedgerEntryRepository;
@@ -90,6 +91,7 @@ it('atomically posts balanced lines and completes the deposit', function (): voi
     $fundingLedger = makeDepositTestLedger(AccountId::generate());
     $accounts = Mockery::mock(AccountRepository::class);
     $accounts->shouldReceive('findById')->once()->with($account->id())->andReturn($account);
+    $accounts->shouldReceive('findByIdForUpdate')->once()->with($account->id())->andReturn($account);
     $ledgers = Mockery::mock(LedgerRepository::class);
     $ledgers->shouldReceive('findByAccountId')->once()->with($account->id())->andReturn($customerLedger);
     $ledgers->shouldReceive('findById')->once()->with($fundingLedger->id())->andReturn($fundingLedger);
@@ -97,11 +99,16 @@ it('atomically posts balanced lines and completes the deposit', function (): voi
     $entries->shouldReceive('save')->once()->with(Mockery::type(LedgerEntry::class));
     $deposits = Mockery::mock(DepositRepository::class);
     $deposits->shouldReceive('referenceExists')->once()->with(Mockery::on(
-        fn (TransactionReference $reference): bool => $reference->value() === 'CASH-1001',
+        fn(TransactionReference $reference): bool => $reference->value() === 'CASH-1001',
     ))->andReturnFalse();
     $deposits->shouldReceive('save')->once()->with(Mockery::type(Deposit::class));
+    $balances = Mockery::mock(BalanceProjectionRepository::class);
+    $balances->shouldReceive('apply')->once()->with(
+        Mockery::type(LedgerEntry::class),
+        Mockery::type(DateTimeImmutable::class)
+    );
     $ids = Mockery::mock(UuidGenerator::class);
-    $generatedIds = array_map(fn (): Uuid => Uuid::generate(), range(1, 9));
+    $generatedIds = array_map(fn(): Uuid => Uuid::generate(), range(1, 9));
     $ids->shouldReceive('generate')->times(9)->andReturn(...$generatedIds);
     $publisher = new MakeDepositTestPublisher;
 
@@ -110,6 +117,7 @@ it('atomically posts balanced lines and completes the deposit', function (): voi
         $ledgers,
         $entries,
         $deposits,
+        $balances,
         new MakeDepositTestClock,
         $ids,
         new MakeDepositTestTransactions,
@@ -123,7 +131,7 @@ it('atomically posts balanced lines and completes the deposit', function (): voi
     ));
 
     $postedEvent = collect($publisher->published)->first(
-        fn (DomainEvent $event): bool => $event instanceof LedgerEntryPosted,
+        fn(DomainEvent $event): bool => $event instanceof LedgerEntryPosted,
     );
 
     expect($deposit->amount()->minorUnits())->toBe(25000)
@@ -143,6 +151,7 @@ it('rejects a frozen account before creating financial records', function (): vo
         Mockery::mock(LedgerRepository::class),
         Mockery::mock(LedgerEntryRepository::class),
         Mockery::mock(DepositRepository::class),
+        Mockery::mock(BalanceProjectionRepository::class),
         new MakeDepositTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeDepositTestTransactions,
@@ -173,6 +182,7 @@ it('rejects a repeated deposit reference', function (): void {
         $ledgers,
         Mockery::mock(LedgerEntryRepository::class),
         $deposits,
+        Mockery::mock(BalanceProjectionRepository::class),
         new MakeDepositTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeDepositTestTransactions,

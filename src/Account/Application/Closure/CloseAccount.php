@@ -25,28 +25,28 @@ final readonly class CloseAccount
 
     public function handle(CloseAccountCommand $command): void
     {
-        $account = $this->accounts->findById($command->accountId);
+        $domainEvents = $this->transactions->run(
+            function () use ($command): array {
+                // The same account-row lock is used by every balance-changing workflow.
+                // It prevents closure from racing with a deposit or transfer.
+                $account = $this->accounts->findByIdForUpdate($command->accountId);
 
-        if ($account === null) {
-            throw AccountNotFound::create();
-        }
+                if ($account === null) {
+                    throw AccountNotFound::create();
+                }
 
-        // Ledger owns the authoritative balance, so closure asks through a
-        // small contract instead of duplicating financial data in Account.
-        $this->balanceChecker->assertZeroBalance($account->id());
+                $this->balanceChecker->assertZeroBalance($account->id());
+                $account->close(
+                    $command->reason,
+                    $this->clock->now(),
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId,
+                );
+                $this->accounts->save($account);
 
-        $account->close(
-            $command->reason,
-            $this->clock->now(),
-            $this->uuidGenerator->generate(),
-            $command->correlationId,
+                return $account->pullDomainEvents();
+            }
         );
-
-        $domainEvents = $this->transactions->run(function () use ($account): array {
-            $this->accounts->save($account);
-
-            return $account->pullDomainEvents();
-        });
 
         $this->events->publish($domainEvents);
     }

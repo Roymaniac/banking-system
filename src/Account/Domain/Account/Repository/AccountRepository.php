@@ -16,6 +16,9 @@ interface AccountRepository
 
     public function findById(AccountId $id): ?Account;
 
+    /** Reads and locks an account until the current database transaction finishes. */
+    public function findByIdForUpdate(AccountId $id): ?Account;
+
     public function findByNumber(AccountNumber $number): ?Account;
 
     public function numberExists(AccountNumber $number): bool;

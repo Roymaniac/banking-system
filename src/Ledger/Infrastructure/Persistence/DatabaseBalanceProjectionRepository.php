@@ -44,16 +44,16 @@ final readonly class DatabaseBalanceProjectionRepository implements BalanceProje
                 continue;
             }
 
-            $this->connection->table('ledger_balances')->updateOrInsert(
-                ['ledger_id' => $posting->ledgerId()->value()],
-                [
-                    'currency' => $posting->amount()->currency()->value(),
-                    'debit_minor_units' => 0,
-                    'credit_minor_units' => 0,
-                    'balance_minor_units' => 0,
-                    'updated_at' => $projectedAt,
-                ],
-            );
+            // Only initialize a missing balance. Updating an existing row here
+            // would erase totals accumulated from earlier ledger entries.
+            $this->connection->table('ledger_balances')->insertOrIgnore([
+                'ledger_id' => $posting->ledgerId()->value(),
+                'currency' => $posting->amount()->currency()->value(),
+                'debit_minor_units' => 0,
+                'credit_minor_units' => 0,
+                'balance_minor_units' => 0,
+                'updated_at' => $projectedAt,
+            ]);
 
             $amount = $posting->amount()->minorUnits();
             $increments = $posting->side() === PostingSide::Debit

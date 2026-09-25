@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Notification\Application\Email\EmailSender;
 use Notification\Application\Email\EmailTransport;
 use Notification\Domain\Email\EmailMessage;
 use Notification\Domain\Email\ValueObject\EmailBody;
@@ -25,10 +24,6 @@ function queuedNotificationTestEmail(): EmailMessage
         new EmailBody('This message is delivered by a worker.'),
     );
 }
-
-it('binds normal email sending to the queued adapter', function (): void {
-    expect(app(EmailSender::class))->toBeInstanceOf(QueuedEmailSender::class);
-});
 
 it('dispatches an encrypted email job after database commit', function (): void {
     $email = queuedNotificationTestEmail();

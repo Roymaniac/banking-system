@@ -16,6 +16,15 @@ use Identity\Domain\User\ValueObject\EmailAddress;
 use Identity\Domain\User\ValueObject\PasswordHash;
 use Identity\Domain\User\ValueObject\UserId;
 use Shared\Contracts\Clock;
+use Shared\Contracts\TransactionManager;
+
+final class PasswordResetTestTransactions implements TransactionManager
+{
+    public function run(callable $callback): mixed
+    {
+        return $callback();
+    }
+}
 
 final readonly class PasswordResetTestUserRepository implements UserRepository
 {
@@ -122,6 +131,7 @@ it('stores a token hash and sends the raw token to a known user', function (): v
         new PasswordResetTestTokenGenerator($rawToken),
         $notifier,
         new PasswordResetTestClock(new DateTimeImmutable('2026-09-16T10:00:00+00:00')),
+        new PasswordResetTestTransactions,
     );
 
     $service->handle(new RequestPasswordResetCommand('MEMBER@example.com'));
@@ -143,6 +153,7 @@ it('silently ignores an unknown email address', function (): void {
         new PasswordResetTestTokenGenerator(new PasswordResetToken(str_repeat('d', 64))),
         $notifier,
         new PasswordResetTestClock(new DateTimeImmutable('2026-09-16T10:00:00+00:00')),
+        new PasswordResetTestTransactions,
     );
 
     $service->handle(new RequestPasswordResetCommand('missing@example.com'));

@@ -39,10 +39,12 @@ use Ledger\Infrastructure\Persistence\DatabaseLedgerRepository;
 use Notification\Application\Email\EmailSender;
 use Notification\Application\Email\EmailTransport;
 use Notification\Application\Template\EmailTemplateRenderer;
+use Notification\Domain\Outbox\Repository\EmailOutboxRepository;
 use Notification\Infrastructure\Email\LaravelEmailSender;
 use Notification\Infrastructure\Identity\EmailVerificationNotification;
 use Notification\Infrastructure\Identity\PasswordResetNotification;
-use Notification\Infrastructure\Queue\QueuedEmailSender;
+use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRepository;
+use Notification\Infrastructure\Outbox\OutboxEmailSender;
 use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
@@ -72,8 +74,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(EmailSender::class, QueuedEmailSender::class);
+        $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
         $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);
+        $this->app->singleton(EmailOutboxRepository::class, DatabaseEmailOutboxRepository::class);
         $this->app->singleton(EmailTemplateRenderer::class, BladeEmailTemplateRenderer::class);
         $this->app->singleton(EmailVerificationNotifier::class, EmailVerificationNotification::class);
         $this->app->singleton(PasswordResetNotifier::class, PasswordResetNotification::class);

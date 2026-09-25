@@ -11,6 +11,7 @@ use Identity\Domain\EmailVerification\ValueObject\EmailVerificationTokenHash;
 use Identity\Domain\User\Repository\UserRepository;
 use InvalidArgumentException;
 use Shared\Contracts\Clock;
+use Shared\Contracts\TransactionManager;
 
 /**
  * Creates a fresh verification link for an existing, unverified user.
@@ -23,6 +24,7 @@ final readonly class RequestEmailVerification
         private EmailVerificationTokenGenerator $tokenGenerator,
         private EmailVerificationNotifier $notifier,
         private Clock $clock,
+        private TransactionManager $transactions,
         private int $lifetimeMinutes = 1440,
     ) {
         if ($lifetimeMinutes < 1) {
@@ -43,14 +45,17 @@ final readonly class RequestEmailVerification
         $requestedAt = $this->clock->now();
         $expiresAt = $requestedAt->add(new DateInterval(sprintf('PT%dM', $this->lifetimeMinutes)));
 
-        $this->requests->replace(new EmailVerificationRequest(
+        $request = new EmailVerificationRequest(
             userId: $command->userId,
             tokenHash: EmailVerificationTokenHash::fromToken($token),
             requestedAt: $requestedAt,
             expiresAt: $expiresAt,
-        ));
+        );
 
-        // Only the notifier sees the raw token; storage receives its hash.
-        $this->notifier->send($user->email(), $token, $expiresAt);
+        $this->transactions->run(function () use ($request, $user, $token, $expiresAt): void {
+            $this->requests->replace($request);
+            // The token hash and encrypted outbox email now commit together.
+            $this->notifier->send($user->email(), $token, $expiresAt);
+        });
     }
 }

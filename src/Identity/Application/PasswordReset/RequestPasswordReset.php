@@ -12,6 +12,7 @@ use Identity\Domain\User\Repository\UserRepository;
 use Identity\Domain\User\ValueObject\EmailAddress;
 use InvalidArgumentException;
 use Shared\Contracts\Clock;
+use Shared\Contracts\TransactionManager;
 
 /**
  * Creates and delivers a password-reset request when the email belongs to a
@@ -25,6 +26,7 @@ final readonly class RequestPasswordReset
         private PasswordResetTokenGenerator $tokenGenerator,
         private PasswordResetNotifier $notifier,
         private Clock $clock,
+        private TransactionManager $transactions,
         private int $lifetimeMinutes = 30,
     ) {
         if ($lifetimeMinutes < 1) {
@@ -46,14 +48,17 @@ final readonly class RequestPasswordReset
         $requestedAt = $this->clock->now();
         $expiresAt = $requestedAt->add(new DateInterval(sprintf('PT%dM', $this->lifetimeMinutes)));
 
-        $this->requests->replace(new PasswordResetRequest(
+        $request = new PasswordResetRequest(
             email: $email,
             tokenHash: PasswordResetTokenHash::fromToken($token),
             requestedAt: $requestedAt,
             expiresAt: $expiresAt,
-        ));
+        );
 
-        // Only the notifier receives the raw secret. Storage receives its hash.
-        $this->notifier->send($email, $token, $expiresAt);
+        $this->transactions->run(function () use ($request, $email, $token, $expiresAt): void {
+            $this->requests->replace($request);
+            // The token hash and encrypted outbox email now commit together.
+            $this->notifier->send($email, $token, $expiresAt);
+        });
     }
 }

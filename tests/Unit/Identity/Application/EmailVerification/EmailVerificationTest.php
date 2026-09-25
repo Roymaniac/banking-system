@@ -107,6 +107,7 @@ it('stores a token hash and sends the raw token to an unverified user', function
         new EmailVerificationTestTokenGenerator($rawToken),
         $notifier,
         new EmailVerificationTestClock(new DateTimeImmutable('2026-09-17T10:00:00+00:00')),
+        new EmailVerificationTestTransactionManager,
     );
 
     $service->handle(new RequestEmailVerificationCommand($user->id()));
@@ -127,6 +128,7 @@ it('does not issue another token to a verified user', function (): void {
         Mockery::mock(EmailVerificationTokenGenerator::class),
         Mockery::mock(EmailVerificationNotifier::class),
         new EmailVerificationTestClock(new DateTimeImmutable('2026-09-17T10:00:00+00:00')),
+        new EmailVerificationTestTransactionManager,
     );
 
     $service->handle(new RequestEmailVerificationCommand($user->id()));

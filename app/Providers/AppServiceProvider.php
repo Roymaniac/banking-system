@@ -13,7 +13,9 @@ use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
 use Identity\Application\Authentication\PasswordHasher;
 use Identity\Application\Authorization\AuthorizationChecker;
+use Identity\Application\EmailVerification\EmailVerificationNotifier;
 use Identity\Application\EmailVerification\EmailVerificationTokenGenerator;
+use Identity\Application\PasswordReset\PasswordResetNotifier;
 use Identity\Application\PasswordReset\PasswordResetTokenGenerator;
 use Identity\Domain\EmailVerification\Repository\EmailVerificationRequestRepository;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
@@ -34,6 +36,16 @@ use Ledger\Infrastructure\Balance\ProjectedAccountClosureBalanceChecker;
 use Ledger\Infrastructure\Persistence\DatabaseBalanceProjectionRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerEntryRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerRepository;
+use Notification\Application\Email\EmailSender;
+use Notification\Application\Email\EmailTransport;
+use Notification\Application\Template\EmailTemplateRenderer;
+use Notification\Domain\Outbox\Repository\EmailOutboxRepository;
+use Notification\Infrastructure\Email\LaravelEmailSender;
+use Notification\Infrastructure\Identity\EmailVerificationNotification;
+use Notification\Infrastructure\Identity\PasswordResetNotification;
+use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRepository;
+use Notification\Infrastructure\Outbox\OutboxEmailSender;
+use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
@@ -62,6 +74,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
+        $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);
+        $this->app->singleton(EmailOutboxRepository::class, DatabaseEmailOutboxRepository::class);
+        $this->app->singleton(EmailTemplateRenderer::class, BladeEmailTemplateRenderer::class);
+        $this->app->singleton(EmailVerificationNotifier::class, EmailVerificationNotification::class);
+        $this->app->singleton(PasswordResetNotifier::class, PasswordResetNotification::class);
         $this->app->singleton(DepositRepository::class, DatabaseDepositRepository::class);
         $this->app->singleton(DailyTransactionLimitRepository::class, DatabaseDailyTransactionLimitRepository::class);
         $this->app->singleton(MultipleTransferRepository::class, DatabaseMultipleTransferRepository::class);

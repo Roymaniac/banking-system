@@ -6,17 +6,17 @@ namespace Notification\Infrastructure\Email;
 
 use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Mail\Message;
-use Notification\Application\Email\EmailSender;
+use Notification\Application\Email\EmailTransport;
 use Notification\Domain\Email\EmailMessage;
 use Notification\Infrastructure\Email\Exception\EmailDeliveryFailed;
 use Throwable;
 
 /** Sends the transport-independent message through Laravel's configured mailer. */
-final readonly class LaravelEmailSender implements EmailSender
+final readonly class LaravelEmailSender implements EmailTransport
 {
     public function __construct(private Mailer $mailer) {}
 
-    public function send(EmailMessage $email): void
+    public function deliver(EmailMessage $email): void
     {
         try {
             $this->mailer->raw($email->body()->value(), function (Message $message) use ($email): void {

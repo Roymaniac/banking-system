@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Mail\Message;
-use Notification\Application\Email\EmailSender;
+use Notification\Application\Email\EmailTransport;
 use Notification\Domain\Email\EmailMessage;
 use Notification\Domain\Email\ValueObject\EmailBody;
 use Notification\Domain\Email\ValueObject\EmailSubject;
@@ -25,8 +25,8 @@ function notificationTestEmail(): EmailMessage
     );
 }
 
-it('binds the email sender contract to the Laravel adapter', function (): void {
-    expect(app(EmailSender::class))->toBeInstanceOf(LaravelEmailSender::class);
+it('binds the immediate email transport to the Laravel adapter', function (): void {
+    expect(app(EmailTransport::class))->toBeInstanceOf(LaravelEmailSender::class);
 });
 
 it('maps the email message to Laravel mail correctly', function (): void {
@@ -41,7 +41,7 @@ it('maps the email message to Laravel mail correctly', function (): void {
             ->and($symfonyEmail->getSubject())->toBe('Security notice');
     });
 
-    (new LaravelEmailSender($mailer))->send(notificationTestEmail());
+    (new LaravelEmailSender($mailer))->deliver(notificationTestEmail());
 });
 
 it('wraps transport errors without exposing message contents', function (): void {
@@ -49,7 +49,7 @@ it('wraps transport errors without exposing message contents', function (): void
     $mailer->shouldReceive('raw')->once()->andThrow(new RuntimeException('SMTP password rejected'));
 
     try {
-        (new LaravelEmailSender($mailer))->send(notificationTestEmail());
+        (new LaravelEmailSender($mailer))->deliver(notificationTestEmail());
     } catch (EmailDeliveryFailed $exception) {
         expect($exception->getMessage())->not->toContain('SMTP password')
             ->and($exception->getMessage())->not->toContain('customer@example.com')

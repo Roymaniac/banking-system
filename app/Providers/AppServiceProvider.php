@@ -34,6 +34,8 @@ use Ledger\Infrastructure\Balance\ProjectedAccountClosureBalanceChecker;
 use Ledger\Infrastructure\Persistence\DatabaseBalanceProjectionRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerEntryRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerRepository;
+use Notification\Application\Email\EmailSender;
+use Notification\Infrastructure\Email\LaravelEmailSender;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
@@ -62,6 +64,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(EmailSender::class, LaravelEmailSender::class);
         $this->app->singleton(DepositRepository::class, DatabaseDepositRepository::class);
         $this->app->singleton(DailyTransactionLimitRepository::class, DatabaseDailyTransactionLimitRepository::class);
         $this->app->singleton(MultipleTransferRepository::class, DatabaseMultipleTransferRepository::class);

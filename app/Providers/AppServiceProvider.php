@@ -10,7 +10,9 @@ use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Audit\Application\Log\RecordDomainEvent;
+use Audit\Domain\Activity\Repository\ActivityLogRepository;
 use Audit\Domain\Log\Repository\AuditLogRepository;
+use Audit\Infrastructure\Persistence\DatabaseActivityLogRepository;
 use Audit\Infrastructure\Persistence\DatabaseAuditLogRepository;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
@@ -78,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(ActivityLogRepository::class, DatabaseActivityLogRepository::class);
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
         $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);

@@ -9,6 +9,9 @@ use Account\Application\Number\AccountNumberGenerator;
 use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
+use Audit\Application\Log\RecordDomainEvent;
+use Audit\Domain\Log\Repository\AuditLogRepository;
+use Audit\Infrastructure\Persistence\DatabaseAuditLogRepository;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
 use Identity\Application\Authentication\PasswordHasher;
@@ -49,6 +52,7 @@ use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
+use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\Identifier\UuidGenerator;
 use Shared\Infrastructure\Clock\SystemClock;
 use Shared\Infrastructure\Event\LaravelEventPublisher;
@@ -74,6 +78,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
         $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);
         $this->app->singleton(EmailOutboxRepository::class, DatabaseEmailOutboxRepository::class);
@@ -121,5 +126,14 @@ class AppServiceProvider extends ServiceProvider
     {
         // Balance projection is a reaction to a committed posted-entry event.
         Event::listen(LedgerEntryPosted::class, ProjectLedgerBalance::class);
+
+        // Laravel's wildcard listener lets one audit recorder cover every domain event.
+        Event::listen('*', function (string $eventName, array $payload): void {
+            $event = $payload[0] ?? null;
+
+            if ($event instanceof DomainEvent) {
+                $this->app->make(RecordDomainEvent::class)->handle($event);
+            }
+        });
     }
 }

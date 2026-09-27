@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Identity\Application\Authentication;
 
+use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\Authentication\Exception\EmailNotVerified;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\User\Repository\UserRepository;
@@ -18,6 +19,7 @@ final readonly class AuthenticateUser
     public function __construct(
         private UserRepository $users,
         private PasswordHasher $passwordHasher,
+        private SecurityMonitor $securityMonitor,
     ) {}
 
     public function handle(AuthenticateUserCommand $command): User
@@ -32,12 +34,18 @@ final readonly class AuthenticateUser
         );
 
         if ($user === null || ! $passwordMatches) {
+            $this->securityMonitor->loginFailed($command->email);
+
             throw InvalidCredentials::create();
         }
 
         if (! $user->isEmailVerified()) {
+            $this->securityMonitor->unverifiedLoginBlocked($user->id());
+
             throw EmailNotVerified::create();
         }
+
+        $this->securityMonitor->loginSucceeded($user->id());
 
         return $user;
     }

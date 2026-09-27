@@ -12,8 +12,11 @@ use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Audit\Application\Log\RecordDomainEvent;
 use Audit\Domain\Activity\Repository\ActivityLogRepository;
 use Audit\Domain\Log\Repository\AuditLogRepository;
+use Audit\Domain\Security\Repository\SecurityEventRepository;
+use Audit\Infrastructure\Identity\AuditSecurityMonitor;
 use Audit\Infrastructure\Persistence\DatabaseActivityLogRepository;
 use Audit\Infrastructure\Persistence\DatabaseAuditLogRepository;
+use Audit\Infrastructure\Persistence\DatabaseSecurityEventRepository;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
 use Identity\Application\Authentication\PasswordHasher;
@@ -22,6 +25,7 @@ use Identity\Application\EmailVerification\EmailVerificationNotifier;
 use Identity\Application\EmailVerification\EmailVerificationTokenGenerator;
 use Identity\Application\PasswordReset\PasswordResetNotifier;
 use Identity\Application\PasswordReset\PasswordResetTokenGenerator;
+use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\EmailVerification\Repository\EmailVerificationRequestRepository;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
 use Identity\Infrastructure\Authentication\LaravelPasswordHasher;
@@ -82,6 +86,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(ActivityLogRepository::class, DatabaseActivityLogRepository::class);
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
+        $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);
+        $this->app->singleton(SecurityMonitor::class, AuditSecurityMonitor::class);
         $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
         $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);
         $this->app->singleton(EmailOutboxRepository::class, DatabaseEmailOutboxRepository::class);

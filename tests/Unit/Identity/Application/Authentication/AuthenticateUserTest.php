@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Identity\Application\Authentication\AuthenticateUser;
 use Identity\Application\Authentication\AuthenticateUserCommand;
 use Identity\Application\Authentication\PasswordHasher;
+use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\Authentication\Exception\EmailNotVerified;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\User\Repository\UserRepository;
@@ -74,9 +75,12 @@ function authenticationTestUser(): User
 
 it('returns the user when the credentials are correct', function (): void {
     $user = authenticationTestUser();
+    $securityMonitor = Mockery::mock(SecurityMonitor::class);
+    $securityMonitor->shouldReceive('loginSucceeded')->once()->with($user->id());
     $service = new AuthenticateUser(
         new AuthenticationTestUserRepository($user),
         new AuthenticationTestPasswordHasher,
+        $securityMonitor,
     );
 
     $authenticatedUser = $service->handle(
@@ -87,9 +91,12 @@ it('returns the user when the credentials are correct', function (): void {
 });
 
 it('rejects an incorrect password with a generic error', function (): void {
+    $securityMonitor = Mockery::mock(SecurityMonitor::class);
+    $securityMonitor->shouldReceive('loginFailed')->once()->with('member@example.com');
     $service = new AuthenticateUser(
         new AuthenticationTestUserRepository(authenticationTestUser()),
         new AuthenticationTestPasswordHasher,
+        $securityMonitor,
     );
 
     $service->handle(new AuthenticateUserCommand('member@example.com', 'wrong-password'));
@@ -97,9 +104,12 @@ it('rejects an incorrect password with a generic error', function (): void {
 
 it('still verifies a password when the email is unknown', function (): void {
     $passwordHasher = new AuthenticationTestPasswordHasher;
+    $securityMonitor = Mockery::mock(SecurityMonitor::class);
+    $securityMonitor->shouldReceive('loginFailed')->once()->with('missing@example.com');
     $service = new AuthenticateUser(
         new AuthenticationTestUserRepository(null),
         $passwordHasher,
+        $securityMonitor,
     );
 
     expect(fn () => $service->handle(
@@ -117,9 +127,12 @@ it('rejects valid credentials until the email is verified', function (): void {
         new DateTimeImmutable('2026-09-16T10:00:00+00:00'),
         1,
     );
+    $securityMonitor = Mockery::mock(SecurityMonitor::class);
+    $securityMonitor->shouldReceive('unverifiedLoginBlocked')->once()->with($user->id());
     $service = new AuthenticateUser(
         new AuthenticationTestUserRepository($user),
         new AuthenticationTestPasswordHasher,
+        $securityMonitor,
     );
 
     $service->handle(new AuthenticateUserCommand('unverified@example.com', 'correct-password'));

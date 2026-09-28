@@ -55,6 +55,8 @@ use Notification\Infrastructure\Identity\PasswordResetNotification;
 use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRepository;
 use Notification\Infrastructure\Outbox\OutboxEmailSender;
 use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
+use Reporting\Application\Customer\CustomerReportQuery;
+use Reporting\Infrastructure\Persistence\DatabaseCustomerReportQuery;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
@@ -88,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);
         $this->app->singleton(SecurityMonitor::class, AuditSecurityMonitor::class);
+        $this->app->singleton(CustomerReportQuery::class, DatabaseCustomerReportQuery::class);
         $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
         $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);
         $this->app->singleton(EmailOutboxRepository::class, DatabaseEmailOutboxRepository::class);

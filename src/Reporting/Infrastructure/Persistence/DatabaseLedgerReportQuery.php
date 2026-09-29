@@ -20,9 +20,17 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
 {
     public function __construct(
         private ConnectionInterface $connection,
+        private DatabaseReportSnapshot $snapshot,
     ) {}
 
     public function generate(LedgerReportRequest $request): LedgerReportView
+    {
+        return $this->snapshot->run(
+            fn(): LedgerReportView => $this->generateFromSnapshot($request)
+        );
+    }
+
+    private function generateFromSnapshot(LedgerReportRequest $request): LedgerReportView
     {
         $from = $request->from->setTimezone(new DateTimeZone('UTC'));
         $to = $request->to->setTimezone(new DateTimeZone('UTC'));
@@ -61,11 +69,13 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
             ->selectRaw("SUM(CASE WHEN ledger_postings.side = 'debit' THEN ledger_postings.minor_units ELSE 0 END) AS debits")
             ->selectRaw("SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE 0 END) AS credits")
             ->get()
-            ->map(fn(object $summary): LedgerCurrencySummaryView => new LedgerCurrencySummaryView(
-                $summary->currency,
-                (int) $summary->debits,
-                (int) $summary->credits,
-            ))
+            ->map(
+                fn(object $summary): LedgerCurrencySummaryView => new LedgerCurrencySummaryView(
+                    $summary->currency,
+                    (int) $summary->debits,
+                    (int) $summary->credits,
+                )
+            )
             ->all();
 
         $entryRecords = (clone $periodEntries())

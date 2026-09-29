@@ -24,6 +24,7 @@ it('returns the statement supplied by the transaction report query', function ()
         200,
         500,
         1300,
+        0,
         [],
     );
     $query = Mockery::mock(TransactionReportQuery::class);
@@ -38,6 +39,19 @@ it('rejects a period whose end is before its start', function (): void {
         new DateTimeImmutable('2026-09-01'),
     );
 })->throws(InvalidArgumentException::class);
+
+it('rejects unsafe transaction report pagination', function (int $page, int $perPage): void {
+    new TransactionReportPeriod(
+        new DateTimeImmutable('2026-09-01'),
+        new DateTimeImmutable('2026-09-30'),
+        $page,
+        $perPage,
+    );
+})->with([
+    'zero page' => [0, 100],
+    'zero size' => [1, 0],
+    'excessive size' => [1, 501],
+])->throws(InvalidArgumentException::class);
 
 it('reports clearly when an account has no ledger report', function (): void {
     $accountId = AccountId::generate();

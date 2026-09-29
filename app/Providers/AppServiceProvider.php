@@ -56,8 +56,10 @@ use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRepository;
 use Notification\Infrastructure\Outbox\OutboxEmailSender;
 use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
 use Reporting\Application\Customer\CustomerReportQuery;
+use Reporting\Application\Ledger\LedgerReportQuery;
 use Reporting\Application\Transaction\TransactionReportQuery;
 use Reporting\Infrastructure\Persistence\DatabaseCustomerReportQuery;
+use Reporting\Infrastructure\Persistence\DatabaseLedgerReportQuery;
 use Reporting\Infrastructure\Persistence\DatabaseTransactionReportQuery;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
@@ -93,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);
         $this->app->singleton(SecurityMonitor::class, AuditSecurityMonitor::class);
         $this->app->singleton(CustomerReportQuery::class, DatabaseCustomerReportQuery::class);
+        $this->app->singleton(LedgerReportQuery::class, DatabaseLedgerReportQuery::class);
         $this->app->singleton(TransactionReportQuery::class, DatabaseTransactionReportQuery::class);
         $this->app->singleton(EmailSender::class, OutboxEmailSender::class);
         $this->app->singleton(EmailTransport::class, LaravelEmailSender::class);

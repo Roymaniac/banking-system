@@ -10,7 +10,9 @@ use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Administration\Domain\Department\Repository\DepartmentRepository;
+use Administration\Domain\Staff\Repository\StaffRepository;
 use Administration\Infrastructure\Persistence\DatabaseDepartmentRepository;
+use Administration\Infrastructure\Persistence\DatabaseStaffRepository;
 use Audit\Application\Log\RecordDomainEvent;
 use Audit\Domain\Activity\Repository\ActivityLogRepository;
 use Audit\Domain\Log\Repository\AuditLogRepository;
@@ -93,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);
+        $this->app->singleton(StaffRepository::class, DatabaseStaffRepository::class);
         $this->app->singleton(ActivityLogRepository::class, DatabaseActivityLogRepository::class);
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);

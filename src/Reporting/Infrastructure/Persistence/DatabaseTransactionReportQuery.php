@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Reporting\Infrastructure\Persistence;
 
 use Account\Domain\Account\ValueObject\AccountId;
-use Ledger\Domain\Entry\ValueObject\EntryStatus;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
+use Ledger\Domain\Entry\ValueObject\EntryStatus;
 use Reporting\Application\Transaction\TransactionReportPeriod;
 use Reporting\Application\Transaction\TransactionReportQuery;
 use Reporting\Application\Transaction\View\TransactionLineView;
@@ -19,9 +19,20 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
 {
     public function __construct(
         private ConnectionInterface $connection,
+        private DatabaseReportSnapshot $snapshot,
     ) {}
 
     public function find(
+        AccountId $accountId,
+        TransactionReportPeriod $period
+    ): ?TransactionReportView {
+
+        return $this->snapshot->run(
+            fn(): ?TransactionReportView => $this->findFromSnapshot($accountId, $period)
+        );
+    }
+
+    private function findFromSnapshot(
         AccountId $accountId,
         TransactionReportPeriod $period
     ): ?TransactionReportView {
@@ -46,13 +57,28 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
             ->selectRaw("COALESCE(SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE -ledger_postings.minor_units END), 0) AS balance")
             ->value('balance');
 
-        $records = $this->connection->table('ledger_postings')
+        $periodPostings = fn() => $this->connection->table('ledger_postings')
             ->join('ledger_entries', 'ledger_entries.id', '=', 'ledger_postings.entry_id')
             ->where('ledger_postings.ledger_id', $account->ledger_id)
             ->where('ledger_entries.status', EntryStatus::Posted)
-            ->whereBetween('ledger_entries.occurred_at', [$from, $to])
+            ->whereBetween('ledger_entries.occurred_at', [$from, $to]);
+
+        $totalTransactions = $periodPostings()->count();
+
+        $totals = $periodPostings()
+            ->selectRaw("COALESCE(SUM(CASE WHEN ledger_postings.side = 'debit' THEN ledger_postings.minor_units ELSE 0 END), 0) AS debits")
+            ->selectRaw("COALESCE(SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE 0 END), 0) AS credits")
+            ->first();
+
+        $totalDebits = (int) $totals->debits;
+        $totalCredits = (int) $totals->credits;
+        $closingBalance = $openingBalance + $totalCredits - $totalDebits;
+
+        $records = $periodPostings()
             ->orderBy('ledger_entries.occurred_at')
             ->orderBy('ledger_entries.id')
+            ->offset(($period->page - 1) * $period->perPage)
+            ->limit($period->perPage)
             ->select(
                 'ledger_entries.id',
                 'ledger_entries.reference',
@@ -61,25 +87,15 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
                 'ledger_postings.side',
                 'ledger_postings.minor_units',
             )
+            ->selectRaw("? + SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE -ledger_postings.minor_units END) OVER (ORDER BY ledger_entries.occurred_at, ledger_entries.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS balance_after", [$openingBalance])
             ->get();
 
         $entryIds = $records->pluck('id')->all();
         $types = $this->transactionTypes($entryIds);
-        $runningBalance = $openingBalance;
-        $totalDebits = 0;
-        $totalCredits = 0;
         $transactions = [];
 
         foreach ($records as $record) {
             $amount = (int) $record->minor_units;
-
-            if ($record->side === 'credit') {
-                $totalCredits += $amount;
-                $runningBalance += $amount;
-            } else {
-                $totalDebits += $amount;
-                $runningBalance -= $amount;
-            }
 
             $transactions[] = new TransactionLineView(
                 $record->id,
@@ -88,7 +104,7 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
                 $types[$record->id] ?? 'ledger_adjustment',
                 $record->side,
                 $amount,
-                $runningBalance,
+                (int) $record->balance_after,
                 new DateTimeImmutable($record->occurred_at),
             );
         }
@@ -101,7 +117,8 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
             $openingBalance,
             $totalDebits,
             $totalCredits,
-            $runningBalance,
+            $closingBalance,
+            $totalTransactions,
             $transactions,
         );
     }

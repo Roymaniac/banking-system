@@ -19,11 +19,17 @@ final readonly class TransactionReportView
         public int $totalDebitMinorUnits,
         public int $totalCreditMinorUnits,
         public int $closingBalanceMinorUnits,
+        public int $totalTransactions,
         public array $transactions,
     ) {}
 
     public function transactionCount(): int
     {
         return count($this->transactions);
+    }
+
+    public function hasNextPage(): bool
+    {
+        return $this->period->page * $this->period->perPage < $this->totalTransactions;
     }
 }

@@ -155,6 +155,8 @@ it('calculates opening, running, period, and closing balances from posted entrie
     $period = new TransactionReportPeriod(
         new DateTimeImmutable('2026-09-01T00:00:00+00:00'),
         new DateTimeImmutable('2026-09-30T23:59:59+00:00'),
+        1,
+        1,
     );
 
     $report = app(TransactionReportQuery::class)->find($accountId, $period);
@@ -164,11 +166,25 @@ it('calculates opening, running, period, and closing balances from posted entrie
         ->and($report->totalDebitMinorUnits)->toBe(2500)
         ->and($report->totalCreditMinorUnits)->toBe(1000)
         ->and($report->closingBalanceMinorUnits)->toBe(8500)
-        ->and($report->transactionCount())->toBe(2)
+        ->and($report->totalTransactions)->toBe(2)
+        ->and($report->transactionCount())->toBe(1)
+        ->and($report->hasNextPage())->toBeTrue()
         ->and($report->transactions[0]->transactionType)->toBe('withdrawal')
-        ->and($report->transactions[0]->balanceAfterMinorUnits)->toBe(7500)
-        ->and($report->transactions[1]->transactionType)->toBe('deposit')
-        ->and($report->transactions[1]->balanceAfterMinorUnits)->toBe(8500);
+        ->and($report->transactions[0]->balanceAfterMinorUnits)->toBe(7500);
+
+    $secondPage = app(TransactionReportQuery::class)->find(
+        $accountId,
+        new TransactionReportPeriod(
+            $period->from,
+            $period->to,
+            2,
+            1
+        ),
+    );
+
+    expect($secondPage->transactions[0]->transactionType)->toBe('deposit')
+        ->and($secondPage->transactions[0]->balanceAfterMinorUnits)->toBe(8500)
+        ->and($secondPage->hasNextPage())->toBeFalse();
 });
 
 it('returns null when the requested account has no ledger', function (): void {

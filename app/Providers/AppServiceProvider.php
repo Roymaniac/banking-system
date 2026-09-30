@@ -9,6 +9,19 @@ use Account\Application\Number\AccountNumberGenerator;
 use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
+use Administration\Domain\Department\Repository\DepartmentRepository;
+use Administration\Domain\Permission\Repository\PermissionRepository;
+use Administration\Domain\Permission\Repository\RolePermissionRepository;
+use Administration\Domain\Role\Repository\RoleAssignmentRepository;
+use Administration\Domain\Role\Repository\RoleRepository;
+use Administration\Domain\Staff\Repository\StaffRepository;
+use Administration\Infrastructure\Authorization\DatabaseAuthorizationChecker;
+use Administration\Infrastructure\Persistence\DatabaseDepartmentRepository;
+use Administration\Infrastructure\Persistence\DatabasePermissionRepository;
+use Administration\Infrastructure\Persistence\DatabaseRoleAssignmentRepository;
+use Administration\Infrastructure\Persistence\DatabaseRolePermissionRepository;
+use Administration\Infrastructure\Persistence\DatabaseRoleRepository;
+use Administration\Infrastructure\Persistence\DatabaseStaffRepository;
 use Audit\Application\Log\RecordDomainEvent;
 use Audit\Domain\Activity\Repository\ActivityLogRepository;
 use Audit\Domain\Log\Repository\AuditLogRepository;
@@ -29,7 +42,6 @@ use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\EmailVerification\Repository\EmailVerificationRequestRepository;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
 use Identity\Infrastructure\Authentication\LaravelPasswordHasher;
-use Identity\Infrastructure\Authorization\LaravelGateAuthorizationChecker;
 use Identity\Infrastructure\EmailVerification\DatabaseEmailVerificationRequestRepository;
 use Identity\Infrastructure\EmailVerification\SecureEmailVerificationTokenGenerator;
 use Identity\Infrastructure\PasswordReset\DatabasePasswordResetRequestRepository;
@@ -90,6 +102,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);
+        $this->app->singleton(StaffRepository::class, DatabaseStaffRepository::class);
+        $this->app->singleton(RoleRepository::class, DatabaseRoleRepository::class);
+        $this->app->singleton(RoleAssignmentRepository::class, DatabaseRoleAssignmentRepository::class);
+        $this->app->singleton(PermissionRepository::class, DatabasePermissionRepository::class);
+        $this->app->singleton(RolePermissionRepository::class, DatabaseRolePermissionRepository::class);
         $this->app->singleton(ActivityLogRepository::class, DatabaseActivityLogRepository::class);
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);
@@ -117,7 +135,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AccountRepository::class, DatabaseAccountRepository::class);
         $this->app->singleton(CustomerRepository::class, DatabaseCustomerRepository::class);
         $this->app->singleton(PasswordHasher::class, LaravelPasswordHasher::class);
-        $this->app->singleton(AuthorizationChecker::class, LaravelGateAuthorizationChecker::class);
+        $this->app->singleton(AuthorizationChecker::class, DatabaseAuthorizationChecker::class);
         $this->app->singleton(
             EmailVerificationTokenGenerator::class,
             SecureEmailVerificationTokenGenerator::class,

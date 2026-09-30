@@ -10,8 +10,12 @@ use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Administration\Domain\Department\Repository\DepartmentRepository;
+use Administration\Domain\Role\Repository\RoleAssignmentRepository;
+use Administration\Domain\Role\Repository\RoleRepository;
 use Administration\Domain\Staff\Repository\StaffRepository;
 use Administration\Infrastructure\Persistence\DatabaseDepartmentRepository;
+use Administration\Infrastructure\Persistence\DatabaseRoleAssignmentRepository;
+use Administration\Infrastructure\Persistence\DatabaseRoleRepository;
 use Administration\Infrastructure\Persistence\DatabaseStaffRepository;
 use Audit\Application\Log\RecordDomainEvent;
 use Audit\Domain\Activity\Repository\ActivityLogRepository;
@@ -96,6 +100,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);
         $this->app->singleton(StaffRepository::class, DatabaseStaffRepository::class);
+        $this->app->singleton(RoleRepository::class, DatabaseRoleRepository::class);
+        $this->app->singleton(RoleAssignmentRepository::class, DatabaseRoleAssignmentRepository::class);
         $this->app->singleton(ActivityLogRepository::class, DatabaseActivityLogRepository::class);
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);

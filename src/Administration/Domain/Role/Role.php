@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Administration\Domain\Role;
 
+use Administration\Domain\Permission\ValueObject\PermissionName;
 use Administration\Domain\Role\Event\RoleAssigned;
 use Administration\Domain\Role\Event\RoleCreated;
 use Administration\Domain\Role\Event\RoleDeactivated;
+use Administration\Domain\Role\Event\RolePermissionGranted;
+use Administration\Domain\Role\Event\RolePermissionRevoked;
 use Administration\Domain\Role\Exception\InactiveRoleCannotChange;
 use Administration\Domain\Role\ValueObject\RoleId;
 use Administration\Domain\Role\ValueObject\RoleLabel;
@@ -153,6 +156,46 @@ final class Role extends AggregateRoot
                 $this->id,
                 $this->version() + 1,
                 $at,
+                $correlationId
+            )
+        );
+    }
+
+    public function grantPermission(
+        PermissionName $permission,
+        DateTimeImmutable $at,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null
+    ): void {
+
+        $this->guardActive();
+        $this->record(
+            new RolePermissionGranted(
+                $eventId,
+                $this->id,
+                $this->version() + 1,
+                $at,
+                $permission,
+                $correlationId
+            )
+        );
+    }
+
+    public function revokePermission(
+        PermissionName $permission,
+        DateTimeImmutable $at,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null
+    ): void {
+
+        $this->guardActive();
+        $this->record(
+            new RolePermissionRevoked(
+                $eventId,
+                $this->id,
+                $this->version() + 1,
+                $at,
+                $permission,
                 $correlationId
             )
         );

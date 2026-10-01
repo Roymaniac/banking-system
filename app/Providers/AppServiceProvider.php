@@ -41,11 +41,13 @@ use Identity\Application\PasswordReset\PasswordResetTokenGenerator;
 use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\EmailVerification\Repository\EmailVerificationRequestRepository;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
+use Identity\Domain\User\Repository\UserRepository;
 use Identity\Infrastructure\Authentication\LaravelPasswordHasher;
 use Identity\Infrastructure\EmailVerification\DatabaseEmailVerificationRequestRepository;
 use Identity\Infrastructure\EmailVerification\SecureEmailVerificationTokenGenerator;
 use Identity\Infrastructure\PasswordReset\DatabasePasswordResetRequestRepository;
 use Identity\Infrastructure\PasswordReset\SecurePasswordResetTokenGenerator;
+use Identity\Infrastructure\Persistence\DatabaseUserRepository;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Ledger\Application\Balance\ProjectLedgerBalance;
@@ -135,6 +137,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AccountRepository::class, DatabaseAccountRepository::class);
         $this->app->singleton(CustomerRepository::class, DatabaseCustomerRepository::class);
         $this->app->singleton(PasswordHasher::class, LaravelPasswordHasher::class);
+        $this->app->singleton(UserRepository::class, DatabaseUserRepository::class);
         $this->app->singleton(AuthorizationChecker::class, DatabaseAuthorizationChecker::class);
         $this->app->singleton(
             EmailVerificationTokenGenerator::class,

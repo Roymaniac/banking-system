@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
+use App\Http\Controllers\Api\V1\Transaction\TransactionHistoryController;
 use App\Http\Controllers\Api\V1\Transaction\TransferController;
 use Illuminate\Support\Facades\Route;
 
@@ -62,4 +63,7 @@ Route::prefix('v1/accounts')
             ->whereUuid('account')
             ->middleware('throttle:20,1')
             ->name('api.v1.accounts.transfers.store');
+        Route::get('/{account}/transactions', [TransactionHistoryController::class, 'index'])
+            ->whereUuid('account')
+            ->name('api.v1.accounts.transactions.index');
     });

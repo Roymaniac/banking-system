@@ -61,22 +61,22 @@ final class TransferController extends Controller
             );
         } catch (DuplicateTransferReference $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
-        } catch (AccountNotEligibleForTransfer | TransferLedgerUnavailable $exception) {
+        } catch (AccountNotEligibleForTransfer|TransferLedgerUnavailable $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (
-            DailyTransactionLimitExceeded |
-            InsufficientTransferFunds |
-            SameAccountTransfer |
+            DailyTransactionLimitExceeded|
+            InsufficientTransferFunds|
+            SameAccountTransfer|
             TransferCurrencyMismatch $exception
         ) {
             return response()->json([
-                'message' => $exception->getMessage()
+                'message' => $exception->getMessage(),
             ], 422);
         }
 
         return response()->json([
             'data' => [
-                'transfer' => new TransferResource($transfer)
+                'transfer' => new TransferResource($transfer),
             ],
         ], 201);
     }

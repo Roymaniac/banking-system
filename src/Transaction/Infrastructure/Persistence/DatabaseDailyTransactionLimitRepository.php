@@ -29,6 +29,7 @@ final readonly class DatabaseDailyTransactionLimitRepository implements DailyTra
         $values = [
             'currency' => $limit->currency()->value(),
             'maximum_minor_units' => $limit->maximumMinorUnits(),
+            'customer_maximum_minor_units' => $limit->customerMaximumMinorUnits(),
             'configured_at' => $limit->configuredAt()->setTimezone(new DateTimeZone('UTC')),
             'version' => $limit->version(),
         ];
@@ -66,8 +67,19 @@ final readonly class DatabaseDailyTransactionLimitRepository implements DailyTra
             new LedgerCurrency($record->currency),
             (int) $record->maximum_minor_units,
             new DateTimeImmutable($record->configured_at),
-            (int) $record->version
+            (int) $record->version,
+            $record->customer_maximum_minor_units === null
+                ? null
+                : (int) $record->customer_maximum_minor_units,
         );
+    }
+
+    public function usedOn(AccountId $accountId, DateTimeImmutable $bankingTime): int
+    {
+        return (int) ($this->connection->table('daily_transaction_limit_usages')
+            ->where('account_id', $accountId->value())
+            ->where('usage_date', $bankingTime->format('Y-m-d'))
+            ->value('used_minor_units') ?? 0);
     }
 
     public function consume(
@@ -101,7 +113,11 @@ final readonly class DatabaseDailyTransactionLimitRepository implements DailyTra
             ->where('usage_date', $date)
             ->value('used_minor_units') ?? 0);
 
-        if ($minorUnits <= 0 || ($limit !== null && $used > (int) $limit->maximum_minor_units - $minorUnits)) {
+        $effectiveMaximum = $limit === null
+            ? null
+            : (int) ($limit->customer_maximum_minor_units ?? $limit->maximum_minor_units);
+
+        if ($minorUnits <= 0 || ($effectiveMaximum !== null && $used > $effectiveMaximum - $minorUnits)) {
             throw DailyTransactionLimitExceeded::create();
         }
 

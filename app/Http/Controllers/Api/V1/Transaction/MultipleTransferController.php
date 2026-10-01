@@ -82,7 +82,7 @@ final class MultipleTransferController extends Controller
 
         return response()->json([
             'data' => [
-                'multiple_transfer' => new MultipleTransferResource($transfer)
+                'multiple_transfer' => new MultipleTransferResource($transfer),
             ],
         ], 201);
     }

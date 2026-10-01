@@ -16,6 +16,9 @@ interface DailyTransactionLimitRepository
 
     public function find(AccountId $accountId): ?DailyTransactionLimit;
 
+    /** Returns how much has already been sent during this banking day. */
+    public function usedOn(AccountId $accountId, DateTimeImmutable $bankingTime): int;
+
     /** Adds outgoing spending while locking the account limit against concurrent requests. */
     public function consume(
         AccountId $accountId,

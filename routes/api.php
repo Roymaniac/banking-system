@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
+use App\Http\Controllers\Api\V1\Transaction\DailyTransactionLimitController;
 use App\Http\Controllers\Api\V1\Transaction\MultipleTransferController;
 use App\Http\Controllers\Api\V1\Transaction\TransactionHistoryController;
 use App\Http\Controllers\Api\V1\Transaction\TransferController;
@@ -71,4 +72,10 @@ Route::prefix('v1/accounts')
             ->whereUuid('account')
             ->middleware('throttle:10,1')
             ->name('api.v1.accounts.multiple-transfers.store');
+        Route::get('/{account}/daily-limit', [DailyTransactionLimitController::class, 'show'])
+            ->whereUuid('account')
+            ->name('api.v1.accounts.daily-limit.show');
+        Route::patch('/{account}/daily-limit', [DailyTransactionLimitController::class, 'update'])
+            ->whereUuid('account')
+            ->name('api.v1.accounts.daily-limit.update');
     });

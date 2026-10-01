@@ -12,6 +12,7 @@ use Shared\Domain\Aggregate\AggregateRoot;
 use Shared\Domain\Identifier\CorrelationId;
 use Shared\Domain\Identifier\Uuid;
 use Transaction\Domain\DailyLimit\Event\DailyTransactionLimitConfigured;
+use Transaction\Domain\DailyLimit\Event\DailyTransactionLimitReduced;
 
 /** The maximum total an account may send during one banking day. */
 final class DailyTransactionLimit extends AggregateRoot
@@ -21,9 +22,14 @@ final class DailyTransactionLimit extends AggregateRoot
         private readonly LedgerCurrency $currency,
         private readonly int $maximumMinorUnits,
         private readonly DateTimeImmutable $configuredAt,
+        private ?int $customerMaximumMinorUnits = null,
     ) {
         if ($maximumMinorUnits <= 0) {
             throw new InvalidArgumentException('A daily transaction limit must be greater than zero.');
+        }
+
+        if ($customerMaximumMinorUnits !== null && ($customerMaximumMinorUnits <= 0 || $customerMaximumMinorUnits > $maximumMinorUnits)) {
+            throw new InvalidArgumentException('A customer limit must be positive and cannot exceed the bank maximum.');
         }
     }
 
@@ -34,9 +40,17 @@ final class DailyTransactionLimit extends AggregateRoot
         DateTimeImmutable $configuredAt,
         Uuid $eventId,
         ?CorrelationId $correlationId = null,
-        int $previousVersion = 0
+        int $previousVersion = 0,
+        ?int $customerMaximumMinorUnits = null,
     ): self {
-        $limit = new self($accountId, $currency, $maximumMinorUnits, $configuredAt);
+
+        $limit = new self(
+            $accountId,
+            $currency,
+            $maximumMinorUnits,
+            $configuredAt,
+            $customerMaximumMinorUnits
+        );
 
         $limit->reconstituteAtVersion($previousVersion);
 
@@ -61,9 +75,18 @@ final class DailyTransactionLimit extends AggregateRoot
         LedgerCurrency $currency,
         int $maximumMinorUnits,
         DateTimeImmutable $configuredAt,
-        int $version
+        int $version,
+        ?int $customerMaximumMinorUnits = null,
     ): self {
-        $limit = new self($accountId, $currency, $maximumMinorUnits, $configuredAt);
+
+        $limit = new self(
+            $accountId,
+            $currency,
+            $maximumMinorUnits,
+            $configuredAt,
+            $customerMaximumMinorUnits
+        );
+
         $limit->reconstituteAtVersion($version);
 
         return $limit;
@@ -87,5 +110,41 @@ final class DailyTransactionLimit extends AggregateRoot
     public function configuredAt(): DateTimeImmutable
     {
         return $this->configuredAt;
+    }
+
+    public function customerMaximumMinorUnits(): ?int
+    {
+        return $this->customerMaximumMinorUnits;
+    }
+
+    public function effectiveMaximumMinorUnits(): int
+    {
+        return $this->customerMaximumMinorUnits ?? $this->maximumMinorUnits;
+    }
+
+    /** Allows a customer to lower, but never raise, their effective daily limit. */
+    public function reduce(
+        int $maximumMinorUnits,
+        DateTimeImmutable $reducedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        if ($maximumMinorUnits <= 0 || $maximumMinorUnits > $this->effectiveMaximumMinorUnits()) {
+            throw new InvalidArgumentException('A customer may only reduce the current daily transaction limit.');
+        }
+
+        $this->customerMaximumMinorUnits = $maximumMinorUnits;
+
+        $this->record(
+            new DailyTransactionLimitReduced(
+                $eventId,
+                $this->id(),
+                $this->version() + 1,
+                $reducedAt,
+                $this->currency,
+                $maximumMinorUnits,
+                $correlationId,
+            )
+        );
     }
 }

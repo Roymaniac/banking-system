@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
+use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
 use App\Http\Controllers\Api\V1\Transaction\DailyTransactionLimitController;
 use App\Http\Controllers\Api\V1\Transaction\MultipleTransferController;
 use App\Http\Controllers\Api\V1\Transaction\TransactionHistoryController;
@@ -25,7 +26,25 @@ Route::prefix('v1/auth')->group(function (): void {
         Route::post('/logout', [AuthenticationController::class, 'logout'])
             ->name('api.v1.auth.logout');
     });
+
 });
+
+Route::prefix('v1/operations')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::post('/accounts/{account}/deposits', [TrustedTransactionController::class, 'deposit'])
+            ->whereUuid('account')
+            ->middleware('permission:transactions.deposit')
+            ->name('api.v1.operations.deposits.store');
+        Route::post('/accounts/{account}/withdrawals', [TrustedTransactionController::class, 'withdraw'])
+            ->whereUuid('account')
+            ->middleware('permission:transactions.withdraw')
+            ->name('api.v1.operations.withdrawals.store');
+        Route::post('/ledger-entries/{entry}/reversals', [TrustedTransactionController::class, 'reverse'])
+            ->whereUuid('entry')
+            ->middleware('permission:transactions.reverse')
+            ->name('api.v1.operations.reversals.store');
+    });
 
 Route::prefix('v1/customer')
     ->middleware('auth:sanctum')

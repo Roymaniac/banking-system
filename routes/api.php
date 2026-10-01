@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AuthenticationController;
+use App\Http\Controllers\Api\V1\CustomerProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
@@ -17,3 +18,12 @@ Route::prefix('v1/auth')->group(function (): void {
             ->name('api.v1.auth.logout');
     });
 });
+
+Route::prefix('v1/customer')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::get('/profile', [CustomerProfileController::class, 'show'])
+            ->name('api.v1.customer.profile.show');
+        Route::post('/profile', [CustomerProfileController::class, 'store'])
+            ->name('api.v1.customer.profile.store');
+    });

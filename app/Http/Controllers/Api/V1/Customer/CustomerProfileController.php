@@ -7,13 +7,11 @@ namespace App\Http\Controllers\Api\V1\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Customer\CreateCustomerProfileRequest;
 use App\Http\Resources\Api\V1\Customer\CustomerProfileResource;
-use App\Models\User as LaravelUser;
+use App\Http\Support\Api\V1\CurrentCustomer;
 use Customer\Application\Profile\CreateCustomerProfile;
 use Customer\Application\Profile\CreateCustomerProfileCommand;
 use Customer\Domain\Customer\Exception\CustomerProfileAlreadyExists;
 use Customer\Domain\Customer\Exception\UserNotEligibleForCustomerProfile;
-use Customer\Domain\Customer\Repository\CustomerRepository;
-use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,11 +21,12 @@ final class CustomerProfileController extends Controller
     public function store(
         CreateCustomerProfileRequest $request,
         CreateCustomerProfile $createProfile,
+        CurrentCustomer $currentCustomer,
     ): JsonResponse {
         try {
             $customer = $createProfile->handle(
                 new CreateCustomerProfileCommand(
-                    userId: $this->userId($request),
+                    userId: $currentCustomer->userId($request),
                     firstName: $request->string('first_name')->toString(),
                     middleName: $this->optionalString($request, 'middle_name'),
                     lastName: $request->string('last_name')->toString(),
@@ -41,29 +40,25 @@ final class CustomerProfileController extends Controller
         }
 
         return response()->json([
-            'data' => ['customer' => new CustomerProfileResource($customer)],
+            'data' => [
+                'customer' => new CustomerProfileResource($customer)
+            ],
         ], 201);
     }
 
-    public function show(Request $request, CustomerRepository $customers): JsonResponse
+    public function show(Request $request, CurrentCustomer $currentCustomer): JsonResponse
     {
-        $customer = $customers->findByUserId($this->userId($request));
+        $customer = $currentCustomer->profile($request);
 
         if ($customer === null) {
             return response()->json(['message' => 'Customer profile not found.'], 404);
         }
 
         return response()->json([
-            'data' => ['customer' => new CustomerProfileResource($customer)],
+            'data' => [
+                'customer' => new CustomerProfileResource($customer)
+            ],
         ]);
-    }
-
-    private function userId(Request $request): UserId
-    {
-        /** @var LaravelUser $user */
-        $user = $request->user();
-
-        return new UserId((string) $user->identity_user_id);
     }
 
     private function optionalString(Request $request, string $key): ?string

@@ -12,6 +12,7 @@ use Account\Domain\Account\ValueObject\AccountType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Account\CreateAccountRequest;
 use App\Http\Resources\Api\V1\Account\AccountResource;
+use App\Http\Support\Api\V1\CurrentAccount;
 use App\Http\Support\Api\V1\CurrentCustomer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ final class AccountController extends Controller
 
         return response()->json([
             'data' => [
-                'account' => new AccountResource($account)
+                'account' => new AccountResource($account),
             ],
         ], 201);
     }
@@ -68,24 +69,19 @@ final class AccountController extends Controller
     public function show(
         Request $request,
         string $account,
-        CurrentCustomer $currentCustomer,
+        CurrentAccount $currentAccount,
     ): JsonResponse {
+        $storedAccount = $currentAccount->find($request, new AccountId($account));
 
-        $customer = $currentCustomer->profile($request);
-
-        if ($customer === null) {
-            return response()->json(['message' => 'Customer profile not found.'], 404);
-        }
-
-        $storedAccount = $this->accounts->findById(new AccountId($account));
-
-        if ($storedAccount === null || ! $storedAccount->customerId()->equals($customer->id())) {
+        // Missing and foreign accounts share one response so callers cannot
+        // discover whether another customer's account ID is valid.
+        if ($storedAccount === null) {
             return response()->json(['message' => 'Account not found.'], 404);
         }
 
         return response()->json([
             'data' => [
-                'account' => new AccountResource($storedAccount)
+                'account' => new AccountResource($storedAccount),
             ],
         ]);
     }

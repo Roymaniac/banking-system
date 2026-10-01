@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
+use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
@@ -53,4 +54,7 @@ Route::prefix('v1/accounts')
         Route::get('/{account}', [AccountController::class, 'show'])
             ->whereUuid('account')
             ->name('api.v1.accounts.show');
+        Route::get('/{account}/balance', [AccountBalanceController::class, 'show'])
+            ->whereUuid('account')
+            ->name('api.v1.accounts.balance.show');
     });

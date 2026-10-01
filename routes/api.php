@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\Account\AccountController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
@@ -40,4 +41,16 @@ Route::prefix('v1/customer')
         Route::put('/profile/contacts/{contact}', [CustomerContactController::class, 'update'])
             ->whereUuid('contact')
             ->name('api.v1.customer.contacts.update');
+    });
+
+Route::prefix('v1/accounts')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::get('/', [AccountController::class, 'index'])
+            ->name('api.v1.accounts.index');
+        Route::post('/', [AccountController::class, 'store'])
+            ->name('api.v1.accounts.store');
+        Route::get('/{account}', [AccountController::class, 'show'])
+            ->whereUuid('account')
+            ->name('api.v1.accounts.show');
     });

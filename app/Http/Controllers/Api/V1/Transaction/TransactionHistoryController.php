@@ -52,7 +52,7 @@ final class TransactionHistoryController extends Controller
 
         return response()->json([
             'data' => [
-                'history' => new TransactionHistoryResource($report)
+                'history' => new TransactionHistoryResource($report),
             ],
         ]);
     }

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
+use App\Http\Controllers\Api\V1\Transaction\TransferController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
@@ -57,4 +58,8 @@ Route::prefix('v1/accounts')
         Route::get('/{account}/balance', [AccountBalanceController::class, 'show'])
             ->whereUuid('account')
             ->name('api.v1.accounts.balance.show');
+        Route::post('/{account}/transfers', [TransferController::class, 'store'])
+            ->whereUuid('account')
+            ->middleware('throttle:20,1')
+            ->name('api.v1.accounts.transfers.store');
     });

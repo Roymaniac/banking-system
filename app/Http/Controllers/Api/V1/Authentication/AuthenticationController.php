@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api\V1\Authentication;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Requests\Api\V1\Authentication\LoginRequest;
+use App\Http\Resources\Api\V1\Identity\UserResource;
 use App\Models\User as LaravelUser;
 use Identity\Application\Authentication\AuthenticateUser;
 use Identity\Application\Authentication\AuthenticateUserCommand;
@@ -42,7 +43,7 @@ final class AuthenticationController extends Controller
             'data' => [
                 'token_type' => 'Bearer',
                 'access_token' => $token->plainTextToken,
-                'user' => $this->userData($user),
+                'user' => new UserResource($user),
             ],
         ]);
     }
@@ -52,7 +53,7 @@ final class AuthenticationController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json([
-            'message' => 'Signed out successfully.'
+            'message' => 'Signed out successfully.',
         ]);
     }
 
@@ -63,18 +64,8 @@ final class AuthenticationController extends Controller
 
         return response()->json([
             'data' => [
-                'user' => $this->userData($user)
-            ]
+                'user' => new UserResource($user),
+            ],
         ]);
-    }
-
-    /** @return array{identity_user_id: string, email: string, email_verified: bool} */
-    private function userData(LaravelUser $user): array
-    {
-        return [
-            'identity_user_id' => (string) $user->identity_user_id,
-            'email' => (string) $user->email,
-            'email_verified' => $user->email_verified_at !== null,
-        ];
     }
 }

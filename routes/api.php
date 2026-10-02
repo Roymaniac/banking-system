@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Account\AccountController;
 use App\Http\Controllers\Api\V1\Administration\DepartmentController;
+use App\Http\Controllers\Api\V1\Administration\PermissionController;
+use App\Http\Controllers\Api\V1\Administration\RoleController;
 use App\Http\Controllers\Api\V1\Administration\StaffController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
@@ -95,6 +97,30 @@ Route::prefix('v1/administration')
             ->whereUuid('staff')
             ->middleware('permission:staff.manage')
             ->name('api.v1.administration.staff.deactivate');
+
+        Route::post('/roles', [RoleController::class, 'store'])
+            ->middleware('permission:roles.manage')
+            ->name('api.v1.administration.roles.store');
+        Route::delete('/roles/{role}', [RoleController::class, 'deactivate'])
+            ->whereUuid('role')
+            ->middleware('permission:roles.manage')
+            ->name('api.v1.administration.roles.deactivate');
+        Route::post('/roles/{role}/staff/{staff}', [RoleController::class, 'assignStaff'])
+            ->whereUuid(['role', 'staff'])
+            ->middleware('permission:roles.manage')
+            ->name('api.v1.administration.roles.staff.assign');
+
+        Route::post('/permissions', [PermissionController::class, 'store'])
+            ->middleware('permission:permissions.manage')
+            ->name('api.v1.administration.permissions.store');
+        Route::put('/roles/{role}/permissions/{permission}', [PermissionController::class, 'grant'])
+            ->whereUuid(['role', 'permission'])
+            ->middleware('permission:permissions.manage')
+            ->name('api.v1.administration.roles.permissions.grant');
+        Route::delete('/roles/{role}/permissions/{permission}', [PermissionController::class, 'revoke'])
+            ->whereUuid(['role', 'permission'])
+            ->middleware('permission:permissions.manage')
+            ->name('api.v1.administration.roles.permissions.revoke');
     });
 
 Route::prefix('v1/accounts')

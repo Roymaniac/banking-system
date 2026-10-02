@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Account\AccountController;
 use App\Http\Controllers\Api\V1\Administration\DepartmentController;
+use App\Http\Controllers\Api\V1\Administration\DepartmentDirectoryController;
 use App\Http\Controllers\Api\V1\Administration\PermissionController;
+use App\Http\Controllers\Api\V1\Administration\PermissionDirectoryController;
 use App\Http\Controllers\Api\V1\Administration\RoleController;
+use App\Http\Controllers\Api\V1\Administration\RoleDirectoryController;
 use App\Http\Controllers\Api\V1\Administration\StaffController;
+use App\Http\Controllers\Api\V1\Administration\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
@@ -74,6 +78,13 @@ Route::prefix('v1/customer')
 Route::prefix('v1/administration')
     ->middleware('auth:sanctum')
     ->group(function (): void {
+        Route::get('/departments', [DepartmentDirectoryController::class, 'index'])
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.departments.index');
+        Route::get('/departments/{department}', [DepartmentDirectoryController::class, 'show'])
+            ->whereUuid('department')
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.departments.show');
         Route::post('/departments', [DepartmentController::class, 'store'])
             ->middleware('permission:departments.manage')
             ->name('api.v1.administration.departments.store');
@@ -86,6 +97,13 @@ Route::prefix('v1/administration')
             ->middleware('permission:departments.manage')
             ->name('api.v1.administration.departments.deactivate');
 
+        Route::get('/staff', [StaffDirectoryController::class, 'index'])
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.staff.index');
+        Route::get('/staff/{staff}', [StaffDirectoryController::class, 'show'])
+            ->whereUuid('staff')
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.staff.show');
         Route::post('/staff', [StaffController::class, 'store'])
             ->middleware('permission:staff.manage')
             ->name('api.v1.administration.staff.store');
@@ -98,6 +116,13 @@ Route::prefix('v1/administration')
             ->middleware('permission:staff.manage')
             ->name('api.v1.administration.staff.deactivate');
 
+        Route::get('/roles', [RoleDirectoryController::class, 'index'])
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.roles.index');
+        Route::get('/roles/{role}', [RoleDirectoryController::class, 'show'])
+            ->whereUuid('role')
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.roles.show');
         Route::post('/roles', [RoleController::class, 'store'])
             ->middleware('permission:roles.manage')
             ->name('api.v1.administration.roles.store');
@@ -110,6 +135,13 @@ Route::prefix('v1/administration')
             ->middleware('permission:roles.manage')
             ->name('api.v1.administration.roles.staff.assign');
 
+        Route::get('/permissions', [PermissionDirectoryController::class, 'index'])
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.permissions.index');
+        Route::get('/permissions/{permission}', [PermissionDirectoryController::class, 'show'])
+            ->whereUuid('permission')
+            ->middleware('permission:administration.view')
+            ->name('api.v1.administration.permissions.show');
         Route::post('/permissions', [PermissionController::class, 'store'])
             ->middleware('permission:permissions.manage')
             ->name('api.v1.administration.permissions.store');

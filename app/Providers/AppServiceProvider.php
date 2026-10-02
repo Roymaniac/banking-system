@@ -9,6 +9,7 @@ use Account\Application\Number\AccountNumberGenerator;
 use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
+use Administration\Application\Directory\AdministrationDirectoryQuery;
 use Administration\Domain\Department\Repository\DepartmentRepository;
 use Administration\Domain\Permission\Repository\PermissionRepository;
 use Administration\Domain\Permission\Repository\RolePermissionRepository;
@@ -16,6 +17,7 @@ use Administration\Domain\Role\Repository\RoleAssignmentRepository;
 use Administration\Domain\Role\Repository\RoleRepository;
 use Administration\Domain\Staff\Repository\StaffRepository;
 use Administration\Infrastructure\Authorization\DatabaseAuthorizationChecker;
+use Administration\Infrastructure\Persistence\DatabaseAdministrationDirectoryQuery;
 use Administration\Infrastructure\Persistence\DatabaseDepartmentRepository;
 use Administration\Infrastructure\Persistence\DatabasePermissionRepository;
 use Administration\Infrastructure\Persistence\DatabaseRoleAssignmentRepository;
@@ -104,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(AdministrationDirectoryQuery::class, DatabaseAdministrationDirectoryQuery::class);
         $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);
         $this->app->singleton(StaffRepository::class, DatabaseStaffRepository::class);
         $this->app->singleton(RoleRepository::class, DatabaseRoleRepository::class);

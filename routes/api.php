@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\Account\AccountController;
+use App\Http\Controllers\Api\V1\Administration\DepartmentController;
+use App\Http\Controllers\Api\V1\Administration\StaffController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
@@ -65,6 +67,34 @@ Route::prefix('v1/customer')
         Route::put('/profile/contacts/{contact}', [CustomerContactController::class, 'update'])
             ->whereUuid('contact')
             ->name('api.v1.customer.contacts.update');
+    });
+
+Route::prefix('v1/administration')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::post('/departments', [DepartmentController::class, 'store'])
+            ->middleware('permission:departments.manage')
+            ->name('api.v1.administration.departments.store');
+        Route::patch('/departments/{department}', [DepartmentController::class, 'rename'])
+            ->whereUuid('department')
+            ->middleware('permission:departments.manage')
+            ->name('api.v1.administration.departments.rename');
+        Route::delete('/departments/{department}', [DepartmentController::class, 'deactivate'])
+            ->whereUuid('department')
+            ->middleware('permission:departments.manage')
+            ->name('api.v1.administration.departments.deactivate');
+
+        Route::post('/staff', [StaffController::class, 'store'])
+            ->middleware('permission:staff.manage')
+            ->name('api.v1.administration.staff.store');
+        Route::patch('/staff/{staff}/department', [StaffController::class, 'transfer'])
+            ->whereUuid('staff')
+            ->middleware('permission:staff.manage')
+            ->name('api.v1.administration.staff.transfer');
+        Route::delete('/staff/{staff}', [StaffController::class, 'deactivate'])
+            ->whereUuid('staff')
+            ->middleware('permission:staff.manage')
+            ->name('api.v1.administration.staff.deactivate');
     });
 
 Route::prefix('v1/accounts')

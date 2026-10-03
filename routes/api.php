@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
+use App\Http\Controllers\Api\V1\Reporting\CustomerReportController;
+use App\Http\Controllers\Api\V1\Reporting\LedgerReportController;
+use App\Http\Controllers\Api\V1\Reporting\TransactionReportController;
 use App\Http\Controllers\Api\V1\Transaction\DailyTransactionLimitController;
 use App\Http\Controllers\Api\V1\Transaction\MultipleTransferController;
 use App\Http\Controllers\Api\V1\Transaction\TransactionHistoryController;
@@ -185,4 +188,20 @@ Route::prefix('v1/accounts')
         Route::patch('/{account}/daily-limit', [DailyTransactionLimitController::class, 'update'])
             ->whereUuid('account')
             ->name('api.v1.accounts.daily-limit.update');
+    });
+
+Route::prefix('v1/reports')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::get('/customers/{customer}', [CustomerReportController::class, 'show'])
+            ->whereUuid('customer')
+            ->middleware('permission:customer_reports.view')
+            ->name('api.v1.reports.customers.show');
+        Route::get('/ledger', [LedgerReportController::class, 'show'])
+            ->middleware('permission:ledger_reports.view')
+            ->name('api.v1.reports.ledger.show');
+        Route::get('/accounts/{account}/transactions', [TransactionReportController::class, 'show'])
+            ->whereUuid('account')
+            ->middleware('permission:transaction_reports.view')
+            ->name('api.v1.reports.transactions.show');
     });

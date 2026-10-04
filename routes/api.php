@@ -11,6 +11,9 @@ use App\Http\Controllers\Api\V1\Administration\RoleController;
 use App\Http\Controllers\Api\V1\Administration\RoleDirectoryController;
 use App\Http\Controllers\Api\V1\Administration\StaffController;
 use App\Http\Controllers\Api\V1\Administration\StaffDirectoryController;
+use App\Http\Controllers\Api\V1\Audit\ActivityController;
+use App\Http\Controllers\Api\V1\Audit\DomainEventController;
+use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
@@ -204,4 +207,18 @@ Route::prefix('v1/reports')
             ->whereUuid('account')
             ->middleware('permission:transaction_reports.view')
             ->name('api.v1.reports.transactions.show');
+    });
+
+Route::prefix('v1/audit')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::get('/domain-events', [DomainEventController::class, 'index'])
+            ->middleware('permission:audit.view')
+            ->name('api.v1.audit.domain-events.index');
+        Route::get('/activities', [ActivityController::class, 'index'])
+            ->middleware('permission:activity.view')
+            ->name('api.v1.audit.activities.index');
+        Route::get('/security-events', [SecurityEventController::class, 'index'])
+            ->middleware('permission:security.view')
+            ->name('api.v1.audit.security-events.index');
     });

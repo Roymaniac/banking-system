@@ -83,6 +83,7 @@ use Reporting\Application\Transaction\TransactionReportQuery;
 use Reporting\Infrastructure\Persistence\DatabaseCustomerReportQuery;
 use Reporting\Infrastructure\Persistence\DatabaseLedgerReportQuery;
 use Reporting\Infrastructure\Persistence\DatabaseTransactionReportQuery;
+use Shared\Application\Health\SystemHealthCheck;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
@@ -90,6 +91,7 @@ use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\Identifier\UuidGenerator;
 use Shared\Infrastructure\Clock\SystemClock;
 use Shared\Infrastructure\Event\LaravelEventPublisher;
+use Shared\Infrastructure\Health\DatabaseSystemHealthCheck;
 use Shared\Infrastructure\Identifier\NativeUuidGenerator;
 use Shared\Infrastructure\Persistence\LaravelTransactionManager;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
@@ -112,6 +114,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(SystemHealthCheck::class, DatabaseSystemHealthCheck::class);
         $this->app->singleton(AdministrationDirectoryQuery::class, DatabaseAdministrationDirectoryQuery::class);
         $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);
         $this->app->singleton(StaffRepository::class, DatabaseStaffRepository::class);

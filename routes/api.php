@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
+use App\Http\Controllers\Api\V1\Operation\SystemHealthController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
 use App\Http\Controllers\Api\V1\Reporting\CustomerReportController;
 use App\Http\Controllers\Api\V1\Reporting\LedgerReportController;
@@ -41,12 +42,14 @@ Route::prefix('v1/auth')->group(function (): void {
         Route::post('/logout', [AuthenticationController::class, 'logout'])
             ->name('api.v1.auth.logout');
     });
-
 });
 
 Route::prefix('v1/operations')
     ->middleware('auth:sanctum')
     ->group(function (): void {
+        Route::get('/health', [SystemHealthController::class, 'show'])
+            ->middleware('permission:operations.view')
+            ->name('api.v1.operations.health.show');
         Route::post('/accounts/{account}/deposits', [TrustedTransactionController::class, 'deposit'])
             ->whereUuid('account')
             ->middleware('permission:transactions.deposit')

@@ -19,7 +19,15 @@ final readonly class DatabaseEmailOutboxQuery implements EmailOutboxQuery
     public function search(array $filters, int $page, int $perPage): array
     {
         $query = $this->connection->table('email_outbox')
-            ->select('id', 'attempts', 'recorded_at', 'last_attempted_at', 'delivered_at');
+            ->select(
+                'id',
+                'attempts',
+                'retry_cycles',
+                'recorded_at',
+                'last_attempted_at',
+                'requeued_at',
+                'delivered_at',
+            );
 
         if (isset($filters['from'])) {
             $query->where('recorded_at', '>=', $filters['from']);
@@ -44,8 +52,10 @@ final readonly class DatabaseEmailOutboxQuery implements EmailOutboxQuery
                 'status' => $this->status($row),
                 'attempts' => (int) $row->attempts,
                 'maximum_attempts' => self::MAX_ATTEMPTS,
+                'retry_cycles' => (int) $row->retry_cycles,
                 'recorded_at' => $this->date($row->recorded_at),
                 'last_attempted_at' => $this->nullableDate($row->last_attempted_at),
+                'requeued_at' => $this->nullableDate($row->requeued_at),
                 'delivered_at' => $this->nullableDate($row->delivered_at),
             ])
             ->values()

@@ -230,4 +230,8 @@ Route::prefix('v1/notifications')
         Route::get('/outbox', [EmailOutboxController::class, 'index'])
             ->middleware('permission:notifications.view')
             ->name('api.v1.notifications.outbox.index');
+        Route::post('/outbox/{message}/retry', [EmailOutboxController::class, 'retry'])
+            ->whereUuid('message')
+            ->middleware('permission:notifications.retry')
+            ->name('api.v1.notifications.outbox.retry');
     });

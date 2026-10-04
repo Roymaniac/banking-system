@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
+use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
 use App\Http\Controllers\Api\V1\Reporting\CustomerReportController;
 use App\Http\Controllers\Api\V1\Reporting\LedgerReportController;
@@ -221,4 +222,12 @@ Route::prefix('v1/audit')
         Route::get('/security-events', [SecurityEventController::class, 'index'])
             ->middleware('permission:security.view')
             ->name('api.v1.audit.security-events.index');
+    });
+
+Route::prefix('v1/notifications')
+    ->middleware('auth:sanctum')
+    ->group(function (): void {
+        Route::get('/outbox', [EmailOutboxController::class, 'index'])
+            ->middleware('permission:notifications.view')
+            ->name('api.v1.notifications.outbox.index');
     });

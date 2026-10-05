@@ -107,7 +107,7 @@ it('locks the balance and atomically completes a withdrawal', function (): void 
     $limits = Mockery::mock(DailyTransactionLimitRepository::class);
     $limits->shouldReceive('consume')->once()->with($account->id(), $customerLedger->currency(), 20000, Mockery::type(DateTimeImmutable::class));
     $ids = Mockery::mock(UuidGenerator::class);
-    $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn(): Uuid => Uuid::generate(), range(1, 9)));
+    $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn (): Uuid => Uuid::generate(), range(1, 9)));
     $publisher = new MakeWithdrawalTestPublisher;
 
     $withdrawal = (new MakeWithdrawal(

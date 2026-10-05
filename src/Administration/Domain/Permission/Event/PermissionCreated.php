@@ -34,7 +34,7 @@ final readonly class PermissionCreated extends DomainEvent
     {
         return [
             'name' => $this->name->value,
-            'label' => $this->label->value
+            'label' => $this->label->value,
         ];
     }
 }

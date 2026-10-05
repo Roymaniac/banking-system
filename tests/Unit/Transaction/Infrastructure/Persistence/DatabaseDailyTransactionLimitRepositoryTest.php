@@ -102,8 +102,8 @@ it('allows the full limit again on a later banking day', function (): void {
     $currency = new LedgerCurrency('NGN');
     $repository->save(DailyTransactionLimit::configure($account->id(), $currency, 5000, $now, Uuid::generate()));
 
-    DB::transaction(fn() => $repository->consume($account->id(), $currency, 5000, $now));
-    DB::transaction(fn() => $repository->consume($account->id(), $currency, 5000, $now->modify('+1 day')));
+    DB::transaction(fn () => $repository->consume($account->id(), $currency, 5000, $now));
+    DB::transaction(fn () => $repository->consume($account->id(), $currency, 5000, $now->modify('+1 day')));
 
     expect(DB::table('daily_transaction_limit_usages')->where('account_id', $account->id()->value())->count())->toBe(2);
 });
@@ -136,8 +136,8 @@ it('counts spending that happened before the first limit was configured', functi
     $repository = app(DatabaseDailyTransactionLimitRepository::class);
     $currency = new LedgerCurrency('NGN');
 
-    DB::transaction(fn() => $repository->consume($account->id(), $currency, 4000, $now));
+    DB::transaction(fn () => $repository->consume($account->id(), $currency, 4000, $now));
     $repository->save(DailyTransactionLimit::configure($account->id(), $currency, 5000, $now, Uuid::generate()));
 
-    DB::transaction(fn() => $repository->consume($account->id(), $currency, 1001, $now));
+    DB::transaction(fn () => $repository->consume($account->id(), $currency, 1001, $now));
 })->throws(DailyTransactionLimitExceeded::class, 'exceed');

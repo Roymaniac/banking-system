@@ -15,13 +15,11 @@ abstract class AggregateRoot extends Entity
 
     /**
      * The current version of the aggregate.
-     * @var int
      */
     private int $version = 0;
 
     /**
      * Returns the current version of the aggregate.
-     * @return int
      */
     final public function version(): int
     {
@@ -30,7 +28,7 @@ abstract class AggregateRoot extends Entity
 
     /**
      * Records a domain event for the aggregate.
-     * @param DomainEvent $event
+     *
      * @throws DomainException if the event does not belong to the aggregate or if the event version is invalid.
      */
     final protected function record(DomainEvent $event): void
@@ -49,7 +47,7 @@ abstract class AggregateRoot extends Entity
 
     /**
      * Reconstitutes the aggregate at a specific version.
-     * @param int $version
+     *
      * @throws DomainException if the version is negative.
      */
     final protected function reconstituteAtVersion(int $version): void

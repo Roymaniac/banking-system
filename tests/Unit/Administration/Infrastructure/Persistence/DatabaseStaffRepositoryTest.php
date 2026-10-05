@@ -82,7 +82,7 @@ it('rejects duplicate employee identities and inactive departments', function ()
         )
     );
 
-    expect(fn() => app(HireStaff::class)->handle(
+    expect(fn () => app(HireStaff::class)->handle(
         new HireStaffCommand(
             $userId,
             'EMP-102',

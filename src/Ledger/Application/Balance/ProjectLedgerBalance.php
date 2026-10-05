@@ -29,8 +29,8 @@ final readonly class ProjectLedgerBalance
             throw PostedEntryMissing::create();
         }
 
-        $this->transactions->run(
-            fn (): mixed => $this->balances->apply($entry, $event->occurredOn()),
-        );
+        $this->transactions->run(function () use ($entry, $event): void {
+            $this->balances->apply($entry, $event->occurredOn());
+        });
     }
 }

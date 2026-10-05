@@ -10,6 +10,8 @@ namespace Shared\Domain\Specification;
  * Examples include: “a customer has completed KYC” or “an account can receive
  * a transfer”. Keeping these rules in dedicated objects prevents them from
  * being duplicated across controllers, services, and database queries.
+ *
+ * @template TCandidate
  */
 interface Specification
 {

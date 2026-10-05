@@ -41,8 +41,8 @@ it('renders and queues an email-verification link', function (): void {
     $templates = Mockery::mock(EmailTemplateRenderer::class);
     $templates->shouldReceive('render')->once()->with(
         EmailTemplate::EmailVerification,
-        Mockery::on(fn(RecipientEmail $email): bool => $email->value() === 'verify@example.com'),
-        Mockery::on(fn(array $variables): bool => $variables['verificationUrl'] === 'https://bank.example/verify-email?token=' . $token && isset($variables['expiresAt'])),
+        Mockery::on(fn (RecipientEmail $email): bool => $email->value() === 'verify@example.com'),
+        Mockery::on(fn (array $variables): bool => $variables['verificationUrl'] === 'https://bank.example/verify-email?token='.$token && isset($variables['expiresAt'])),
     )->andReturn($rendered);
     $emails = Mockery::mock(EmailSender::class);
     $emails->shouldReceive('send')->once()->with($rendered);
@@ -62,8 +62,8 @@ it('renders and queues a password-reset link', function (): void {
     $templates = Mockery::mock(EmailTemplateRenderer::class);
     $templates->shouldReceive('render')->once()->with(
         EmailTemplate::PasswordReset,
-        Mockery::on(fn(RecipientEmail $email): bool => $email->value() === 'reset@example.com'),
-        Mockery::on(fn(array $variables): bool => $variables['resetUrl'] === 'https://bank.example/reset-password?token=' . $token && isset($variables['expiresAt'])),
+        Mockery::on(fn (RecipientEmail $email): bool => $email->value() === 'reset@example.com'),
+        Mockery::on(fn (array $variables): bool => $variables['resetUrl'] === 'https://bank.example/reset-password?token='.$token && isset($variables['expiresAt'])),
     )->andReturn($rendered);
     $emails = Mockery::mock(EmailSender::class);
     $emails->shouldReceive('send')->once()->with($rendered);

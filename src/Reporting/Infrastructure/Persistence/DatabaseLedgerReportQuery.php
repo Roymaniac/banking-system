@@ -26,7 +26,7 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
     public function generate(LedgerReportRequest $request): LedgerReportView
     {
         return $this->snapshot->run(
-            fn(): LedgerReportView => $this->generateFromSnapshot($request)
+            fn (): LedgerReportView => $this->generateFromSnapshot($request)
         );
     }
 
@@ -34,7 +34,7 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
     {
         $from = $request->from->setTimezone(new DateTimeZone('UTC'));
         $to = $request->to->setTimezone(new DateTimeZone('UTC'));
-        $periodEntries = fn(): Builder => $this->connection->table('ledger_entries')
+        $periodEntries = fn (): Builder => $this->connection->table('ledger_entries')
             ->whereBetween('occurred_at', [$from, $to]);
 
         $totalPostedEntries = (clone $periodEntries())
@@ -54,7 +54,7 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
             ->selectRaw("SUM(CASE WHEN ledger_postings.side = 'debit' THEN ledger_postings.minor_units ELSE 0 END) AS debits")
             ->selectRaw("SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE 0 END) AS credits");
 
-        $unbalancedCount = $this->connection->query()
+        $unbalancedCount = $this->queryBuilder()
             ->fromSub($entryBalances, 'entry_balances')
             ->whereColumn('debits', '<>', 'credits')
             ->count();
@@ -70,7 +70,7 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
             ->selectRaw("SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE 0 END) AS credits")
             ->get()
             ->map(
-                fn(object $summary): LedgerCurrencySummaryView => new LedgerCurrencySummaryView(
+                fn (object $summary): LedgerCurrencySummaryView => new LedgerCurrencySummaryView(
                     $summary->currency,
                     (int) $summary->debits,
                     (int) $summary->credits,
@@ -168,5 +168,26 @@ final readonly class DatabaseLedgerReportQuery implements LedgerReportQuery
         }
 
         return $grouped;
+    }
+
+    /**
+     * Laravel supplies a concrete connection, while the constructor depends
+     * on its smaller interface to keep this adapter easy to replace.
+     */
+    private function queryBuilder(): Builder
+    {
+        $makeQuery = [$this->connection, 'query'];
+
+        if (! is_callable($makeQuery)) {
+            throw new \LogicException('The database connection must create query builders.');
+        }
+
+        $query = $makeQuery();
+
+        if (! $query instanceof Builder) {
+            throw new \UnexpectedValueException('The database connection returned an invalid query builder.');
+        }
+
+        return $query;
     }
 }

@@ -31,14 +31,14 @@ final readonly class DatabaseRoleRepository implements RoleRepository
             'status' => $role->status()->value,
             'created_at' => $role->createdAt()->setTimezone(new DateTimeZone('UTC')),
             'deactivated_at' => $role->deactivatedAt()?->setTimezone(new DateTimeZone('UTC')),
-            'version' => $role->version()
+            'version' => $role->version(),
         ];
 
         if ($stored === null) {
             $this->connection->table('administration_roles')
                 ->insert([
                     'id' => $role->id()->value(),
-                    ...$values
+                    ...$values,
                 ]);
 
             return;

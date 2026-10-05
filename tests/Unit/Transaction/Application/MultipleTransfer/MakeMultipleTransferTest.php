@@ -96,7 +96,7 @@ it('pays every recipient through one atomic balanced entry', function (): void {
     $accounts = Mockery::mock(AccountRepository::class);
     $accounts->shouldReceive('findById')->times(3)->andReturn($sender, $firstRecipient, $secondRecipient);
     $accounts->shouldReceive('findByIdForUpdate')->times(3)->andReturnUsing(
-        fn(AccountId $id): Account => match ($id->value()) {
+        fn (AccountId $id): Account => match ($id->value()) {
             $sender->id()->value() => $sender,
             $firstRecipient->id()->value() => $firstRecipient,
             default => $secondRecipient,
@@ -106,7 +106,7 @@ it('pays every recipient through one atomic balanced entry', function (): void {
     $ledgers->shouldReceive('findByAccountId')->times(3)->andReturn($senderLedger, $firstLedger, $secondLedger);
     $entries = Mockery::mock(LedgerEntryRepository::class);
     $entries->shouldReceive('save')->once()->with(Mockery::on(function (LedgerEntry $entry): bool {
-        $amounts = array_map(fn($posting): int => $posting->amount()->minorUnits(), $entry->postings());
+        $amounts = array_map(fn ($posting): int => $posting->amount()->minorUnits(), $entry->postings());
 
         return $amounts === [30000, 10000, 20000];
     }));
@@ -132,7 +132,7 @@ it('pays every recipient through one atomic balanced entry', function (): void {
     );
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->times(11)->andReturn(...array_map(
-        fn(): Uuid => Uuid::generate(),
+        fn (): Uuid => Uuid::generate(),
         range(1, 11)
     ));
     $publisher = new MultipleTransferTestPublisher;
@@ -173,7 +173,7 @@ it('rejects the whole batch when the sender cannot cover its total', function ()
     $accounts = Mockery::mock(AccountRepository::class);
     $accounts->shouldReceive('findById')->twice()->andReturn($sender, $recipient);
     $accounts->shouldReceive('findByIdForUpdate')->twice()->andReturnUsing(
-        fn(AccountId $id): Account => $id->equals($sender->id()) ? $sender : $recipient,
+        fn (AccountId $id): Account => $id->equals($sender->id()) ? $sender : $recipient,
     );
     $ledgers = Mockery::mock(LedgerRepository::class);
     $ledgers->shouldReceive('findByAccountId')->twice()->andReturn($senderLedger, $recipientLedger);

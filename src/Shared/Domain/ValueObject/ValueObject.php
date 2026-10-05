@@ -8,7 +8,6 @@ use JsonSerializable;
 
 abstract class ValueObject implements JsonSerializable
 {
-
     /**
      * Return the scalar representation of this value object
      *

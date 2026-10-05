@@ -47,7 +47,7 @@ final readonly class StaffHired extends DomainEvent
             'user_id' => $this->userId->value(),
             'employee_number' => $this->employeeNumber->value,
             'department_id' => $this->departmentId->value(),
-            'job_title' => $this->jobTitle->value
+            'job_title' => $this->jobTitle->value,
         ];
     }
 }

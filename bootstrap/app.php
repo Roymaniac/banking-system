@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RequirePermission;
 use Audit\Infrastructure\Http\Middleware\RecordUserActivityMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Capture authenticated changes from both web and API requests.
         $middleware->append(RecordUserActivityMiddleware::class);
+        $middleware->alias([
+            'permission' => RequirePermission::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

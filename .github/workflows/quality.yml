@@ -1,0 +1,57 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+# A newer push makes an older run for the same branch unnecessary.
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    name: Application quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate
+
+      - name: Verify database migrations
+        run: php artisan migrate:fresh --force
+
+      - name: Check code style
+        run: composer format:check
+
+      - name: Run static analysis
+        run: composer analyse
+
+      - name: Verify OpenAPI generation
+        run: composer openapi:check
+
+      - name: Run automated tests
+        run: composer test

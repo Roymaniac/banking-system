@@ -10,7 +10,7 @@ it('uses PostgreSQL repeatable read before executing report queries', function (
     $connection->shouldReceive('transaction')
         ->once()
         ->andReturnUsing(
-            fn(callable $callback): mixed => $callback()
+            fn (callable $callback): mixed => $callback()
         );
 
     $connection->shouldReceive('getDriverName')->once()->andReturn('pgsql');
@@ -21,7 +21,7 @@ it('uses PostgreSQL repeatable read before executing report queries', function (
         ->andReturnTrue();
 
     $result = (new DatabaseReportSnapshot($connection))->run(
-        fn(): string => 'consistent report'
+        fn (): string => 'consistent report'
     );
 
     expect($result)->toBe('consistent report');
@@ -31,12 +31,12 @@ it('uses the database transaction snapshot without unsupported SQLite SQL', func
     $connection = Mockery::mock(ConnectionInterface::class);
     $connection->shouldReceive('transaction')
         ->once()
-        ->andReturnUsing(fn(callable $callback): mixed => $callback());
+        ->andReturnUsing(fn (callable $callback): mixed => $callback());
 
     $connection->shouldReceive('getDriverName')->once()->andReturn('sqlite');
     $connection->shouldNotReceive('statement');
 
     expect((new DatabaseReportSnapshot($connection))->run(
-        fn(): int => 42
+        fn (): int => 42
     ))->toBe(42);
 });

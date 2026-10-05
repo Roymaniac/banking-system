@@ -105,7 +105,7 @@ final readonly class DatabaseAccountRepository implements AccountRepository
             ->where('customer_id', $customerId->value())
             ->orderBy('created_at')
             ->get()
-            ->map(fn(object $record): Account => $this->hydrate($record))
+            ->map(fn (object $record): Account => $this->hydrate($record))
             ->all();
     }
 

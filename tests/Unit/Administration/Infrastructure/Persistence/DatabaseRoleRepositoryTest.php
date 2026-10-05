@@ -65,7 +65,7 @@ it('rejects duplicate role names and assignments', function (): void {
 
     $role = app(CreateRole::class)->handle('auditor', 'Auditor');
 
-    expect(fn() => app(CreateRole::class)->handle(' AUDITOR ', 'Other'))
+    expect(fn () => app(CreateRole::class)->handle(' AUDITOR ', 'Other'))
         ->toThrow(RoleNameAlreadyExists::class);
 
     app(AssignRoleToStaff::class)->handle($role->id(), $staff->id());

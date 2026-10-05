@@ -39,7 +39,7 @@ final readonly class StaffTransferred extends DomainEvent
     public function payload(): array
     {
         return [
-            'department_id' => $this->departmentId->value()
+            'department_id' => $this->departmentId->value(),
         ];
     }
 }

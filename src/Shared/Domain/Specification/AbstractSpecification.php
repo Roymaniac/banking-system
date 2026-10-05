@@ -9,6 +9,10 @@ namespace Shared\Domain\Specification;
  *
  * A concrete rule only needs to define its own condition. This class supplies
  * the readable “and”, “or”, and “not” operations for building larger rules.
+ *
+ * @template TCandidate
+ *
+ * @implements Specification<TCandidate>
  */
 abstract class AbstractSpecification implements Specification
 {

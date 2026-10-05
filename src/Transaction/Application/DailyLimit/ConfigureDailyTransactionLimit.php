@@ -34,7 +34,13 @@ final readonly class ConfigureDailyTransactionLimit
             throw AccountNotEligibleForDailyLimit::create();
         }
 
-        $previousVersion = $this->limits->find($account->id())?->version() ?? 0;
+        $existing = $this->limits->find($account->id());
+        $previousVersion = $existing?->version() ?? 0;
+        $customerMaximum = $existing?->customerMaximumMinorUnits();
+
+        if ($customerMaximum !== null) {
+            $customerMaximum = min($customerMaximum, $command->maximumMinorUnits);
+        }
 
         $limit = DailyTransactionLimit::configure(
             $account->id(),
@@ -43,7 +49,8 @@ final readonly class ConfigureDailyTransactionLimit
             $this->clock->now(),
             $this->uuidGenerator->generate(),
             $command->correlationId,
-            $previousVersion
+            $previousVersion,
+            $customerMaximum,
         );
 
         $events = $this->transactions->run(function () use ($limit): array {

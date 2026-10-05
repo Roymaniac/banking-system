@@ -116,7 +116,7 @@ it('creates an opposite entry while preserving the original entry', function ():
         ));
     $balances->shouldReceive('apply')->once();
     $ids = Mockery::mock(UuidGenerator::class);
-    $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn(): Uuid => Uuid::generate(), range(1, 9)));
+    $ids->shouldReceive('generate')->times(9)->andReturn(...array_map(fn (): Uuid => Uuid::generate(), range(1, 9)));
     $publisher = new ReversalTestPublisher;
 
     $reversal = (new ReverseTransaction(

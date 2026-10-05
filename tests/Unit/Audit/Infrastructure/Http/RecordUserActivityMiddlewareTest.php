@@ -13,9 +13,9 @@ use Tests\TestCase;
 uses(TestCase::class, RefreshDatabase::class);
 
 beforeEach(function (): void {
-    Route::post('/activity-test', fn() => response()->noContent())
+    Route::post('/activity-test', fn () => response()->noContent())
         ->name('activity.test');
-    Route::get('/activity-read-test', fn() => response()->noContent())
+    Route::get('/activity-read-test', fn () => response()->noContent())
         ->name('activity.read-test');
 });
 

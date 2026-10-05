@@ -33,7 +33,7 @@ final readonly class DatabaseRolePermissionRepository implements RolePermissionR
             ->insert([
                 'role_id' => $roleId->value(),
                 'permission_id' => $permissionId->value(),
-                'granted_at' => $grantedAt->setTimezone(new DateTimeZone('UTC'))
+                'granted_at' => $grantedAt->setTimezone(new DateTimeZone('UTC')),
             ]);
     }
 

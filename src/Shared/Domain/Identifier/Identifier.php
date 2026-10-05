@@ -12,6 +12,7 @@ abstract class Identifier extends ValueObject
 
     /**
      * Returns the scalar representation of this identifier
+     *
      * @return array<string, string>
      */
     final protected function toArray(): array
@@ -21,7 +22,6 @@ abstract class Identifier extends ValueObject
 
     /**
      * Returns the string representation of this identifier
-     * @return string
      */
     final public function __toString(): string
     {

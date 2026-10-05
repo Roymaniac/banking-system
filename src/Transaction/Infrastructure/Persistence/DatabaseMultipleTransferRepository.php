@@ -99,7 +99,7 @@ final readonly class DatabaseMultipleTransferRepository implements MultipleTrans
             ->where('multiple_transfer_id', $record->id)
             ->orderBy('position')
             ->get()->map(
-                fn(object $item): MultipleTransferItem => new MultipleTransferItem(
+                fn (object $item): MultipleTransferItem => new MultipleTransferItem(
                     new AccountId($item->recipient_account_id),
                     new TransactionAmount(
                         (int) $item->minor_units,

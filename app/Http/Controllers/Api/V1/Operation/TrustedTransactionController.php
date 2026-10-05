@@ -72,14 +72,14 @@ final class TrustedTransactionController extends Controller
             );
         } catch (DuplicateDepositReference $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
-        } catch (AccountNotEligibleForDeposit | DepositCurrencyMismatch | DepositLedgerUnavailable $exception) {
+        } catch (AccountNotEligibleForDeposit|DepositCurrencyMismatch|DepositLedgerUnavailable $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         return response()->json([
             'data' => [
-                'deposit' => new MoneyMovementResource($deposit)
-            ]
+                'deposit' => new MoneyMovementResource($deposit),
+            ],
         ], 201);
     }
 
@@ -116,16 +116,16 @@ final class TrustedTransactionController extends Controller
             );
         } catch (DuplicateWithdrawalReference $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
-        } catch (DailyTransactionLimitExceeded | InsufficientFunds $exception) {
+        } catch (DailyTransactionLimitExceeded|InsufficientFunds $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
-        } catch (AccountNotEligibleForWithdrawal | WithdrawalCurrencyMismatch | WithdrawalLedgerUnavailable $exception) {
+        } catch (AccountNotEligibleForWithdrawal|WithdrawalCurrencyMismatch|WithdrawalLedgerUnavailable $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         return response()->json([
             'data' => [
-                'withdrawal' => new MoneyMovementResource($withdrawal)
-            ]
+                'withdrawal' => new MoneyMovementResource($withdrawal),
+            ],
         ], 201);
     }
 
@@ -143,16 +143,16 @@ final class TrustedTransactionController extends Controller
                 $request->string('reason')->toString(),
                 $clock->now(),
             ));
-        } catch (DuplicateReversalReference | TransactionAlreadyReversed $exception) {
+        } catch (DuplicateReversalReference|TransactionAlreadyReversed $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
-        } catch (InsufficientReversalFunds | ReversibleEntryNotFound $exception) {
+        } catch (InsufficientReversalFunds|ReversibleEntryNotFound $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         return response()->json([
             'data' => [
-                'reversal' => new ReversalResource($reversal)
-            ]
+                'reversal' => new ReversalResource($reversal),
+            ],
         ], 201);
     }
 

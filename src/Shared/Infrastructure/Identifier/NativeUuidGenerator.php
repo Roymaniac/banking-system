@@ -11,8 +11,6 @@ final class NativeUuidGenerator implements UuidGenerator
 {
     /**
      * Generates a new UUID.
-     *
-     * @return Uuid
      */
     public function generate(): Uuid
     {

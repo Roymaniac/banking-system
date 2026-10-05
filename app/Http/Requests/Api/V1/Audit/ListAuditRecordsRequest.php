@@ -58,10 +58,10 @@ final class ListAuditRecordsRequest extends FormRequest
         $timezone = new DateTimeZone('UTC');
 
         if ($this->filled('from')) {
-            $filters['from'] = new DateTimeImmutable($this->string('from')->toString() . ' 00:00:00', $timezone);
+            $filters['from'] = new DateTimeImmutable($this->string('from')->toString().' 00:00:00', $timezone);
         }
         if ($this->filled('to')) {
-            $filters['to'] = new DateTimeImmutable($this->string('to')->toString() . ' 23:59:59.999999', $timezone);
+            $filters['to'] = new DateTimeImmutable($this->string('to')->toString().' 23:59:59.999999', $timezone);
         }
 
         foreach (

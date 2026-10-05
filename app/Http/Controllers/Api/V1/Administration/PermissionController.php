@@ -48,9 +48,9 @@ final class PermissionController extends Controller
     ): JsonResponse {
         try {
             $grant->handle(new RoleId($role), new PermissionId($permission));
-        } catch (RoleNotFound | PermissionNotFound $exception) {
+        } catch (RoleNotFound|PermissionNotFound $exception) {
             return response()->json(['message' => $exception->getMessage()], 404);
-        } catch (InactiveRoleCannotChange | PermissionAlreadyGranted $exception) {
+        } catch (InactiveRoleCannotChange|PermissionAlreadyGranted $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         }
 
@@ -64,9 +64,9 @@ final class PermissionController extends Controller
     ): JsonResponse {
         try {
             $revoke->handle(new RoleId($role), new PermissionId($permission));
-        } catch (RoleNotFound | PermissionNotFound $exception) {
+        } catch (RoleNotFound|PermissionNotFound $exception) {
             return response()->json(['message' => $exception->getMessage()], 404);
-        } catch (InactiveRoleCannotChange | PermissionNotGranted $exception) {
+        } catch (InactiveRoleCannotChange|PermissionNotGranted $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         }
 

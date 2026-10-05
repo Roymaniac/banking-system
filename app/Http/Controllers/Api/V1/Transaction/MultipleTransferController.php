@@ -69,12 +69,12 @@ final class MultipleTransferController extends Controller
             ));
         } catch (DuplicateMultipleTransferReference $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
-        } catch (AccountNotEligibleForMultipleTransfer | MultipleTransferLedgerUnavailable $exception) {
+        } catch (AccountNotEligibleForMultipleTransfer|MultipleTransferLedgerUnavailable $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (
-            DailyTransactionLimitExceeded |
-            InsufficientMultipleTransferFunds |
-            InvalidMultipleTransfer |
+            DailyTransactionLimitExceeded|
+            InsufficientMultipleTransferFunds|
+            InvalidMultipleTransfer|
             MultipleTransferCurrencyMismatch $exception
         ) {
             return response()->json(['message' => $exception->getMessage()], 422);

@@ -47,7 +47,7 @@ final readonly class DatabaseEmailOutboxQuery implements EmailOutboxQuery
             ->orderByDesc('id')
             ->forPage($page, $perPage)
             ->get()
-            ->map(fn(object $row): array => [
+            ->map(fn (object $row): array => [
                 'id' => $row->id,
                 'status' => $this->status($row),
                 'attempts' => (int) $row->attempts,

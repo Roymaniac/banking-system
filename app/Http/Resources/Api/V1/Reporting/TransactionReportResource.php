@@ -31,7 +31,7 @@ final class TransactionReportResource extends JsonResource
             'total_credit_minor_units' => $report->totalCreditMinorUnits,
             'closing_balance_minor_units' => $report->closingBalanceMinorUnits,
             'transactions' => array_map(
-                fn(TransactionLineView $transaction): array => [
+                fn (TransactionLineView $transaction): array => [
                     'ledger_entry_id' => $transaction->ledgerEntryId,
                     'reference' => $transaction->reference,
                     'description' => $transaction->description,

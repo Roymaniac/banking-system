@@ -74,6 +74,21 @@
         ],
         "test": [
             "./vendor/bin/pest"
+        ],
+        "format:check": [
+            "./vendor/bin/pint --test"
+        ],
+        "analyse": [
+            "./vendor/bin/phpstan analyse --memory-limit=1G --no-progress"
+        ],
+        "openapi:check": [
+            "@php artisan scramble:analyze"
+        ],
+        "quality": [
+            "@format:check",
+            "@analyse",
+            "@openapi:check",
+            "@test"
         ]
     },
     "extra": {

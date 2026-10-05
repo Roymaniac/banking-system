@@ -41,7 +41,7 @@ final class CustomerProfileController extends Controller
 
         return response()->json([
             'data' => [
-                'customer' => new CustomerProfileResource($customer)
+                'customer' => new CustomerProfileResource($customer),
             ],
         ], 201);
     }
@@ -56,7 +56,7 @@ final class CustomerProfileController extends Controller
 
         return response()->json([
             'data' => [
-                'customer' => new CustomerProfileResource($customer)
+                'customer' => new CustomerProfileResource($customer),
             ],
         ]);
     }

@@ -188,7 +188,7 @@ it('rejects unavailable recipients and currency mismatches', function (): void {
 });
 
 it('validates public transfer input and requires authentication', function (): void {
-    $this->postJson('/api/v1/accounts/' . AccountId::generate()->value() . '/transfers')
+    $this->postJson('/api/v1/accounts/'.AccountId::generate()->value().'/transfers')
         ->assertUnauthorized();
 
     $senderUser = transferApiUser();

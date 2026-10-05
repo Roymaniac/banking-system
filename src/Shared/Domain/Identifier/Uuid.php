@@ -10,7 +10,7 @@ class Uuid extends Identifier
 {
     private string $value;
 
-    public function __construct(string $value)
+    final public function __construct(string $value)
     {
         $value = strtolower($value);
 
@@ -23,8 +23,6 @@ class Uuid extends Identifier
 
     /**
      * Generates a new UUID and returns an instance of Uuid.
-     *
-     * @return static
      */
     public static function generate(): static
     {
@@ -44,8 +42,6 @@ class Uuid extends Identifier
 
     /**
      * Returns the string representation of this UUID.
-     *
-     * @return string
      */
     final public function value(): string
     {

@@ -37,7 +37,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
             $query->orderBy('name'),
             $page,
             $perPage,
-            fn(object $row): array => [
+            fn (object $row): array => [
                 'id' => $row->id,
                 'code' => $row->code,
                 'name' => $row->name,
@@ -94,7 +94,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
             $query->orderBy('staff.employee_number'),
             $page,
             $perPage,
-            fn(object $row): array => $this->staffRow($row)
+            fn (object $row): array => $this->staffRow($row)
         );
     }
 
@@ -119,9 +119,9 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
                 'administration_roles.id',
                 'administration_roles.name',
                 'administration_roles.label',
-                'administration_roles.status'
+                'administration_roles.status',
             ])
-            ->map(fn(object $role): array => (array) $role)
+            ->map(fn (object $role): array => (array) $role)
             ->all();
 
         return $staff;
@@ -150,7 +150,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
             $query->orderBy('label'),
             $page,
             $perPage,
-            fn(object $row): array => [
+            fn (object $row): array => [
                 'id' => $row->id,
                 'name' => $row->name,
                 'label' => $row->label,
@@ -185,9 +185,9 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
                 ->get([
                     'administration_permissions.id',
                     'administration_permissions.name',
-                    'administration_permissions.label'
+                    'administration_permissions.label',
                 ])
-                ->map(fn(object $permission): array => (array) $permission)
+                ->map(fn (object $permission): array => (array) $permission)
                 ->all(),
             'staff_count' => $this->connection->table('staff_role_assignments')->where('role_id', $id)->count(),
         ];
@@ -208,7 +208,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
             $query->orderBy('name'),
             $page,
             $perPage,
-            fn(object $row): array => [
+            fn (object $row): array => [
                 'id' => $row->id,
                 'name' => $row->name,
                 'label' => $row->label,
@@ -240,9 +240,9 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
                     'administration_roles.id',
                     'administration_roles.name',
                     'administration_roles.label',
-                    'administration_roles.status'
+                    'administration_roles.status',
                 ])
-                ->map(fn(object $role): array => (array) $role)
+                ->map(fn (object $role): array => (array) $role)
                 ->all(),
         ];
     }

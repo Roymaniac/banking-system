@@ -28,7 +28,7 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
     ): ?TransactionReportView {
 
         return $this->snapshot->run(
-            fn(): ?TransactionReportView => $this->findFromSnapshot($accountId, $period)
+            fn (): ?TransactionReportView => $this->findFromSnapshot($accountId, $period)
         );
     }
 
@@ -57,7 +57,7 @@ final readonly class DatabaseTransactionReportQuery implements TransactionReport
             ->selectRaw("COALESCE(SUM(CASE WHEN ledger_postings.side = 'credit' THEN ledger_postings.minor_units ELSE -ledger_postings.minor_units END), 0) AS balance")
             ->value('balance');
 
-        $periodPostings = fn() => $this->connection->table('ledger_postings')
+        $periodPostings = fn () => $this->connection->table('ledger_postings')
             ->join('ledger_entries', 'ledger_entries.id', '=', 'ledger_postings.entry_id')
             ->where('ledger_postings.ledger_id', $account->ledger_id)
             ->where('ledger_entries.status', EntryStatus::Posted)

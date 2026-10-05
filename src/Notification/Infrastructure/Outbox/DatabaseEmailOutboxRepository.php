@@ -36,7 +36,7 @@ final readonly class DatabaseEmailOutboxRepository implements EmailOutboxReposit
 
         $this->connection->table('email_outbox')->insert([
             'id' => $message->id()->value(),
-            'encrypted_payload' => $this->encrypter->encryptString($payload),
+            'encrypted_payload' => $this->encrypter->encrypt($payload, false),
             'attempts' => $message->attempts(),
             'recorded_at' => $message->recordedAt()->setTimezone(new DateTimeZone('UTC')),
             'last_attempted_at' => null,
@@ -52,7 +52,7 @@ final readonly class DatabaseEmailOutboxRepository implements EmailOutboxReposit
             ->orderBy('recorded_at')
             ->limit($limit)
             ->get()
-            ->map(fn(object $record): EmailOutboxMessage => $this->hydrate($record))
+            ->map(fn (object $record): EmailOutboxMessage => $this->hydrate($record))
             ->all();
     }
 
@@ -85,9 +85,15 @@ final readonly class DatabaseEmailOutboxRepository implements EmailOutboxReposit
 
     private function hydrate(object $record): EmailOutboxMessage
     {
+        $decryptedPayload = $this->encrypter->decrypt($record->encrypted_payload, false);
+
+        if (! is_string($decryptedPayload)) {
+            throw new \UnexpectedValueException('The stored email payload must decrypt to text.');
+        }
+
         /** @var array{recipient: string, subject: string, body: string} $payload */
         $payload = json_decode(
-            $this->encrypter->decryptString($record->encrypted_payload),
+            $decryptedPayload,
             true,
             512,
             JSON_THROW_ON_ERROR

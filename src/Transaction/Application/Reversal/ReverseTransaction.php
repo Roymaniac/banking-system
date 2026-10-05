@@ -76,7 +76,7 @@ final readonly class ReverseTransaction
                 new LedgerEntryId($this->uuidGenerator->generate()->value()),
                 $originalEntry->ledgerId(),
                 new EntryReference($reference->value()),
-                new EntryDescription('Reversal ' . $reference->value()),
+                new EntryDescription('Reversal '.$reference->value()),
                 $command->occurredAt,
                 $now,
                 $this->uuidGenerator->generate(),
@@ -127,14 +127,14 @@ final readonly class ReverseTransaction
         $creditedPostings = array_values(
             array_filter(
                 $originalEntry->postings(),
-                fn(Posting $posting): bool => $posting->side() === PostingSide::Credit,
+                fn (Posting $posting): bool => $posting->side() === PostingSide::Credit,
             )
         );
 
         // A stable lock order prevents two simultaneous reversals from deadlocking.
         usort(
             $creditedPostings,
-            fn(
+            fn (
                 Posting $left,
                 Posting $right
             ): int => $left->ledgerId()->value() <=> $right->ledgerId()->value()

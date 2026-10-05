@@ -77,7 +77,7 @@ final readonly class MakeDeposit
             new LedgerEntryId($this->uuidGenerator->generate()->value()),
             $customerLedger->id(),
             new EntryReference($reference->value()),
-            new EntryDescription('Deposit ' . $reference->value()),
+            new EntryDescription('Deposit '.$reference->value()),
             $command->occurredAt,
             $now,
             $this->uuidGenerator->generate(),

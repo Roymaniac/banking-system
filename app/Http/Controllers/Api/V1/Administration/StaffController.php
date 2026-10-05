@@ -44,8 +44,8 @@ final class StaffController extends Controller
 
         return response()->json([
             'data' => [
-                'staff' => new StaffResource($staff)
-            ]
+                'staff' => new StaffResource($staff),
+            ],
         ], 201);
     }
 

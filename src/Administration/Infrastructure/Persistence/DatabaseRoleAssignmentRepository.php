@@ -33,7 +33,7 @@ final readonly class DatabaseRoleAssignmentRepository implements RoleAssignmentR
             ->insert([
                 'role_id' => $roleId->value(),
                 'staff_id' => $staffId->value(),
-                'assigned_at' => $assignedAt->setTimezone(new DateTimeZone('UTC'))
+                'assigned_at' => $assignedAt->setTimezone(new DateTimeZone('UTC')),
             ]);
     }
 }

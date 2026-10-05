@@ -31,7 +31,7 @@ final class CustomerReportResource extends JsonResource
             'registered_at' => $report->registeredAt->format(DATE_ATOM),
             'account_count' => $report->accountCount(),
             'addresses' => array_map(
-                fn(CustomerAddressView $address): array => [
+                fn (CustomerAddressView $address): array => [
                     'type' => $address->type,
                     'line_one' => $address->lineOne,
                     'line_two' => $address->lineTwo,
@@ -43,14 +43,14 @@ final class CustomerReportResource extends JsonResource
                 $report->addresses
             ),
             'contacts' => array_map(
-                fn(CustomerContactView $contact): array => [
+                fn (CustomerContactView $contact): array => [
                     'type' => $contact->type,
                     'value' => $contact->value,
                 ],
                 $report->contacts
             ),
             'accounts' => array_map(
-                fn(CustomerAccountView $account): array => [
+                fn (CustomerAccountView $account): array => [
                     'id' => $account->id,
                     'number' => $account->number,
                     'type' => $account->type,

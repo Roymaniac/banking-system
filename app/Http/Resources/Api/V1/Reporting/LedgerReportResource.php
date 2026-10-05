@@ -31,7 +31,7 @@ final class LedgerReportResource extends JsonResource
                 'unbalanced_posted_entries' => $report->unbalancedPostedEntryCount,
             ],
             'currency_summaries' => array_map(
-                fn(LedgerCurrencySummaryView $summary): array => [
+                fn (LedgerCurrencySummaryView $summary): array => [
                     'currency' => $summary->currency,
                     'total_debit_minor_units' => $summary->totalDebitMinorUnits,
                     'total_credit_minor_units' => $summary->totalCreditMinorUnits,
@@ -41,7 +41,7 @@ final class LedgerReportResource extends JsonResource
                 $report->currencySummaries
             ),
             'entries' => array_map(
-                fn(LedgerEntryView $entry): array => [
+                fn (LedgerEntryView $entry): array => [
                     'id' => $entry->id,
                     'reference' => $entry->reference,
                     'description' => $entry->description,
@@ -51,7 +51,7 @@ final class LedgerReportResource extends JsonResource
                     'total_credit_minor_units' => $entry->totalCreditMinorUnits,
                     'balanced' => $entry->isBalanced(),
                     'postings' => array_map(
-                        fn(LedgerPostingView $posting): array => [
+                        fn (LedgerPostingView $posting): array => [
                             'id' => $posting->postingId,
                             'ledger_id' => $posting->ledgerId,
                             'account_id' => $posting->accountId,

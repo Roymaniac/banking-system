@@ -30,7 +30,7 @@ final readonly class DatabaseAuditTrailQuery implements AuditTrailQuery
             'event_id',
             $page,
             $perPage,
-            fn(object $row): array => [
+            fn (object $row): array => [
                 'event_id' => $row->event_id,
                 'event_name' => $row->event_name,
                 'aggregate_type' => $row->aggregate_type,
@@ -60,7 +60,7 @@ final readonly class DatabaseAuditTrailQuery implements AuditTrailQuery
             'id',
             $page,
             $perPage,
-            fn(object $row): array => [
+            fn (object $row): array => [
                 'id' => $row->id,
                 'actor_type' => $row->actor_type,
                 'actor_id' => $row->actor_id,
@@ -91,7 +91,7 @@ final readonly class DatabaseAuditTrailQuery implements AuditTrailQuery
             'id',
             $page,
             $perPage,
-            fn(object $row): array => [
+            fn (object $row): array => [
                 'id' => $row->id,
                 'type' => $row->type,
                 'severity' => $row->severity,

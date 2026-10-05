@@ -38,7 +38,7 @@ final readonly class RoleAssigned extends DomainEvent
     public function payload(): array
     {
         return [
-            'staff_id' => $this->staffId->value()
+            'staff_id' => $this->staffId->value(),
         ];
     }
 }

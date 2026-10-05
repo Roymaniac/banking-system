@@ -36,7 +36,7 @@ final readonly class DatabaseStaffRepository implements StaffRepository
             'status' => $staff->status()->value,
             'hired_at' => $staff->hiredAt()->setTimezone(new DateTimeZone('UTC')),
             'deactivated_at' => $staff->deactivatedAt()?->setTimezone(new DateTimeZone('UTC')),
-            'version' => $staff->version()
+            'version' => $staff->version(),
         ];
 
         if ($storedVersion === null) {

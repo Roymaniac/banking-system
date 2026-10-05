@@ -31,8 +31,8 @@ final readonly class RecordUserActivityMiddleware
         }
 
         $route = $request->route();
-        $routeName = $route?->getName();
-        $routeTemplate = $route?->uri() ?? $request->path();
+        $routeName = $route->getName();
+        $routeTemplate = $route->uri();
 
         $this->recorder->record(
             $actor::class,

@@ -8,6 +8,7 @@ trait RecordsDomainEvents
 {
     /**
      * A list of domain events that have been recorded by the aggregate.
+     *
      * @var list<DomainEvent>
      */
     private array $recordedEvents = [];
@@ -19,6 +20,7 @@ trait RecordsDomainEvents
 
     /**
      * Pulls all recorded domain events and clears the list of recorded events.
+     *
      * @return list<DomainEvent>
      */
     final public function pullDomainEvents(): array
@@ -31,6 +33,7 @@ trait RecordsDomainEvents
 
     /**
      * Returns the list of recorded domain events without clearing the list.
+     *
      * @return list<DomainEvent>
      */
     final public function recordedEvents(): array
@@ -40,10 +43,9 @@ trait RecordsDomainEvents
 
     /**
      * Checks if there are any recorded domain events.
-     * @return bool
      */
     final public function hasRecordedEvents(): bool
     {
-        return !empty($this->recordedEvents);
+        return ! empty($this->recordedEvents);
     }
 }

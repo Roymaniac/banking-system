@@ -40,7 +40,7 @@ final class DepartmentController extends Controller
 
         return response()->json([
             'data' => [
-                'department' => new DepartmentResource($department)
+                'department' => new DepartmentResource($department),
             ],
         ], 201);
     }

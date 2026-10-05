@@ -6,6 +6,10 @@ namespace Shared\Domain\Specification;
 
 /**
  * A combined rule that passes when at least one child rule passes.
+ *
+ * @template TCandidate
+ *
+ * @implements Specification<TCandidate>
  */
 final readonly class OrSpecification implements Specification
 {

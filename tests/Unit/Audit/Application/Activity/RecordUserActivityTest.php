@@ -14,7 +14,7 @@ it('builds an activity entry without needing Laravel request objects', function 
     $occurredOn = new DateTimeImmutable('2026-09-26T08:30:00+01:00');
     $repository = Mockery::mock(ActivityLogRepository::class);
     $repository->shouldReceive('append')->once()->with(Mockery::on(
-        fn(ActivityLogEntry $activity): bool => $activity->id()->equals($id)
+        fn (ActivityLogEntry $activity): bool => $activity->id()->equals($id)
             && $activity->actorType() === 'App\\Models\\User'
             && $activity->actorId() === '42'
             && $activity->action() === 'accounts.freeze'

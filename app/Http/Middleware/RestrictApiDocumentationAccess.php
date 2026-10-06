@@ -28,7 +28,9 @@ final readonly class RestrictApiDocumentationAccess
             return $next($request);
         }
 
-        $user = $request->user();
+        // Documentation uses the same bearer tokens as the API. Explicitly
+        // selecting Sanctum also works when no web-session login exists.
+        $user = $request->user('sanctum');
 
         abort_unless(
             $user instanceof User

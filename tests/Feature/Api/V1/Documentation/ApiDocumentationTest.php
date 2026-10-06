@@ -29,6 +29,11 @@ function allowApiDocumentation(): void
     });
 }
 
+function apiDocumentationToken(User $user): string
+{
+    return $user->createToken('api-documentation-test')->plainTextToken;
+}
+
 it('protects API documentation outside the local environment', function (): void {
     $this->get('/docs/api')->assertForbidden();
     $this->get('/docs/api.json')->assertForbidden();
@@ -40,18 +45,18 @@ it('protects API documentation outside the local environment', function (): void
 
 it('serves documentation to an authorized user', function (): void {
     allowApiDocumentation();
-    $this->actingAs(apiDocumentationUser());
+    $token = apiDocumentationToken(apiDocumentationUser());
 
-    $this->get('/docs/api')
+    $this->withToken($token)->get('/docs/api')
         ->assertOk()
         ->assertSee('Banking System API');
 });
 
 it('generates a versioned OpenAPI contract with bearer authentication', function (): void {
     allowApiDocumentation();
-    $this->actingAs(apiDocumentationUser());
+    $token = apiDocumentationToken(apiDocumentationUser());
 
-    $document = $this->getJson('/docs/api.json')
+    $document = $this->withToken($token)->getJson('/docs/api.json')
         ->assertOk()
         ->assertJsonPath('openapi', '3.1.0')
         ->assertJsonPath('info.title', 'Banking System API')

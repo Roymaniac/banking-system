@@ -1,66 +1,285 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Banking System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A modular Laravel API for customer onboarding, account management, double-entry ledger operations, money transfers, administration, reporting, auditing, and reliable email delivery.
 
-## About Laravel
+The codebase follows Domain-Driven Design and keeps financial rules outside controllers and framework-specific code. Money is stored as integer minor units, financial writes run inside database transactions, and completed ledger entries are immutable.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Main capabilities
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Sanctum bearer-token authentication
+- Customer profiles, addresses, and contact details
+- Multi-currency customer accounts
+- Double-entry ledger with projected balances
+- Deposits, withdrawals, transfers, batch transfers, and reversals
+- Customer and bank-controlled daily transaction limits
+- Departments, staff, roles, and permissions
+- Customer, ledger, and transaction reports
+- Domain-event, user-activity, and security audit trails
+- Encrypted email outbox with retry support
+- Liveness and protected readiness monitoring
+- Generated OpenAPI documentation
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Requirements
 
-## Learning Laravel
+- PHP 8.4.1 or newer
+- Composer 2
+- A supported database; SQLite is used by default for local development
+- PHP extensions required by Laravel, including OpenSSL, PDO, Mbstring, Tokenizer, XML, and Ctype
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Node.js is only needed when working on Vite-managed frontend assets. The banking API and its automated tests do not require a frontend development server.
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## Local setup
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Clone the repository and enter its directory, then install the locked dependencies:
 
-## Laravel Sponsors
+```bash
+composer install
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Create the local environment file:
 
-### Premium Partners
+```bash
+cp .env.example .env
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+On PowerShell, use:
 
-## Contributing
+```powershell
+Copy-Item .env.example .env
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Generate the Laravel encryption key:
 
-## Code of Conduct
+```bash
+php artisan key:generate
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The default configuration uses `database/database.sqlite`. Create that file if it does not already exist:
 
-## Security Vulnerabilities
+```bash
+touch database/database.sqlite
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+On PowerShell, use:
+
+```powershell
+New-Item database/database.sqlite -ItemType File -ErrorAction SilentlyContinue
+```
+
+Create the database tables:
+
+```bash
+php artisan migrate
+```
+
+For disposable local data, the optional development seeder creates a verified user with the email `test@example.com` and password `password`:
+
+```bash
+php artisan db:seed
+```
+
+Never run the development seeder in production.
+
+Start the API:
+
+```bash
+php artisan serve
+```
+
+The default base URL is `http://127.0.0.1:8000/api/v1`.
+
+## Background processes
+
+The application needs both a queue worker and Laravel's scheduler. They perform different jobs.
+
+The queue worker processes asynchronous work:
+
+```bash
+php artisan queue:work --tries=3
+```
+
+The scheduler dispatches pending email-outbox work and records a heartbeat every minute:
+
+```bash
+php artisan schedule:work
+```
+
+In production, use a process supervisor for queue workers and invoke `php artisan schedule:run` every minute with the operating system's scheduler. Do not rely on a manually opened terminal.
+
+## API authentication
+
+Obtain a Sanctum token through the login endpoint:
+
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password",
+  "device_name": "local-development"
+}
+```
+
+Send the returned token with protected requests:
+
+```http
+Authorization: Bearer YOUR_TOKEN
+Accept: application/json
+```
+
+Customer endpoints verify ownership using the authenticated user's linked identity. Administrative and operational endpoints additionally require explicit permissions such as `administration.view`, `transactions.deposit`, or `audit.view`.
+
+## API documentation
+
+Interactive documentation is available at `/docs/api`. The OpenAPI JSON document is available at `/docs/api.json`.
+
+Documentation is freely accessible only in the `local` environment. In other environments, the signed-in user must have the `documentation.view` permission.
+
+Only `/api/v1` routes are included in the generated contract. Internal health and documentation routes are deliberately excluded.
+
+## Money and dates
+
+API money values use integer minor units and always include or derive a currency. For example, `1050` represents 10.50 in a currency with two decimal places. Floating-point values are not used for financial calculations.
+
+Dates and times use ISO 8601. Stored operational timestamps are normalized to UTC.
+
+Transaction references provide idempotency. Repeating a financial request with an existing reference is rejected instead of posting the money twice.
+
+## Trusted settlement configuration
+
+Deposits and withdrawals are privileged bank operations. Their opposite ledger is selected from server configuration and can never be supplied by the caller.
+
+Configure the applicable internal ledger UUIDs:
+
+```dotenv
+BANKING_NGN_DEPOSIT_LEDGER_ID=
+BANKING_USD_DEPOSIT_LEDGER_ID=
+BANKING_GBP_DEPOSIT_LEDGER_ID=
+BANKING_NGN_WITHDRAWAL_LEDGER_ID=
+BANKING_USD_WITHDRAWAL_LEDGER_ID=
+BANKING_GBP_WITHDRAWAL_LEDGER_ID=
+```
+
+An unconfigured currency fails safely instead of creating an incomplete financial entry.
+
+## Email configuration
+
+Email-verification and password-reset links can target a separately hosted frontend:
+
+```dotenv
+FRONTEND_VERIFICATION_URL=https://example.com/verify-email
+FRONTEND_PASSWORD_RESET_URL=https://example.com/reset-password
+```
+
+Email contents and recipients are encrypted while waiting in the outbox. The scheduler finds pending messages, and the queue worker performs delivery. Operators with `notifications.view` can inspect delivery health; `notifications.retry` is required to retry an exhausted message.
+
+## Architecture
+
+The business code is organized into bounded contexts under `src`:
+
+```text
+src/
+├── Shared/          Common domain building blocks and infrastructure contracts
+├── Identity/        Users, authentication, verification, and authorization
+├── Customer/        Customer profiles, addresses, and contacts
+├── Account/         Account lifecycle and account numbers
+├── Ledger/          Double-entry journal, postings, and balance projections
+├── Transaction/     Deposits, withdrawals, transfers, limits, and reversals
+├── Notification/    Email templates, encrypted outbox, and delivery jobs
+├── Audit/           Domain, activity, and security audit records
+├── Reporting/       Read-optimized financial and customer reports
+└── Administration/ Departments, staff, roles, and permissions
+```
+
+Each context uses the same dependency direction:
+
+```text
+HTTP controller → application use case → domain model
+                              ↓
+                    infrastructure adapter
+```
+
+- `Domain` contains business rules and must not depend on Laravel.
+- `Application` coordinates use cases through interfaces.
+- `Infrastructure` implements persistence, mail, queues, and other technical details.
+- `app/Http` translates HTTP input into application commands and resources.
+
+More implementation rules are documented in [docs/engineering-principles.md](docs/engineering-principles.md).
+
+## Financial safety rules
+
+- Every posted ledger entry must balance debits and credits.
+- A posted entry cannot be modified.
+- Balance-changing workflows lock the records needed for concurrency safety.
+- Related financial records and projections are committed atomically.
+- Duplicate transaction references are rejected.
+- Reversals create opposite entries and preserve the original audit trail.
+- Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.
+
+## Health endpoints
+
+`GET /up` is the public liveness endpoint. It answers the simple question: “Is the application process responding?”
+
+`GET /api/v1/operations/health` is the protected readiness endpoint. It checks operational dependencies such as the database, scheduler heartbeat, queue failures, and notification backlog. It requires the `operations.view` permission.
+
+## Quality checks
+
+Run the complete local quality gate before opening a pull request:
+
+```bash
+composer quality
+```
+
+That command runs:
+
+1. Laravel Pint formatting validation
+2. PHPStan level 5 static analysis
+3. OpenAPI generation analysis
+4. The complete Pest test suite
+
+Individual commands are also available:
+
+```bash
+composer format:check
+composer analyse
+composer openapi:check
+composer test
+```
+
+GitHub Actions repeats these checks and also verifies that all migrations run successfully on a clean SQLite database.
+
+## Production checklist
+
+Before deployment:
+
+1. Use PHP 8.4.1 or newer and run `composer install --no-dev --classmap-authoritative`.
+2. Set `APP_ENV=production`, `APP_DEBUG=false`, and a production `APP_URL`.
+3. Provide a securely generated `APP_KEY`; changing it later makes existing encrypted outbox data unreadable.
+4. Configure a production database, cache, queue, mail transport, and HTTPS.
+5. Configure settlement-ledger UUIDs for every enabled currency.
+6. Configure the customer-facing verification and password-reset URLs.
+7. Run `php artisan migrate --force` during a controlled deployment.
+8. Run persistent queue workers and the scheduler under process supervision.
+9. Cache Laravel configuration and routes after environment values are final.
+10. Restrict documentation and operational permissions to authorized staff.
+11. Monitor `/up`, protected readiness status, failed jobs, logs, and exhausted outbox messages.
+12. Back up the database and test restoration procedures before handling real funds.
+
+Typical optimization commands are:
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+After deploying new code, restart long-running workers so they load the new release:
+
+```bash
+php artisan queue:restart
+```
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This repository is licensed under the MIT License unless the repository owner specifies otherwise.

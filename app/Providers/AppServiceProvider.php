@@ -55,6 +55,7 @@ use Identity\Infrastructure\Persistence\DatabaseUserRepository;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Ledger\Application\Balance\ProjectLedgerBalance;
+use Ledger\Application\Reconciliation\LedgerReconciliation;
 use Ledger\Domain\Balance\Repository\BalanceProjectionRepository;
 use Ledger\Domain\Entry\Event\LedgerEntryPosted;
 use Ledger\Domain\Entry\Repository\LedgerEntryRepository;
@@ -63,6 +64,7 @@ use Ledger\Infrastructure\Balance\ProjectedAccountClosureBalanceChecker;
 use Ledger\Infrastructure\Persistence\DatabaseBalanceProjectionRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerEntryRepository;
 use Ledger\Infrastructure\Persistence\DatabaseLedgerRepository;
+use Ledger\Infrastructure\Reconciliation\DatabaseLedgerReconciliation;
 use Notification\Application\Email\EmailSender;
 use Notification\Application\Email\EmailTransport;
 use Notification\Application\Outbox\EmailOutboxQuery;
@@ -114,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(LedgerReconciliation::class, DatabaseLedgerReconciliation::class);
         $this->app->singleton(SystemHealthCheck::class, DatabaseSystemHealthCheck::class);
         $this->app->singleton(AdministrationDirectoryQuery::class, DatabaseAdministrationDirectoryQuery::class);
         $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);

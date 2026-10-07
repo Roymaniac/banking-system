@@ -77,6 +77,7 @@ When an alert fires:
 5. Check scheduler freshness, failed jobs, and exhausted outbox messages.
 6. Check the most recent deployment digest and migration run.
 7. Run financial reconciliation reports if money movement may be affected.
+   The read-only `php artisan banking:reconcile-ledger` command provides a deployment-friendly integrity check.
 8. Preserve relevant logs and database evidence before recovery actions.
 9. Record the resolution, customer impact, and follow-up work.
 

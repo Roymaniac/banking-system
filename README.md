@@ -328,6 +328,14 @@ More implementation rules are documented in [docs/engineering-principles.md](doc
 - A posted entry cannot be modified.
 - Balance-changing workflows lock the records needed for concurrency safety.
 - Related financial records and projections are committed atomically.
+- Operators can verify the journal and balance projections without changing them:
+
+```bash
+php artisan banking:reconcile-ledger
+```
+
+The command exits unsuccessfully when a posted entry is unbalanced, an immutable projection contribution differs from its posting, or a stored ledger balance differs from totals recalculated from the journal. Treat any failure as a financial incident: preserve evidence and investigate rather than automatically rewriting balances.
+
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.

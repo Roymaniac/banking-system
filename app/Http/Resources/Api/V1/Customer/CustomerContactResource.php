@@ -8,7 +8,11 @@ use Customer\Domain\Customer\Contact\CustomerContact;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Defines the JSON shape of one customer contact method. */
+/**
+ * Defines the JSON shape of one customer contact method.
+ *
+ * @mixin CustomerContact
+ */
 final class CustomerContactResource extends JsonResource
 {
     /** @return array{id: string, type: string, value: string} */

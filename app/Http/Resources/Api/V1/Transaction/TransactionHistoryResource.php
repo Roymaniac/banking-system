@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Reporting\Application\Transaction\View\TransactionReportView;
 
-/** Shapes statement totals, pagination, and posted transaction lines. */
+/**
+ * Shapes statement totals, pagination, and posted transaction lines.
+ *
+ * @mixin TransactionReportView
+ */
 final class TransactionHistoryResource extends JsonResource
 {
     /** @return array<string, mixed> */

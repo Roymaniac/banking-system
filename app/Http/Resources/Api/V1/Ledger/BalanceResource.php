@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Ledger\Domain\Balance\LedgerBalance;
 
-/** Exposes the customer-facing balance without internal accounting totals. */
+/**
+ * Exposes the customer-facing balance without internal accounting totals.
+ *
+ * @mixin LedgerBalance
+ */
 final class BalanceResource extends JsonResource
 {
     /** @return array{currency: string, balance_minor_units: int} */

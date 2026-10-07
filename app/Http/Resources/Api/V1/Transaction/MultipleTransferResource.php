@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Transaction\Domain\MultipleTransfer\MultipleTransfer;
 
-/** Returns a safe receipt for a completed atomic batch transfer. */
+/**
+ * Returns a safe receipt for a completed atomic batch transfer.
+ *
+ * @mixin MultipleTransfer
+ */
 final class MultipleTransferResource extends JsonResource
 {
     /** @return array<string, int|string> */

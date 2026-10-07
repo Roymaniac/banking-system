@@ -8,7 +8,11 @@ use Account\Domain\Account\Account;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Defines the account information that is safe for a customer to view. */
+/**
+ * Defines the account information that is safe for a customer to view.
+ *
+ * @mixin Account
+ */
 final class AccountResource extends JsonResource
 {
     /** @return array<string, string|null> */

@@ -9,7 +9,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Reporting\Application\Transaction\View\TransactionLineView;
 use Reporting\Application\Transaction\View\TransactionReportView;
 
-/** Presents an account statement using integer minor units for exact money values. */
+/**
+ * Presents an account statement using integer minor units for exact money values.
+ *
+ * @mixin TransactionReportView
+ */
 final class TransactionReportResource extends JsonResource
 {
     /** @return array<string, mixed> */

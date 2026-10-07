@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Transaction\Domain\Transfer\Transfer;
 
-/** Returns a safe receipt for a completed customer transfer. */
+/**
+ * Returns a safe receipt for a completed customer transfer.
+ *
+ * @mixin Transfer
+ */
 final class TransferResource extends JsonResource
 {
     /** @return array<string, int|string> */

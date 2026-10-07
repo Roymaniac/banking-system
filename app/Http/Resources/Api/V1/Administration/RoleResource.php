@@ -8,6 +8,7 @@ use Administration\Domain\Role\Role;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin Role */
 final class RoleResource extends JsonResource
 {
     /** @return array<string, string|null> */

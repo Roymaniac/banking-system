@@ -8,7 +8,11 @@ use Customer\Domain\Customer\Address\CustomerAddress;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Defines the JSON shape of one customer address. */
+/**
+ * Defines the JSON shape of one customer address.
+ *
+ * @mixin CustomerAddress
+ */
 final class CustomerAddressResource extends JsonResource
 {
     /** @return array<string, string|null> */

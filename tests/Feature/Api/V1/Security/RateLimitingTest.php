@@ -52,7 +52,7 @@ it('gives each authenticated user an independent money-movement budget', functio
     config()->set('security.rate_limits.money_movement_per_minute', 1);
 
     Route::middleware(['auth:sanctum', 'throttle:money-movement'])
-        ->get('/api/testing/money-movement-limit', static fn() => response()->json(['allowed' => true]));
+        ->get('/api/testing/money-movement-limit', static fn () => response()->json(['allowed' => true]));
 
     $firstUser = User::factory()->create();
     Sanctum::actingAs($firstUser);
@@ -88,7 +88,7 @@ it('does not expose an API route without a request limit', function (): void {
         }
 
         $hasRequestLimit = collect($route->gatherMiddleware())
-            ->contains(static fn(string $middleware): bool => str_starts_with($middleware, 'throttle:'));
+            ->contains(static fn (string $middleware): bool => str_starts_with($middleware, 'throttle:'));
 
         expect($hasRequestLimit)->toBeTrue("Route [{$route->uri()}] must have a named request limit.");
     }

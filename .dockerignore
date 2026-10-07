@@ -16,4 +16,5 @@ bootstrap/cache/*.php
 database/database.sqlite
 tests
 coverage
+backups/*
 

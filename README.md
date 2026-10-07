@@ -184,6 +184,18 @@ docker compose --env-file=.env.docker down
 
 Adding `--volumes` deletes the local persistent data and should only be used when that data is intentionally disposable.
 
+## Database backup and recovery
+
+Create a verified PostgreSQL archive with:
+
+```bash
+docker compose --env-file=.env.docker run --rm backup
+```
+
+The maintenance service stores the archive and its SHA-256 checksum in the ignored `backups/` directory. Backup files contain sensitive banking data and must be copied to encrypted, access-controlled offsite storage.
+
+Restoration is intentionally limited to a separate recovery database; the provided tooling refuses to overwrite the configured live database. The complete restore drill, validation checklist, and production incident procedure are documented in [docs/disaster-recovery.md](docs/disaster-recovery.md).
+
 ## API authentication
 
 Obtain a Sanctum token through the login endpoint:
@@ -360,7 +372,7 @@ Before deployment:
 9. Cache Laravel configuration and routes after environment values are final.
 10. Restrict documentation and operational permissions to authorized staff.
 11. Monitor `/up`, protected readiness status, failed jobs, logs, and exhausted outbox messages.
-12. Back up the database and test restoration procedures before handling real funds.
+12. Configure encrypted offsite database backups and complete the documented restoration drill before handling real funds.
 
 Typical optimization commands are:
 

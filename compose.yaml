@@ -95,6 +95,43 @@ services:
       timeout: 5s
       retries: 5
 
+  backup:
+    image: postgres:17-alpine
+    profiles: ["maintenance"]
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker}
+    environment:
+      POSTGRES_HOST: postgres
+      BACKUP_DIRECTORY: /backups
+    networks:
+      - banking
+    volumes:
+      - ./backups:/backups
+      - ./docker/postgres/backup.sh:/usr/local/bin/backup-database:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-database"]
+
+  restore:
+    image: postgres:17-alpine
+    profiles: ["maintenance"]
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker}
+    environment:
+      POSTGRES_HOST: postgres
+      BACKUP_DIRECTORY: /backups
+      RESTORE_DATABASE: ${RESTORE_DATABASE:-banking_restore}
+    networks:
+      - banking
+    volumes:
+      - ./backups:/backups:ro
+      - ./docker/postgres/restore.sh:/usr/local/bin/restore-database:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/usr/local/bin/restore-database"]
+
 networks:
   banking:
     driver: bridge

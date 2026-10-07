@@ -11,7 +11,11 @@ use Reporting\Application\Customer\View\CustomerAddressView;
 use Reporting\Application\Customer\View\CustomerContactView;
 use Reporting\Application\Customer\View\CustomerReportView;
 
-/** Converts the internal customer report into a stable API document. */
+/**
+ * Converts the internal customer report into a stable API document.
+ *
+ * @mixin CustomerReportView
+ */
 final class CustomerReportResource extends JsonResource
 {
     /** @return array<string, mixed> */

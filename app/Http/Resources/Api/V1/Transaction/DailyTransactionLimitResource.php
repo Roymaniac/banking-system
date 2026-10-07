@@ -8,7 +8,13 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Transaction\Domain\DailyLimit\DailyTransactionLimit;
 
-/** Shows the bank ceiling, customer preference, and today's remaining allowance. */
+/**
+ * Shows the bank ceiling, customer preference, and today's remaining allowance.
+ *
+ * The resource also receives today's used amount beside this limit aggregate.
+ *
+ * @mixin DailyTransactionLimit
+ */
 final class DailyTransactionLimitResource extends JsonResource
 {
     /** @return array<string, int|string|null> */

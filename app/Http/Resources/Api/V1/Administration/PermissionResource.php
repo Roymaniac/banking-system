@@ -8,6 +8,7 @@ use Administration\Domain\Permission\PermissionDefinition;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin PermissionDefinition */
 final class PermissionResource extends JsonResource
 {
     /** @return array<string, string> */

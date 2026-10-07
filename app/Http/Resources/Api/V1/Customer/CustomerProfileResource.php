@@ -8,7 +8,11 @@ use Customer\Domain\Customer\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Converts a Customer domain object into its public API representation. */
+/**
+ * Converts a Customer domain object into its public API representation.
+ *
+ * @mixin Customer
+ */
 final class CustomerProfileResource extends JsonResource
 {
     /** @return array<string, mixed> */

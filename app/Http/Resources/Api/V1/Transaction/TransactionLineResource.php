@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Reporting\Application\Transaction\View\TransactionLineView;
 
-/** Converts one posted ledger line into a customer-safe transaction record. */
+/**
+ * Converts one posted ledger line into a customer-safe transaction record.
+ *
+ * @mixin TransactionLineView
+ */
 final class TransactionLineResource extends JsonResource
 {
     /** @return array<string, int|string> */

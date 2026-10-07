@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Transaction\Domain\Reversal\Reversal;
 
-/** Returns the public receipt for a completed reversal. */
+/**
+ * Returns the public receipt for a completed reversal.
+ *
+ * @mixin Reversal
+ */
 final class ReversalResource extends JsonResource
 {
     /** @return array<string, string> */

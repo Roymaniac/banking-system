@@ -8,6 +8,7 @@ use Administration\Domain\Department\Department;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin Department */
 final class DepartmentResource extends JsonResource
 {
     /** @return array<string, string|null> */

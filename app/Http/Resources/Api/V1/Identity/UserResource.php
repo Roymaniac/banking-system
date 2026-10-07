@@ -8,7 +8,11 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Controls which user details are safe to expose through the API. */
+/**
+ * Controls which user details are safe to expose through the API.
+ *
+ * @mixin User
+ */
 final class UserResource extends JsonResource
 {
     /** @return array{identity_user_id: string, email: string, email_verified: bool} */

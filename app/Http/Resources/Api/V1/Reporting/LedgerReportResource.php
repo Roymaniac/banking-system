@@ -11,7 +11,11 @@ use Reporting\Application\Ledger\View\LedgerEntryView;
 use Reporting\Application\Ledger\View\LedgerPostingView;
 use Reporting\Application\Ledger\View\LedgerReportView;
 
-/** Presents general-ledger entries together with financial control totals. */
+/**
+ * Presents general-ledger entries together with financial control totals.
+ *
+ * @mixin LedgerReportView
+ */
 final class LedgerReportResource extends JsonResource
 {
     /** @return array<string, mixed> */

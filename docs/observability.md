@@ -57,6 +57,7 @@ Configure the monitoring platform to notify operators when:
 | Readiness | Overall status is `unhealthy` | Critical |
 | Scheduler | Heartbeat age exceeds 120 seconds | Critical |
 | Database | Readiness reports database unhealthy | Critical |
+| Reconciliation | Latest check fails or is older than two hours | Critical |
 | HTTP errors | 5xx responses exceed 1% for five minutes | Critical |
 | Queue failures | `failed_jobs` is greater than zero | Warning |
 | Email delivery | `exhausted_messages` is greater than zero | Warning |

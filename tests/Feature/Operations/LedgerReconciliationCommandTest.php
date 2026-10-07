@@ -111,6 +111,14 @@ it('passes when journal entries, contributions, and balances agree', function ()
     $this->artisan('banking:reconcile-ledger')
         ->expectsOutputToContain('Ledger reconciliation passed')
         ->assertSuccessful();
+
+    $this->assertDatabaseHas('ledger_reconciliation_statuses', [
+        'name' => 'ledger',
+        'status' => 'healthy',
+        'unbalanced_posted_entries' => 0,
+        'contribution_mismatches' => 0,
+        'balance_mismatches' => 0,
+    ]);
 });
 
 it('fails when journal and projection records have drifted', function (): void {
@@ -130,6 +138,14 @@ it('fails when journal and projection records have drifted', function (): void {
     $this->artisan('banking:reconcile-ledger')
         ->expectsOutputToContain('Ledger reconciliation failed')
         ->assertFailed();
+
+    $this->assertDatabaseHas('ledger_reconciliation_statuses', [
+        'name' => 'ledger',
+        'status' => 'unhealthy',
+        'unbalanced_posted_entries' => 1,
+        'contribution_mismatches' => 1,
+        'balance_mismatches' => 1,
+    ]);
 });
 
 it('detects a missing projection contribution and balance', function (): void {

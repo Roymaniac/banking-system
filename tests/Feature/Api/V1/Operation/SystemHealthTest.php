@@ -10,6 +10,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use Ledger\Application\Reconciliation\RunLedgerReconciliation;
 use Shared\Domain\Identifier\Uuid;
 use Shared\Infrastructure\Health\RecordSchedulerHeartbeat;
 
@@ -34,6 +35,11 @@ function allowSystemHealthApi(): void
     });
 }
 
+function recordHealthyLedgerReconciliation(): void
+{
+    app(RunLedgerReconciliation::class)->handle();
+}
+
 it('keeps liveness public but protects detailed readiness information', function (): void {
     $this->get('/up')->assertOk()->assertDontSee('pending_jobs');
     $this->getJson('/api/v1/operations/health')->assertUnauthorized();
@@ -50,12 +56,14 @@ it('reports healthy when critical services are current', function (): void {
     Sanctum::actingAs(systemHealthApiUser());
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
+    recordHealthyLedgerReconciliation();
 
     $this->getJson('/api/v1/operations/health')
         ->assertOk()
         ->assertJsonPath('data.status', 'healthy')
         ->assertJsonPath('data.components.database.status', 'healthy')
         ->assertJsonPath('data.components.scheduler.status', 'healthy')
+        ->assertJsonPath('data.components.ledger_reconciliation.status', 'healthy')
         ->assertJsonPath('data.components.queue.status', 'healthy')
         ->assertJsonPath('data.components.queue.driver', 'database')
         ->assertJsonPath('data.components.notifications.status', 'healthy');
@@ -66,6 +74,7 @@ it('reports degraded without going offline for operational backlogs', function (
     Sanctum::actingAs(systemHealthApiUser());
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
+    recordHealthyLedgerReconciliation();
     DB::table('failed_jobs')->insert([
         'uuid' => Uuid::generate()->value(),
         'connection' => 'database',
@@ -94,6 +103,7 @@ it('returns service unavailable when the scheduler heartbeat is stale', function
     allowSystemHealthApi();
     Sanctum::actingAs(systemHealthApiUser());
     config()->set('queue.default', 'database');
+    recordHealthyLedgerReconciliation();
     DB::table('system_heartbeats')->insert([
         'name' => 'scheduler',
         'recorded_at' => now()->subMinutes(5),
@@ -119,5 +129,58 @@ it('registers the scheduler heartbeat to run every minute', function (): void {
     $descriptions = collect(app(Schedule::class)->events())
         ->pluck('description');
 
-    expect($descriptions)->toContain('scheduler-heartbeat');
+    expect($descriptions)
+        ->toContain('scheduler-heartbeat')
+        ->toContain('ledger-reconciliation');
+});
+
+it('returns service unavailable when reconciliation has never run', function (): void {
+    allowSystemHealthApi();
+    Sanctum::actingAs(systemHealthApiUser());
+    config()->set('queue.default', 'database');
+    app(RecordSchedulerHeartbeat::class)->record();
+
+    $this->getJson('/api/v1/operations/health')
+        ->assertServiceUnavailable()
+        ->assertJsonPath('data.components.ledger_reconciliation.status', 'unhealthy')
+        ->assertJsonPath('data.components.ledger_reconciliation.last_checked_at', null);
+});
+
+it('returns service unavailable when reconciliation found a mismatch', function (): void {
+    allowSystemHealthApi();
+    Sanctum::actingAs(systemHealthApiUser());
+    config()->set('queue.default', 'database');
+    app(RecordSchedulerHeartbeat::class)->record();
+    DB::table('ledger_reconciliation_statuses')->insert([
+        'name' => 'ledger',
+        'status' => 'unhealthy',
+        'unbalanced_posted_entries' => 1,
+        'contribution_mismatches' => 0,
+        'balance_mismatches' => 0,
+        'checked_at' => now(),
+    ]);
+
+    $this->getJson('/api/v1/operations/health')
+        ->assertServiceUnavailable()
+        ->assertJsonPath('data.components.ledger_reconciliation.status', 'unhealthy')
+        ->assertJsonPath('data.components.ledger_reconciliation.unbalanced_posted_entries', 1);
+});
+
+it('returns service unavailable when reconciliation is stale', function (): void {
+    allowSystemHealthApi();
+    Sanctum::actingAs(systemHealthApiUser());
+    config()->set('queue.default', 'database');
+    app(RecordSchedulerHeartbeat::class)->record();
+    DB::table('ledger_reconciliation_statuses')->insert([
+        'name' => 'ledger',
+        'status' => 'healthy',
+        'unbalanced_posted_entries' => 0,
+        'contribution_mismatches' => 0,
+        'balance_mismatches' => 0,
+        'checked_at' => now()->subHours(3),
+    ]);
+
+    $this->getJson('/api/v1/operations/health')
+        ->assertServiceUnavailable()
+        ->assertJsonPath('data.components.ledger_reconciliation.status', 'unhealthy');
 });

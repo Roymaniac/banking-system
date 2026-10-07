@@ -17,6 +17,8 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
 {
     private const SCHEDULER_MAX_AGE_SECONDS = 120;
 
+    private const RECONCILIATION_MAX_AGE_SECONDS = 7200;
+
     public function __construct(
         private ConnectionInterface $connection,
         private ConfigRepository $config,
@@ -30,6 +32,7 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
             $components = [
                 'database' => ['status' => 'healthy'],
                 'scheduler' => $this->schedulerHealth(),
+                'ledger_reconciliation' => $this->reconciliationHealth(),
                 'queue' => $this->queueHealth(),
                 'notifications' => $this->notificationHealth(),
             ];
@@ -46,6 +49,31 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
             : (in_array('degraded', $statuses, true) ? 'degraded' : 'healthy');
 
         return new SystemHealthReport($status, $components);
+    }
+
+    /** @return array<string, bool|int|string|null> */
+    private function reconciliationHealth(): array
+    {
+        $status = $this->connection->table('ledger_reconciliation_statuses')
+            ->where('name', 'ledger')
+            ->first();
+
+        if ($status === null) {
+            return ['status' => 'unhealthy', 'last_checked_at' => null, 'age_seconds' => null];
+        }
+
+        $checkedAt = new DateTimeImmutable((string) $status->checked_at);
+        $age = max(0, $this->clock->now()->getTimestamp() - $checkedAt->getTimestamp());
+        $healthy = $status->status === 'healthy' && $age <= self::RECONCILIATION_MAX_AGE_SECONDS;
+
+        return [
+            'status' => $healthy ? 'healthy' : 'unhealthy',
+            'last_checked_at' => $checkedAt->format(DATE_ATOM),
+            'age_seconds' => $age,
+            'unbalanced_posted_entries' => (int) $status->unbalanced_posted_entries,
+            'contribution_mismatches' => (int) $status->contribution_mismatches,
+            'balance_mismatches' => (int) $status->balance_mismatches,
+        ];
     }
 
     /** @return array<string, bool|int|string|null> */

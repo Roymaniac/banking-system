@@ -336,6 +336,8 @@ php artisan banking:reconcile-ledger
 
 The command exits unsuccessfully when a posted entry is unbalanced, an immutable projection contribution differs from its posting, or a stored ledger balance differs from totals recalculated from the journal. Treat any failure as a financial incident: preserve evidence and investigate rather than automatically rewriting balances.
 
+The scheduler runs reconciliation hourly and stores only the latest safe status and mismatch counts. Protected readiness becomes unhealthy when reconciliation fails, has never run, or is older than two hours.
+
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.

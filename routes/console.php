@@ -22,3 +22,10 @@ Schedule::call(fn () => app(RecordSchedulerHeartbeat::class)->record())
     ->name('scheduler-heartbeat')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Reconciliation is read-only for financial records and refreshes the
+// protected readiness signal after comparing the journal and projections.
+Schedule::command('banking:reconcile-ledger')
+    ->name('ledger-reconciliation')
+    ->hourly()
+    ->withoutOverlapping();

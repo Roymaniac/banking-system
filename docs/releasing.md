@@ -81,10 +81,11 @@ docker compose --env-file=.env.docker up -d --wait postgres redis
 docker compose --env-file=.env.docker stop web worker scheduler app
 docker compose --env-file=.env.docker run --rm app php artisan migrate --force
 docker compose --env-file=.env.docker run --rm app php artisan banking:production-preflight
+docker compose --env-file=.env.docker run --rm app php artisan banking:reconcile-ledger
 docker compose --env-file=.env.docker up -d app worker scheduler web
 ```
 
-The preflight checks production-safe configuration, all required settlement ledgers, and database connectivity. Do not start the application-facing services when it returns a failure.
+The preflight checks production-safe configuration, all required settlement ledgers, and database connectivity. Reconciliation verifies the financial journal and initializes its readiness signal. Do not start the application-facing services when either command returns a failure.
 
 Verify the deployment:
 

@@ -6,24 +6,26 @@ namespace App\Http\Resources\Api\V1\Transaction;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Transaction\Domain\DailyLimit\DailyTransactionLimit;
 
 /**
  * Shows the bank ceiling, customer preference, and today's remaining allowance.
  *
- * The resource also receives today's used amount beside this limit aggregate.
- *
- * @mixin DailyTransactionLimit
+ * @mixin DailyTransactionLimitView
  */
 final class DailyTransactionLimitResource extends JsonResource
 {
+    public function __construct(DailyTransactionLimitView $view)
+    {
+        parent::__construct($view);
+    }
+
     /** @return array<string, int|string|null> */
     public function toArray(Request $request): array
     {
-        /** @var array{limit: DailyTransactionLimit, used: int} $data */
-        $data = $this->resource;
-        $limit = $data['limit'];
-        $used = $data['used'];
+        /** @var DailyTransactionLimitView $view */
+        $view = $this->resource;
+        $limit = $view->limit;
+        $used = $view->usedMinorUnits;
         $effective = $limit->effectiveMaximumMinorUnits();
 
         return [

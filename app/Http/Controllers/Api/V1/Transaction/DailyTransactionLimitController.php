@@ -8,6 +8,7 @@ use Account\Domain\Account\ValueObject\AccountId;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Transaction\ReduceDailyTransactionLimitRequest;
 use App\Http\Resources\Api\V1\Transaction\DailyTransactionLimitResource;
+use App\Http\Resources\Api\V1\Transaction\DailyTransactionLimitView;
 use App\Http\Support\Api\V1\CurrentAccount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,10 +44,12 @@ final class DailyTransactionLimitController extends Controller
 
         return response()->json([
             'data' => [
-                'daily_limit' => new DailyTransactionLimitResource([
-                    'limit' => $limit,
-                    'used' => $limits->usedOn($accountId, $clock->now()),
-                ]),
+                'daily_limit' => new DailyTransactionLimitResource(
+                    new DailyTransactionLimitView(
+                        $limit,
+                        $limits->usedOn($accountId, $clock->now()),
+                    )
+                ),
             ],
         ]);
     }
@@ -81,10 +84,12 @@ final class DailyTransactionLimitController extends Controller
 
         return response()->json([
             'data' => [
-                'daily_limit' => new DailyTransactionLimitResource([
-                    'limit' => $limit,
-                    'used' => $limits->usedOn($accountId, $clock->now()),
-                ]),
+                'daily_limit' => new DailyTransactionLimitResource(
+                    new DailyTransactionLimitView(
+                        $limit,
+                        $limits->usedOn($accountId, $clock->now()),
+                    )
+                ),
             ],
         ]);
     }

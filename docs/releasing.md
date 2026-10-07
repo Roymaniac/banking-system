@@ -80,8 +80,11 @@ Then follow the migration-first order:
 docker compose --env-file=.env.docker up -d --wait postgres redis
 docker compose --env-file=.env.docker stop web worker scheduler app
 docker compose --env-file=.env.docker run --rm app php artisan migrate --force
+docker compose --env-file=.env.docker run --rm app php artisan banking:production-preflight
 docker compose --env-file=.env.docker up -d app worker scheduler web
 ```
+
+The preflight checks production-safe configuration, all required settlement ledgers, and database connectivity. Do not start the application-facing services when it returns a failure.
 
 Verify the deployment:
 

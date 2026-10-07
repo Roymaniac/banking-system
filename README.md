@@ -390,6 +390,14 @@ Before deployment:
 11. Monitor `/up`, protected readiness status, failed jobs, logs, and exhausted outbox messages.
 12. Configure encrypted offsite database backups and complete the documented restoration drill before handling real funds.
 
+After building the release image and running migrations, execute the production preflight before starting request-processing services:
+
+```bash
+php artisan banking:production-preflight
+```
+
+The command checks production-safe configuration, settlement-ledger identifiers, and database connectivity without printing configured secrets. A failed check returns a non-zero exit code and means traffic must remain disabled.
+
 Typical optimization commands are:
 
 ```bash

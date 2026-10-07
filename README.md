@@ -338,6 +338,14 @@ More implementation rules are documented in [docs/engineering-principles.md](doc
 
 `GET /api/v1/operations/health` is the protected readiness endpoint. It checks operational dependencies such as the database, scheduler heartbeat, queue failures, and notification backlog. It requires the `operations.view` permission.
 
+## Observability
+
+Every HTTP response includes an `X-Request-ID` that connects the response to structured Laravel and Nginx logs. Completion logs use safe route names and omit raw URLs, query strings, request bodies, and route parameters so operational tracing does not unnecessarily copy banking data.
+
+Production container logs use JSON. The monitoring platform should collect them from standard output and error, monitor both liveness and protected readiness, and alert on database failure, stale scheduler heartbeats, failed jobs, exhausted emails, elevated server errors, abnormal latency, and unusual rate limiting.
+
+See [docs/observability.md](docs/observability.md) for log fields, recommended starting alerts, investigation steps, retention, and access guidance.
+
 ## Quality checks
 
 Run the complete local quality gate before opening a pull request:

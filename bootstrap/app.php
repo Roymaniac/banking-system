@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RequirePermission;
+use App\Http\Middleware\TraceApiRequest;
 use Audit\Infrastructure\Http\Middleware\RecordUserActivityMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Give every response and application log a shared trace identifier.
+        $middleware->prepend(TraceApiRequest::class);
+
         // Capture authenticated changes from both web and API requests.
         $middleware->append(RecordUserActivityMiddleware::class);
         $middleware->alias([

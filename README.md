@@ -208,6 +208,23 @@ Accept: application/json
 
 Customer endpoints verify ownership using the authenticated user's linked identity. Administrative and operational endpoints additionally require explicit permissions such as `administration.view`, `transactions.deposit`, or `audit.view`.
 
+## Request limits
+
+The API applies separate per-minute budgets to login attempts, routine customer requests, money movement, privileged operations, and reporting. Authenticated budgets are isolated per user. Login keys combine the client address with a one-way hash of the normalized email address, so the email is not exposed in cache keys.
+
+Clients that exceed a budget receive HTTP `429 Too Many Requests` with a `Retry-After` header. The limits can be adjusted without changing code:
+
+```dotenv
+RATE_LIMIT_LOGIN_PER_MINUTE=6
+RATE_LIMIT_LOGIN_IP_PER_MINUTE=30
+RATE_LIMIT_CUSTOMER_PER_MINUTE=120
+RATE_LIMIT_MONEY_MOVEMENT_PER_MINUTE=20
+RATE_LIMIT_OPERATOR_PER_MINUTE=60
+RATE_LIMIT_REPORTING_PER_MINUTE=30
+```
+
+These controls reduce automated abuse and accidental request loops; they do not replace transaction idempotency or permission checks.
+
 ## API documentation
 
 Interactive documentation is available at `/docs/api`. The OpenAPI JSON document is available at `/docs/api.json`.
@@ -322,10 +339,11 @@ Individual commands are also available:
 composer format:check
 composer analyse
 composer openapi:check
+composer security:check
 composer test
 ```
 
-GitHub Actions repeats these checks, verifies that all migrations run successfully on a clean SQLite database, validates the Compose configuration, and builds both production images.
+The security check audits the exact versions in `composer.lock` against Composer's vulnerability advisory database. GitHub Actions repeats these checks, verifies that all migrations run successfully on a clean SQLite database, validates the Compose configuration, and builds both production images.
 
 ## Production checklist
 

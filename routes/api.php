@@ -33,10 +33,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
     Route::post('/login', [AuthenticationController::class, 'login'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:login')
         ->name('api.v1.auth.login');
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'throttle:customer-api'])->group(function (): void {
         Route::get('/me', [AuthenticationController::class, 'current'])
             ->name('api.v1.auth.me');
         Route::post('/logout', [AuthenticationController::class, 'logout'])
@@ -45,27 +45,27 @@ Route::prefix('v1/auth')->group(function (): void {
 });
 
 Route::prefix('v1/operations')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:operator-api'])
     ->group(function (): void {
         Route::get('/health', [SystemHealthController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.health.show');
         Route::post('/accounts/{account}/deposits', [TrustedTransactionController::class, 'deposit'])
             ->whereUuid('account')
-            ->middleware('permission:transactions.deposit')
+            ->middleware(['permission:transactions.deposit', 'throttle:money-movement'])
             ->name('api.v1.operations.deposits.store');
         Route::post('/accounts/{account}/withdrawals', [TrustedTransactionController::class, 'withdraw'])
             ->whereUuid('account')
-            ->middleware('permission:transactions.withdraw')
+            ->middleware(['permission:transactions.withdraw', 'throttle:money-movement'])
             ->name('api.v1.operations.withdrawals.store');
         Route::post('/ledger-entries/{entry}/reversals', [TrustedTransactionController::class, 'reverse'])
             ->whereUuid('entry')
-            ->middleware('permission:transactions.reverse')
+            ->middleware(['permission:transactions.reverse', 'throttle:money-movement'])
             ->name('api.v1.operations.reversals.store');
     });
 
 Route::prefix('v1/customer')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:customer-api'])
     ->group(function (): void {
         Route::get('/profile', [CustomerProfileController::class, 'show'])
             ->name('api.v1.customer.profile.show');
@@ -86,7 +86,7 @@ Route::prefix('v1/customer')
     });
 
 Route::prefix('v1/administration')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:operator-api'])
     ->group(function (): void {
         Route::get('/departments', [DepartmentDirectoryController::class, 'index'])
             ->middleware('permission:administration.view')
@@ -166,7 +166,7 @@ Route::prefix('v1/administration')
     });
 
 Route::prefix('v1/accounts')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:customer-api'])
     ->group(function (): void {
         Route::get('/', [AccountController::class, 'index'])
             ->name('api.v1.accounts.index');
@@ -180,14 +180,14 @@ Route::prefix('v1/accounts')
             ->name('api.v1.accounts.balance.show');
         Route::post('/{account}/transfers', [TransferController::class, 'store'])
             ->whereUuid('account')
-            ->middleware('throttle:20,1')
+            ->middleware('throttle:money-movement')
             ->name('api.v1.accounts.transfers.store');
         Route::get('/{account}/transactions', [TransactionHistoryController::class, 'index'])
             ->whereUuid('account')
             ->name('api.v1.accounts.transactions.index');
         Route::post('/{account}/multiple-transfers', [MultipleTransferController::class, 'store'])
             ->whereUuid('account')
-            ->middleware('throttle:10,1')
+            ->middleware('throttle:money-movement')
             ->name('api.v1.accounts.multiple-transfers.store');
         Route::get('/{account}/daily-limit', [DailyTransactionLimitController::class, 'show'])
             ->whereUuid('account')
@@ -198,7 +198,7 @@ Route::prefix('v1/accounts')
     });
 
 Route::prefix('v1/reports')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:reporting-api'])
     ->group(function (): void {
         Route::get('/customers/{customer}', [CustomerReportController::class, 'show'])
             ->whereUuid('customer')
@@ -214,7 +214,7 @@ Route::prefix('v1/reports')
     });
 
 Route::prefix('v1/audit')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:reporting-api'])
     ->group(function (): void {
         Route::get('/domain-events', [DomainEventController::class, 'index'])
             ->middleware('permission:audit.view')
@@ -228,7 +228,7 @@ Route::prefix('v1/audit')
     });
 
 Route::prefix('v1/notifications')
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'throttle:operator-api'])
     ->group(function (): void {
         Route::get('/outbox', [EmailOutboxController::class, 'index'])
             ->middleware('permission:notifications.view')

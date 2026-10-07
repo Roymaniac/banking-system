@@ -84,6 +84,9 @@
         "openapi:check": [
             "@php artisan scramble:analyze"
         ],
+        "security:check": [
+            "@composer audit --locked --no-interaction"
+        ],
         "quality": [
             "@format:check",
             "@analyse",

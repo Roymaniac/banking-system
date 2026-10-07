@@ -1,7 +1,7 @@
 name: banking-system
 
 x-application: &application
-  image: banking-system-app:local
+  image: ${APP_IMAGE:-banking-system-app:local}
   build:
     context: .
     target: app
@@ -29,7 +29,7 @@ services:
       start_period: 15s
 
   web:
-    image: banking-system-web:local
+    image: ${WEB_IMAGE:-banking-system-web:local}
     build:
       context: .
       target: web

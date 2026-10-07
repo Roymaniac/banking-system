@@ -196,6 +196,14 @@ The maintenance service stores the archive and its SHA-256 checksum in the ignor
 
 Restoration is intentionally limited to a separate recovery database; the provided tooling refuses to overwrite the configured live database. The complete restore drill, validation checklist, and production incident procedure are documented in [docs/disaster-recovery.md](docs/disaster-recovery.md).
 
+## Releases
+
+Pushing a semantic-version tag such as `v1.0.0` runs a separate release gate and publishes multi-platform `app` and `web` images to GitHub Container Registry. Published images include a software bill of materials, build provenance, and a signed GitHub artifact attestation.
+
+Production Compose deployments can select registry images through `APP_IMAGE` and `WEB_IMAGE` in `.env.docker`; local development keeps using the local image names by default. Prefer immutable image digests for production rollouts.
+
+The complete tagging, registry authentication, migration-first deployment, rollback, and provenance-verification procedure is documented in [docs/releasing.md](docs/releasing.md).
+
 ## API authentication
 
 Obtain a Sanctum token through the login endpoint:

@@ -137,16 +137,34 @@ docker compose --env-file=.env.docker run --rm --no-deps app php artisan key:gen
 
 The example database password is only for local use. Replace it, the public URL, mail settings, frontend URLs, and settlement-ledger UUIDs before a real deployment.
 
-Build and start the services:
+Build the application and web images without starting request-processing services:
 
 ```bash
-docker compose --env-file=.env.docker up --build -d
+docker compose --env-file=.env.docker build app web
 ```
 
-Run migrations as a separate, controlled deployment step:
+Start only PostgreSQL and Redis, then wait for their health checks to pass:
+
+```bash
+docker compose --env-file=.env.docker up -d --wait postgres redis
+```
+
+For an update, stop the old request, worker, and scheduler processes before changing the schema. On a fresh deployment this command is harmless because those containers do not exist yet:
+
+```bash
+docker compose --env-file=.env.docker stop web worker scheduler app
+```
+
+Run migrations with the newly built application image as a separate, controlled deployment step:
 
 ```bash
 docker compose --env-file=.env.docker run --rm app php artisan migrate --force
+```
+
+Only after the migration succeeds, start the application-facing services:
+
+```bash
+docker compose --env-file=.env.docker up -d app worker scheduler web
 ```
 
 The API is available at `http://localhost:8080` by default. Check container state and the public liveness route with:
@@ -156,7 +174,7 @@ docker compose --env-file=.env.docker ps
 curl http://localhost:8080/up
 ```
 
-The application container runs as an unprivileged user, enables OPcache, and writes logs to the container's standard error stream. Its startup script never runs database migrations. This separation prevents an ordinary restart from unexpectedly changing the production schema.
+The application container runs as an unprivileged user, enables OPcache, and writes logs to the container's standard error stream. Its startup script never runs database migrations. Keeping migrations between infrastructure startup and application startup prevents requests or scheduled work from reaching a schema that is not ready yet.
 
 Stop the stack without deleting database or Redis data:
 

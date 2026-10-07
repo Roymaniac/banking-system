@@ -1,0 +1,106 @@
+name: banking-system
+
+x-application: &application
+  image: banking-system-app:local
+  build:
+    context: .
+    target: app
+  env_file:
+    - ${APP_ENV_FILE:-.env.docker}
+  restart: unless-stopped
+  networks:
+    - banking
+  volumes:
+    - application-storage:/var/www/html/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *application
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t && pidof php-fpm >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    image: banking-system-web:local
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    networks:
+      - banking
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    <<: *application
+    command:
+      - php
+      - artisan
+      - queue:work
+      - --sleep=1
+      - --tries=3
+      - --timeout=60
+      - --max-time=3600
+    stop_grace_period: 90s
+
+  scheduler:
+    <<: *application
+    command: ["php", "artisan", "schedule:work"]
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-banking}
+      POSTGRES_USER: ${POSTGRES_USER:-banking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-password}
+    networks:
+      - banking
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - banking
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  banking:
+    driver: bridge
+
+volumes:
+  application-storage:
+  postgres-data:
+  redis-data:
+

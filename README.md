@@ -106,6 +106,66 @@ php artisan schedule:work
 
 In production, use a process supervisor for queue workers and invoke `php artisan schedule:run` every minute with the operating system's scheduler. Do not rely on a manually opened terminal.
 
+## Container deployment
+
+The repository includes a production-oriented container setup with five separate responsibilities:
+
+- `web` accepts HTTP traffic through Nginx.
+- `app` executes Laravel requests through PHP-FPM.
+- `worker` processes queued jobs.
+- `scheduler` runs Laravel's scheduled commands.
+- PostgreSQL and Redis provide local production-like infrastructure.
+
+Create a private container environment file before the first build:
+
+```bash
+cp .env.docker.example .env.docker
+```
+
+On PowerShell, use:
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+```
+
+Generate a fresh application key and place the complete output after `APP_KEY=` in `.env.docker`:
+
+```bash
+docker compose --env-file=.env.docker build app
+docker compose --env-file=.env.docker run --rm --no-deps app php artisan key:generate --show
+```
+
+The example database password is only for local use. Replace it, the public URL, mail settings, frontend URLs, and settlement-ledger UUIDs before a real deployment.
+
+Build and start the services:
+
+```bash
+docker compose --env-file=.env.docker up --build -d
+```
+
+Run migrations as a separate, controlled deployment step:
+
+```bash
+docker compose --env-file=.env.docker run --rm app php artisan migrate --force
+```
+
+The API is available at `http://localhost:8080` by default. Check container state and the public liveness route with:
+
+```bash
+docker compose --env-file=.env.docker ps
+curl http://localhost:8080/up
+```
+
+The application container runs as an unprivileged user, enables OPcache, and writes logs to the container's standard error stream. Its startup script never runs database migrations. This separation prevents an ordinary restart from unexpectedly changing the production schema.
+
+Stop the stack without deleting database or Redis data:
+
+```bash
+docker compose --env-file=.env.docker down
+```
+
+Adding `--volumes` deletes the local persistent data and should only be used when that data is intentionally disposable.
+
 ## API authentication
 
 Obtain a Sanctum token through the login endpoint:
@@ -247,13 +307,13 @@ composer openapi:check
 composer test
 ```
 
-GitHub Actions repeats these checks and also verifies that all migrations run successfully on a clean SQLite database.
+GitHub Actions repeats these checks, verifies that all migrations run successfully on a clean SQLite database, validates the Compose configuration, and builds both production images.
 
 ## Production checklist
 
 Before deployment:
 
-1. Use PHP 8.4.1 or newer and run `composer install --no-dev --classmap-authoritative`.
+1. Use PHP 8.4.1 or newer and run `composer install --no-dev --classmap-authoritative`, or deploy the repository's production application image.
 2. Set `APP_ENV=production`, `APP_DEBUG=false`, and a production `APP_URL`.
 3. Provide a securely generated `APP_KEY`; changing it later makes existing encrypted outbox data unreadable.
 4. Configure a production database, cache, queue, mail transport, and HTTPS.

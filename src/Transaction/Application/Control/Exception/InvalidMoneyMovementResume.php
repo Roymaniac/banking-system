@@ -47,4 +47,9 @@ final class InvalidMoneyMovementResume extends DomainException
     {
         return new self('A newer suspension replaced this resume request. Submit a new request after investigating it.');
     }
+
+    public static function breakGlassNotAuthorized(): self
+    {
+        return new self('The named operator does not have the money_movement.break_glass permission.');
+    }
 }

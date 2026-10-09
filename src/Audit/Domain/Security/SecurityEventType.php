@@ -11,4 +11,5 @@ enum SecurityEventType: string
     case LoginFailed = 'identity.login_failed';
     case UnverifiedLoginBlocked = 'identity.unverified_login_blocked';
     case AccessDenied = 'identity.access_denied';
+    case MoneyMovementBreakGlassResumed = 'operations.money_movement_break_glass_resumed';
 }

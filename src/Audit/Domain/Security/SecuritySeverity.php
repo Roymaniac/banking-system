@@ -9,4 +9,5 @@ enum SecuritySeverity: string
 {
     case Information = 'information';
     case Warning = 'warning';
+    case Critical = 'critical';
 }

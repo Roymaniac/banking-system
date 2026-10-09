@@ -137,7 +137,7 @@ it('rejects unsafe pagination dates and unknown security filters', function (): 
     allowAuditTrailApi();
     Sanctum::actingAs(auditTrailApiUser());
 
-    $this->getJson('/api/v1/audit/security-events?from=2026-10-04&to=2026-10-01&page=0&per_page=101&type=unknown&severity=critical')
+    $this->getJson('/api/v1/audit/security-events?from=2026-10-04&to=2026-10-01&page=0&per_page=101&type=unknown&severity=emergency')
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['to', 'page', 'per_page', 'type', 'severity']);
 });

@@ -91,6 +91,8 @@ Requesters should cancel obsolete requests, and approvers should reject requests
 
 Approval requests record the safety-switch revision they reviewed. A new incident or changed suspension reason advances that revision, makes older requests `superseded`, and prevents a stale approval from reopening financial writes.
 
+Production CLI resumption is disabled by default so it cannot bypass two-person approval. Emergency `--break-glass` use requires a separately authorized operator UUID, an incident reference, and explicit confirmation. It emits a `critical` `operations.money_movement_break_glass_resumed` security event; alert immediately and review both the application record and infrastructure shell-access logs.
+
 Do not place secrets or private financial details into incident tickets. Reference protected audit records by their identifiers instead.
 
 ## Retention and access

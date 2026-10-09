@@ -34,6 +34,7 @@ use Audit\Infrastructure\Persistence\DatabaseActivityLogRepository;
 use Audit\Infrastructure\Persistence\DatabaseAuditLogRepository;
 use Audit\Infrastructure\Persistence\DatabaseAuditTrailQuery;
 use Audit\Infrastructure\Persistence\DatabaseSecurityEventRepository;
+use Audit\Infrastructure\Transaction\AuditMoneyMovementSecurityMonitor;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
 use Identity\Application\Authentication\PasswordHasher;
@@ -103,6 +104,7 @@ use Transaction\Application\Control\MoneyMovementControlEventQuery;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 use Transaction\Application\Control\MoneyMovementResumeRequestQuery;
+use Transaction\Application\Control\MoneyMovementSecurityMonitor;
 use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\Reversal\ReverseTransaction;
@@ -140,6 +142,7 @@ class AppServiceProvider extends ServiceProvider
             DatabaseMoneyMovementControlEventQuery::class,
         );
         $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
+        $this->app->singleton(MoneyMovementSecurityMonitor::class, AuditMoneyMovementSecurityMonitor::class);
         $this->app->singleton(
             MoneyMovementResumeRequestExpiry::class,
             DatabaseMoneyMovementResumeRequestExpiry::class,

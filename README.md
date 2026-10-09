@@ -344,7 +344,6 @@ Operators can stop new financial writes while keeping authentication, reports, h
 
 ```bash
 php artisan banking:money-movement:suspend "Investigating reconciliation incident INC-1234"
-php artisan banking:money-movement:resume "Incident INC-1234 resolved and approved"
 ```
 
 Deposits, withdrawals, transfers, batch transfers, and reversals share this database-backed transaction gate. A failed automated reconciliation suspends money movement automatically; a successful later check does not resume it. Resumption always requires an explicit operator decision after investigation. Every state change records an immutable operational event and reason.
@@ -367,6 +366,14 @@ Viewing current state requires `operations.view`, reviewing its bounded event hi
 The requester may cancel their own pending request, while a different approver may reject it with a review reason. Cancellation, rejection, and expiry always leave money movement suspended.
 
 Every approval request is also tied to the safety switch revision that existed when the request was created. If another incident changes the suspension reason, the old request becomes `superseded` and cannot reopen money movement. The incident must be investigated and a new approval request submitted.
+
+In production, the CLI cannot perform an ordinary resume; use the protected two-person API workflow. If that workflow itself is unavailable during a severe incident, an operator with the dedicated `money_movement.break_glass` permission may use the emergency path:
+
+```bash
+php artisan banking:money-movement:resume "Primary approval tooling is unavailable" --break-glass --operator=OPERATOR-USER-UUID --incident=INC-1234
+```
+
+The command requires an explicit confirmation (or `--yes` in a controlled non-interactive run), records the operator and incident on the switch event, and creates a critical security event. Infrastructure access logs must independently identify the person using the production shell; the UUID supplied to the command is validated for permission but is audit attribution, not shell authentication.
 
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.

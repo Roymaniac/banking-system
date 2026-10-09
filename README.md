@@ -292,7 +292,9 @@ Email contents and recipients are encrypted while waiting in the outbox. The sch
 
 Creating a money-movement resume request also queues a privacy-safe email for every active, verified staff member who currently has `money_movement.approve`. The requester is excluded because approval must be independent. The email contains the request identifier, expiry time, and protected operations-portal link, but not the incident reason. The request and encrypted email intents are stored in one transaction so a partial notification cannot be reported as successful.
 
-When a current pending request enters its final ten minutes, the scheduler queues one reminder to the same eligible reviewers. The persisted `reminded_at` timestamp prevents repeated reminders, and stale, completed, expired, or superseded requests are never reminded.
+At least one independent eligible approver must exist when the request is submitted. If none exists, the API returns a conflict and rolls back both the request and any partial outbox work. Operators must restore staff access, role assignment, permission, or email verification before trying again.
+
+When a current pending request enters its final ten minutes, the scheduler queues one reminder to the same eligible reviewers. The persisted `reminded_at` timestamp prevents repeated reminders, and stale, completed, expired, or superseded requests are never reminded. If reviewer coverage temporarily disappears, `reminded_at` stays empty so the scheduler can retry after coverage is restored.
 
 ## Architecture
 

@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Notification\Domain\Outbox\Repository\EmailOutboxRepository;
+use Notification\Infrastructure\Transaction\EmailMoneyMovementResumeNotifier;
 use Shared\Domain\Identifier\Uuid;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
@@ -35,6 +36,18 @@ function allowMoneyMovementControl(): void
         public function allows(UserId $userId, Permission $permission): bool
         {
             return true;
+        }
+    });
+    app()->instance(MoneyMovementResumeNotifier::class, new class implements MoneyMovementResumeNotifier
+    {
+        public function pending(MoneyMovementResumeRequest $request): int
+        {
+            return 1;
+        }
+
+        public function expiringSoon(MoneyMovementResumeRequest $request): int
+        {
+            return 1;
         }
     });
 }
@@ -442,6 +455,10 @@ it('prevents an old approval request from resuming a newer suspension', function
 
 it('durably notifies only active verified independent approvers', function (): void {
     allowMoneyMovementControl();
+    app()->instance(
+        MoneyMovementResumeNotifier::class,
+        app(EmailMoneyMovementResumeNotifier::class),
+    );
     config()->set('notification.operations_url', 'https://operations.example.test/resume-requests');
     $requester = moneyMovementOperator();
     $eligibleReviewer = moneyMovementOperator();
@@ -483,6 +500,20 @@ it('durably notifies only active verified independent approvers', function (): v
         'expires_at' => now()->addMinutes(5),
     ]);
 
+    DB::table('staff')->where('user_id', $eligibleReviewer->identity_user_id)->update([
+        'status' => 'inactive',
+        'deactivated_at' => now(),
+    ]);
+    expect(app(MoneyMovementResumeReminder::class)->sendDue())->toBe(0)
+        ->and(DB::table('money_movement_resume_requests')->where('id', $requestId)->value('reminded_at'))
+        ->toBeNull();
+
+    // The untouched reminder timestamp lets the scheduler try again after
+    // an eligible reviewer becomes available.
+    DB::table('staff')->where('user_id', $eligibleReviewer->identity_user_id)->update([
+        'status' => 'active',
+        'deactivated_at' => null,
+    ]);
     expect(app(MoneyMovementResumeReminder::class)->sendDue())->toBe(1)
         ->and(app(MoneyMovementResumeReminder::class)->sendDue())->toBe(0);
     $messages = app(EmailOutboxRepository::class)->pending(10);
@@ -498,15 +529,43 @@ it('durably notifies only active verified independent approvers', function (): v
         ->not->toBeNull();
 });
 
+it('rolls back a request when no independent approver is eligible', function (): void {
+    allowMoneyMovementControl();
+    app()->instance(
+        MoneyMovementResumeNotifier::class,
+        app(EmailMoneyMovementResumeNotifier::class),
+    );
+    $requester = moneyMovementOperator();
+    configureMoneyMovementApprovers([
+        ['user' => $requester, 'staff_status' => 'active'],
+    ]);
+    Sanctum::actingAs($requester);
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Approval coverage behavior requires a suspended switch.',
+    ])->assertOk();
+
+    $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('Recovery evidence is ready for review.', 'INC-7001'),
+    )->assertConflict()
+        ->assertJsonPath(
+            'message',
+            'No independent active and verified operator can approve this request.',
+        );
+
+    $this->assertDatabaseCount('money_movement_resume_requests', 0);
+    $this->assertDatabaseCount('email_outbox', 0);
+});
+
 it('does not create a resume request when its durable notification cannot be recorded', function (): void {
     app()->instance(MoneyMovementResumeNotifier::class, new class implements MoneyMovementResumeNotifier
     {
-        public function pending(MoneyMovementResumeRequest $request): void
+        public function pending(MoneyMovementResumeRequest $request): int
         {
             throw new RuntimeException('Outbox storage unavailable.');
         }
 
-        public function expiringSoon(MoneyMovementResumeRequest $request): void
+        public function expiringSoon(MoneyMovementResumeRequest $request): int
         {
             throw new RuntimeException('Outbox storage unavailable.');
         }

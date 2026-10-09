@@ -51,16 +51,23 @@ final readonly class DatabaseMoneyMovementResumeReminder implements MoneyMovemen
                 ->lockForUpdate()
                 ->get();
 
+            $reminded = 0;
+
             foreach ($records as $record) {
                 $request = $this->hydrate($record);
-                $this->notifier->expiringSoon($request);
+                if ($this->notifier->expiringSoon($request) === 0) {
+                    // Keep reminded_at empty so the scheduler retries after
+                    // reviewer access or verification is restored.
+                    continue;
+                }
                 $this->connection->table('money_movement_resume_requests')
                     ->where('id', $request->id->value())
                     ->whereNull('reminded_at')
                     ->update(['reminded_at' => $now]);
+                $reminded++;
             }
 
-            return $records->count();
+            return $reminded;
         });
     }
 

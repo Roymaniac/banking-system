@@ -52,4 +52,9 @@ final class InvalidMoneyMovementResume extends DomainException
     {
         return new self('The named operator does not have the money_movement.break_glass permission.');
     }
+
+    public static function noEligibleApprover(): self
+    {
+        return new self('No independent active and verified operator can approve this request.');
+    }
 }

@@ -7,7 +7,9 @@ namespace Transaction\Application\Control;
 /** Alerts eligible reviewers without making the transaction context depend on email. */
 interface MoneyMovementResumeNotifier
 {
-    public function pending(MoneyMovementResumeRequest $request): void;
+    /** Returns how many independent reviewers received a durable notification. */
+    public function pending(MoneyMovementResumeRequest $request): int;
 
-    public function expiringSoon(MoneyMovementResumeRequest $request): void;
+    /** Returns how many currently eligible reviewers received the reminder. */
+    public function expiringSoon(MoneyMovementResumeRequest $request): int;
 }

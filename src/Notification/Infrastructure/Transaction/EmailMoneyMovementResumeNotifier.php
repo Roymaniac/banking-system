@@ -25,19 +25,21 @@ final readonly class EmailMoneyMovementResumeNotifier implements MoneyMovementRe
         private ConfigRepository $config,
     ) {}
 
-    public function pending(MoneyMovementResumeRequest $request): void
+    public function pending(MoneyMovementResumeRequest $request): int
     {
-        $this->notify($request, EmailTemplate::MoneyMovementResumeApproval);
+        return $this->notify($request, EmailTemplate::MoneyMovementResumeApproval);
     }
 
-    public function expiringSoon(MoneyMovementResumeRequest $request): void
+    public function expiringSoon(MoneyMovementResumeRequest $request): int
     {
-        $this->notify($request, EmailTemplate::MoneyMovementResumeReminder);
+        return $this->notify($request, EmailTemplate::MoneyMovementResumeReminder);
     }
 
-    private function notify(MoneyMovementResumeRequest $request, EmailTemplate $template): void
+    private function notify(MoneyMovementResumeRequest $request, EmailTemplate $template): int
     {
-        foreach ($this->reviewerEmails($request) as $email) {
+        $reviewerEmails = $this->reviewerEmails($request);
+
+        foreach ($reviewerEmails as $email) {
             $message = $this->templates->render(
                 $template,
                 new RecipientEmail($email),
@@ -50,6 +52,8 @@ final readonly class EmailMoneyMovementResumeNotifier implements MoneyMovementRe
 
             $this->emails->send($message);
         }
+
+        return count($reviewerEmails);
     }
 
     /** @return list<string> */

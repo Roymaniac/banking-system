@@ -86,7 +86,9 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 'approved_at' => null,
             ]);
 
-            $this->notifier->pending($request);
+            if ($this->notifier->pending($request) === 0) {
+                throw InvalidMoneyMovementResume::noEligibleApprover();
+            }
 
             return $request;
         });

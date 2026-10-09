@@ -93,7 +93,9 @@ Approval requests record the safety-switch revision they reviewed. A new inciden
 
 New requests queue encrypted email alerts for active, verified staff holding `money_movement.approve`, excluding the requester. Monitor the email outbox so exhausted approval alerts are investigated before the 30-minute approval window closes; reviewers can still discover requests through the protected queue.
 
-The scheduler queues one additional reminder when a current pending request has ten minutes or less remaining. The `reminded_at` field makes delivery intent visible and prevents inbox flooding. No reminder is created after completion, expiry, or supersession.
+Request creation fails safely when no independent eligible approver exists. Treat that conflict as an access-coverage problem: verify active staff status, active role assignment, `money_movement.approve`, and email verification before resubmitting.
+
+The scheduler queues one additional reminder when a current pending request has ten minutes or less remaining. The `reminded_at` field makes delivery intent visible and prevents inbox flooding. No reminder is created after completion, expiry, or supersession. A zero-recipient attempt leaves `reminded_at` empty for retry after reviewer coverage returns.
 
 Resume requests require an external incident reference and a bounded evidence summary. Reviewers should compare that summary with the authoritative incident record before approving. The protected queue can be filtered by incident reference, while notification emails deliberately omit the evidence text.
 

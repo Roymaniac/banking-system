@@ -9,8 +9,10 @@ use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
 use InvalidArgumentException;
 use Shared\Contracts\Clock;
+use Shared\Domain\Identifier\Uuid;
 use Transaction\Application\Control\Exception\MoneyMovementSuspended;
 use Transaction\Application\Control\MoneyMovementControl;
+use Transaction\Application\Control\MoneyMovementStatus;
 
 /** Coordinates the global safety switch with in-flight financial transactions. */
 final readonly class DatabaseMoneyMovementControl implements MoneyMovementControl
@@ -32,18 +34,41 @@ final readonly class DatabaseMoneyMovementControl implements MoneyMovementContro
         }
     }
 
-    public function suspend(string $reason, string $source): void
+    public function suspend(string $reason, string $source, ?Uuid $actorUserId = null): void
     {
-        $this->change(false, 'suspended', $reason, $source);
+        $this->change(false, 'suspended', $reason, $source, $actorUserId);
     }
 
-    public function resume(string $reason, string $source): void
+    public function resume(string $reason, string $source, ?Uuid $actorUserId = null): void
     {
-        $this->change(true, 'resumed', $reason, $source);
+        $this->change(true, 'resumed', $reason, $source, $actorUserId);
     }
 
-    private function change(bool $enabled, string $action, string $reason, string $source): void
+    public function current(): MoneyMovementStatus
     {
+        $control = $this->connection->table('money_movement_controls')
+            ->where('name', 'global')
+            ->first();
+
+        if ($control === null) {
+            throw MoneyMovementSuspended::create();
+        }
+
+        return new MoneyMovementStatus(
+            filter_var($control->enabled, FILTER_VALIDATE_BOOL),
+            $control->reason === null ? null : (string) $control->reason,
+            (string) $control->source,
+            new DateTimeImmutable((string) $control->changed_at, new DateTimeZone('UTC')),
+        );
+    }
+
+    private function change(
+        bool $enabled,
+        string $action,
+        string $reason,
+        string $source,
+        ?Uuid $actorUserId,
+    ): void {
         $reason = trim($reason);
         $source = trim($source);
 
@@ -55,7 +80,7 @@ final readonly class DatabaseMoneyMovementControl implements MoneyMovementContro
             throw new InvalidArgumentException('The operational source must contain between 1 and 50 characters.');
         }
 
-        $this->connection->transaction(function () use ($enabled, $action, $reason, $source): void {
+        $this->connection->transaction(function () use ($enabled, $action, $reason, $source, $actorUserId): void {
             $control = $this->connection->table('money_movement_controls')
                 ->where('name', 'global')
                 ->lockForUpdate()
@@ -80,6 +105,7 @@ final readonly class DatabaseMoneyMovementControl implements MoneyMovementContro
                 'action' => $action,
                 'reason' => $reason,
                 'source' => $source,
+                'actor_user_id' => $actorUserId?->value(),
                 'occurred_at' => $occurredAt,
             ]);
         });

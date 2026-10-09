@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
+use App\Http\Controllers\Api\V1\Operation\MoneyMovementControlController;
 use App\Http\Controllers\Api\V1\Operation\SystemHealthController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
 use App\Http\Controllers\Api\V1\Reporting\CustomerReportController;
@@ -50,6 +51,15 @@ Route::prefix('v1/operations')
         Route::get('/health', [SystemHealthController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.health.show');
+        Route::get('/money-movement', [MoneyMovementControlController::class, 'show'])
+            ->middleware('permission:operations.view')
+            ->name('api.v1.operations.money-movement.show');
+        Route::post('/money-movement/suspend', [MoneyMovementControlController::class, 'suspend'])
+            ->middleware('permission:money_movement.manage')
+            ->name('api.v1.operations.money-movement.suspend');
+        Route::post('/money-movement/resume', [MoneyMovementControlController::class, 'resume'])
+            ->middleware('permission:money_movement.manage')
+            ->name('api.v1.operations.money-movement.resume');
         Route::post('/accounts/{account}/deposits', [TrustedTransactionController::class, 'deposit'])
             ->whereUuid('account')
             ->middleware(['permission:transactions.deposit', 'throttle:money-movement'])

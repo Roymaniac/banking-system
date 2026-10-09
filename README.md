@@ -349,6 +349,16 @@ php artisan banking:money-movement:resume "Incident INC-1234 resolved and approv
 
 Deposits, withdrawals, transfers, batch transfers, and reversals share this database-backed transaction gate. A failed automated reconciliation suspends money movement automatically; a successful later check does not resume it. Resumption always requires an explicit operator decision after investigation. Every state change records an immutable operational event and reason.
 
+Authorized operations tooling can use the protected API as well:
+
+```text
+GET  /api/v1/operations/money-movement
+POST /api/v1/operations/money-movement/suspend
+POST /api/v1/operations/money-movement/resume
+```
+
+Viewing requires `operations.view`; changing the switch requires `money_movement.manage`. API changes record the authenticated operator's identity alongside the reason.
+
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.

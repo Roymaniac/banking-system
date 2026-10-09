@@ -33,6 +33,7 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
                 'database' => ['status' => 'healthy'],
                 'scheduler' => $this->schedulerHealth(),
                 'ledger_reconciliation' => $this->reconciliationHealth(),
+                'money_movement' => $this->moneyMovementHealth(),
                 'queue' => $this->queueHealth(),
                 'notifications' => $this->notificationHealth(),
             ];
@@ -73,6 +74,26 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
             'unbalanced_posted_entries' => (int) $status->unbalanced_posted_entries,
             'contribution_mismatches' => (int) $status->contribution_mismatches,
             'balance_mismatches' => (int) $status->balance_mismatches,
+        ];
+    }
+
+    /** @return array<string, bool|int|string|null> */
+    private function moneyMovementHealth(): array
+    {
+        $control = $this->connection->table('money_movement_controls')
+            ->where('name', 'global')
+            ->first();
+
+        if ($control === null) {
+            return ['status' => 'unhealthy', 'enabled' => false, 'changed_at' => null];
+        }
+
+        $enabled = filter_var($control->enabled, FILTER_VALIDATE_BOOL);
+
+        return [
+            'status' => $enabled ? 'healthy' : 'degraded',
+            'enabled' => $enabled,
+            'changed_at' => (new DateTimeImmutable((string) $control->changed_at))->format(DATE_ATOM),
         ];
     }
 

@@ -58,6 +58,7 @@ Configure the monitoring platform to notify operators when:
 | Scheduler | Heartbeat age exceeds 120 seconds | Critical |
 | Database | Readiness reports database unhealthy | Critical |
 | Reconciliation | Latest check fails or is older than two hours | Critical |
+| Money movement | Safety switch is suspended | Critical |
 | HTTP errors | 5xx responses exceed 1% for five minutes | Critical |
 | Queue failures | `failed_jobs` is greater than zero | Warning |
 | Email delivery | `exhausted_messages` is greater than zero | Warning |
@@ -81,6 +82,8 @@ When an alert fires:
    The read-only `php artisan banking:reconcile-ledger` command provides a deployment-friendly integrity check.
 8. Preserve relevant logs and database evidence before recovery actions.
 9. Record the resolution, customer impact, and follow-up work.
+
+A reconciliation failure automatically suspends new money movement. It never automatically resumes it. After resolving the incident and independently verifying balances, an authorized operator must use `banking:money-movement:resume` with an auditable incident reason.
 
 Do not place secrets or private financial details into incident tickets. Reference protected audit records by their identifiers instead.
 

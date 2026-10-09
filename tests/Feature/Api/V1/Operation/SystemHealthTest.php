@@ -184,3 +184,24 @@ it('returns service unavailable when reconciliation is stale', function (): void
         ->assertServiceUnavailable()
         ->assertJsonPath('data.components.ledger_reconciliation.status', 'unhealthy');
 });
+
+it('reports degraded while money movement is intentionally suspended', function (): void {
+    allowSystemHealthApi();
+    Sanctum::actingAs(systemHealthApiUser());
+    config()->set('queue.default', 'database');
+    app(RecordSchedulerHeartbeat::class)->record();
+    recordHealthyLedgerReconciliation();
+    DB::table('money_movement_controls')->where('name', 'global')->update([
+        'enabled' => false,
+        'reason' => 'Operational investigation is in progress.',
+        'source' => 'test',
+        'changed_at' => now(),
+    ]);
+
+    $this->getJson('/api/v1/operations/health')
+        ->assertOk()
+        ->assertJsonPath('data.status', 'degraded')
+        ->assertJsonPath('data.components.money_movement.status', 'degraded')
+        ->assertJsonPath('data.components.money_movement.enabled', false)
+        ->assertJsonMissingPath('data.components.money_movement.reason');
+});

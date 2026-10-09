@@ -146,6 +146,15 @@ it('fails when journal and projection records have drifted', function (): void {
         'contribution_mismatches' => 1,
         'balance_mismatches' => 1,
     ]);
+    $this->assertDatabaseHas('money_movement_controls', [
+        'name' => 'global',
+        'enabled' => false,
+        'source' => 'reconciliation',
+    ]);
+    $this->assertDatabaseHas('money_movement_control_events', [
+        'action' => 'suspended',
+        'source' => 'reconciliation',
+    ]);
 });
 
 it('detects a missing projection contribution and balance', function (): void {

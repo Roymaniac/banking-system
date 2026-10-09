@@ -338,6 +338,17 @@ The command exits unsuccessfully when a posted entry is unbalanced, an immutable
 
 The scheduler runs reconciliation hourly and stores only the latest safe status and mismatch counts. Protected readiness becomes unhealthy when reconciliation fails, has never run, or is older than two hours.
 
+### Money-movement safety switch
+
+Operators can stop new financial writes while keeping authentication, reports, health checks, and other read-only diagnostics available:
+
+```bash
+php artisan banking:money-movement:suspend "Investigating reconciliation incident INC-1234"
+php artisan banking:money-movement:resume "Incident INC-1234 resolved and approved"
+```
+
+Deposits, withdrawals, transfers, batch transfers, and reversals share this database-backed transaction gate. A failed automated reconciliation suspends money movement automatically; a successful later check does not resume it. Resumption always requires an explicit operator decision after investigation. Every state change records an immutable operational event and reason.
+
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.

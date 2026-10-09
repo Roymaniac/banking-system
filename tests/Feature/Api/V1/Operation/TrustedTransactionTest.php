@@ -168,3 +168,23 @@ it('fails safely when a settlement ledger is not configured', function (): void 
     ])->assertStatus(503)
         ->assertJsonPath('message', 'Settlement is not configured for this account currency.');
 });
+
+it('blocks financial writes while leaving the API available for investigation', function (): void {
+    $target = createTrustedOperationAccount('8734567890');
+    $settlement = createTrustedOperationAccount('9734567890');
+    config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
+    allowTrustedOperations();
+    Sanctum::actingAs(trustedOperationUser());
+    $this->artisan('banking:money-movement:suspend', [
+        'reason' => 'Financial integrity investigation is in progress.',
+    ])->assertSuccessful();
+
+    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
+        'minor_units' => 5000,
+        'reference' => 'SUSPENDED-DEPOSIT-001',
+    ])->assertServiceUnavailable()
+        ->assertJsonPath('message', 'Money movement is temporarily suspended.');
+
+    $this->assertDatabaseMissing('deposits', ['reference' => 'SUSPENDED-DEPOSIT-001']);
+    $this->get('/up')->assertOk();
+});

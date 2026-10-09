@@ -98,12 +98,20 @@ use Shared\Infrastructure\Event\LaravelEventPublisher;
 use Shared\Infrastructure\Health\DatabaseSystemHealthCheck;
 use Shared\Infrastructure\Identifier\NativeUuidGenerator;
 use Shared\Infrastructure\Persistence\LaravelTransactionManager;
+use Transaction\Application\Control\MoneyMovementControl;
+use Transaction\Application\Deposit\MakeDeposit;
+use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
+use Transaction\Application\Reversal\ReverseTransaction;
+use Transaction\Application\Transfer\MakeTransfer;
+use Transaction\Application\Withdrawal\MakeWithdrawal;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Deposit\Repository\DepositRepository;
 use Transaction\Domain\MultipleTransfer\Repository\MultipleTransferRepository;
 use Transaction\Domain\Reversal\Repository\ReversalRepository;
 use Transaction\Domain\Transfer\Repository\TransferRepository;
 use Transaction\Domain\Withdrawal\Repository\WithdrawalRepository;
+use Transaction\Infrastructure\Control\ControlledMoneyMovementTransactionManager;
+use Transaction\Infrastructure\Control\DatabaseMoneyMovementControl;
 use Transaction\Infrastructure\Persistence\DatabaseDailyTransactionLimitRepository;
 use Transaction\Infrastructure\Persistence\DatabaseDepositRepository;
 use Transaction\Infrastructure\Persistence\DatabaseMultipleTransferRepository;
@@ -118,6 +126,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(MoneyMovementControl::class, DatabaseMoneyMovementControl::class);
+        $this->app->when([
+            MakeDeposit::class,
+            MakeWithdrawal::class,
+            MakeTransfer::class,
+            MakeMultipleTransfer::class,
+            ReverseTransaction::class,
+        ])->needs(TransactionManager::class)->give(ControlledMoneyMovementTransactionManager::class);
         $this->app->singleton(LedgerReconciliation::class, DatabaseLedgerReconciliation::class);
         $this->app->singleton(ReconciliationStatusStore::class, DatabaseReconciliationStatusStore::class);
         $this->app->singleton(SystemHealthCheck::class, DatabaseSystemHealthCheck::class);

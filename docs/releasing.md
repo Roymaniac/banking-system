@@ -85,7 +85,7 @@ docker compose --env-file=.env.docker run --rm app php artisan banking:reconcile
 docker compose --env-file=.env.docker up -d app worker scheduler web
 ```
 
-The preflight checks production-safe configuration, all required settlement ledgers, and database connectivity. Reconciliation verifies the financial journal and initializes its readiness signal. Do not start the application-facing services when either command returns a failure.
+The preflight checks production-safe configuration, all required settlement ledgers, and database connectivity. Reconciliation verifies the financial journal and initializes its readiness signal. A reconciliation failure also suspends money movement and requires explicit operator resumption after investigation. Do not start the application-facing services when either command returns a failure.
 
 Verify the deployment:
 

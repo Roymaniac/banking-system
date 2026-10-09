@@ -100,6 +100,7 @@ use Shared\Infrastructure\Identifier\NativeUuidGenerator;
 use Shared\Infrastructure\Persistence\LaravelTransactionManager;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementControlEventQuery;
+use Transaction\Application\Control\MoneyMovementResumeApproval;
 use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\Reversal\ReverseTransaction;
@@ -114,6 +115,7 @@ use Transaction\Domain\Withdrawal\Repository\WithdrawalRepository;
 use Transaction\Infrastructure\Control\ControlledMoneyMovementTransactionManager;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControl;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControlEventQuery;
+use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeApproval;
 use Transaction\Infrastructure\Persistence\DatabaseDailyTransactionLimitRepository;
 use Transaction\Infrastructure\Persistence\DatabaseDepositRepository;
 use Transaction\Infrastructure\Persistence\DatabaseMultipleTransferRepository;
@@ -133,6 +135,7 @@ class AppServiceProvider extends ServiceProvider
             MoneyMovementControlEventQuery::class,
             DatabaseMoneyMovementControlEventQuery::class,
         );
+        $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
         $this->app->when([
             MakeDeposit::class,
             MakeWithdrawal::class,

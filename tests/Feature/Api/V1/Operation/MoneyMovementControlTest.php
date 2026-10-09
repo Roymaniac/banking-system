@@ -7,7 +7,9 @@ use Identity\Application\Authorization\AuthorizationChecker;
 use Identity\Domain\Authorization\ValueObject\Permission;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use Shared\Domain\Identifier\Uuid;
 
 uses(RefreshDatabase::class);
 
@@ -36,6 +38,8 @@ it('requires authentication and explicit permissions', function (): void {
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Unauthorized incident control attempt.',
     ])->assertUnauthorized();
+    $this->postJson('/api/v1/operations/money-movement/resume-requests/'.Uuid::generate()->value().'/approve')
+        ->assertUnauthorized();
 
     Sanctum::actingAs(moneyMovementOperator());
 
@@ -44,25 +48,31 @@ it('requires authentication and explicit permissions', function (): void {
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Unauthorized incident control attempt.',
     ])->assertForbidden();
+    $this->postJson('/api/v1/operations/money-movement/resume-requests/'.Uuid::generate()->value().'/approve')
+        ->assertForbidden();
 });
 
 it('lists bounded control history with incident filters', function (): void {
     allowMoneyMovementControl();
-    $operator = moneyMovementOperator();
-    Sanctum::actingAs($operator);
+    $requester = moneyMovementOperator();
+    Sanctum::actingAs($requester);
 
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Investigating incident INC-4096 before settlement.',
     ])->assertOk();
-    $this->postJson('/api/v1/operations/money-movement/resume', [
+    $resumeRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
         'reason' => 'Incident INC-4096 resolved after independent review.',
-    ])->assertOk();
+    ])->assertAccepted()->json('data.resume_request.id');
+    $approver = moneyMovementOperator();
+    Sanctum::actingAs($approver);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
+        ->assertOk();
 
     $this->getJson('/api/v1/operations/money-movement/events?per_page=1')
         ->assertOk()
         ->assertJsonCount(1, 'data.events')
         ->assertJsonPath('data.events.0.action', 'resumed')
-        ->assertJsonPath('data.events.0.actor_user_id', $operator->identity_user_id)
+        ->assertJsonPath('data.events.0.actor_user_id', $approver->identity_user_id)
         ->assertJsonPath('meta.total', 2)
         ->assertJsonPath('meta.last_page', 2);
 
@@ -94,7 +104,7 @@ it('shows the protected current state to an authorized operator', function (): v
         ->assertJsonPath('data.money_movement.source', 'migration');
 });
 
-it('suspends and resumes with the authenticated operator in the audit trail', function (): void {
+it('requires a different authenticated operator to approve resumption', function (): void {
     allowMoneyMovementControl();
     $operator = moneyMovementOperator();
     Sanctum::actingAs($operator);
@@ -115,17 +125,32 @@ it('suspends and resumes with the authenticated operator in the audit trail', fu
     ]);
 
     $resumeReason = 'Incident INC-2048 resolved and independently approved.';
-    $this->postJson('/api/v1/operations/money-movement/resume', [
+    $resumeRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
         'reason' => $resumeReason,
-    ])->assertOk()
-        ->assertJsonPath('data.money_movement.enabled', true)
-        ->assertJsonPath('data.money_movement.reason', null);
+    ])->assertAccepted()
+        ->assertJsonPath('data.resume_request.status', 'pending')
+        ->json('data.resume_request.id');
+
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
+        ->assertConflict()
+        ->assertJsonPath('message', 'A different operator must approve the resume request.');
+    $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => false]);
+
+    $approver = moneyMovementOperator();
+    Sanctum::actingAs($approver);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
+        ->assertOk()
+        ->assertJsonPath('data.resume_request.status', 'approved')
+        ->assertJsonPath('data.resume_request.requested_by', $operator->identity_user_id)
+        ->assertJsonPath('data.resume_request.approved_by', $approver->identity_user_id);
+
+    $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => true]);
 
     $this->assertDatabaseHas('money_movement_control_events', [
         'action' => 'resumed',
         'reason' => $resumeReason,
-        'source' => 'operator_api',
-        'actor_user_id' => $operator->identity_user_id,
+        'source' => 'operator_api_approval',
+        'actor_user_id' => $approver->identity_user_id,
     ]);
 });
 
@@ -139,4 +164,32 @@ it('validates the incident reason before changing state', function (): void {
 
     $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => true]);
     $this->assertDatabaseCount('money_movement_control_events', 0);
+});
+
+it('rejects resume requests while enabled and expired approvals while suspended', function (): void {
+    allowMoneyMovementControl();
+    $requester = moneyMovementOperator();
+    Sanctum::actingAs($requester);
+
+    $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'No suspension exists for this proposed request.',
+    ])->assertConflict()
+        ->assertJsonPath('message', 'Money movement is already enabled.');
+
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Investigating an incident before approval testing.',
+    ])->assertOk();
+    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'Investigation completed but approval window elapsed.',
+    ])->assertAccepted()->json('data.resume_request.id');
+    DB::table('money_movement_resume_requests')->where('id', $requestId)->update([
+        'expires_at' => now()->subMinute(),
+    ]);
+
+    Sanctum::actingAs(moneyMovementOperator());
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$requestId}/approve")
+        ->assertConflict()
+        ->assertJsonPath('message', 'The resume request has expired. Submit a new request.');
+
+    $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => false]);
 });

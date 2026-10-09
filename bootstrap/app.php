@@ -6,6 +6,7 @@ use Audit\Infrastructure\Http\Middleware\RecordUserActivityMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Transaction\Application\Control\Exception\InvalidMoneyMovementResume;
 use Transaction\Application\Control\Exception\MoneyMovementSuspended;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -30,5 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (MoneyMovementSuspended $exception) => response()->json([
                 'message' => $exception->getMessage(),
             ], 503)
+        );
+        $exceptions->render(
+            fn (InvalidMoneyMovementResume $exception) => response()->json([
+                'message' => $exception->getMessage(),
+            ], 409)
         );
     })->create();

@@ -8,11 +8,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Operation\ChangeMoneyMovementStatusRequest;
 use App\Http\Requests\Api\V1\Operation\ListMoneyMovementControlEventsRequest;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementControlEventResource;
+use App\Http\Resources\Api\V1\Operation\MoneyMovementResumeRequestResource;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementStatusResource;
 use App\Http\Support\Api\V1\CurrentCustomer;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Shared\Domain\Identifier\Uuid;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementControlEventQuery;
+use Transaction\Application\Control\MoneyMovementResumeApproval;
 
 /** Provides permission-protected operator access to the global safety switch. */
 final class MoneyMovementControlController extends Controller
@@ -56,16 +60,37 @@ final class MoneyMovementControlController extends Controller
 
     public function resume(
         ChangeMoneyMovementStatusRequest $request,
-        MoneyMovementControl $control,
+        MoneyMovementResumeApproval $approval,
         CurrentCustomer $currentIdentity,
     ): JsonResponse {
-        $control->resume(
+        $resumeRequest = $approval->request(
             $request->string('reason')->toString(),
-            'operator_api',
             $currentIdentity->userId($request),
         );
 
-        return $this->response($control);
+        return response()->json([
+            'data' => [
+                'resume_request' => new MoneyMovementResumeRequestResource($resumeRequest),
+            ],
+        ], 202);
+    }
+
+    public function approveResume(
+        Request $request,
+        string $resumeRequest,
+        MoneyMovementResumeApproval $approval,
+        CurrentCustomer $currentIdentity,
+    ): JsonResponse {
+        $approved = $approval->approve(
+            new Uuid($resumeRequest),
+            $currentIdentity->userId($request),
+        );
+
+        return response()->json([
+            'data' => [
+                'resume_request' => new MoneyMovementResumeRequestResource($approved),
+            ],
+        ]);
     }
 
     private function response(MoneyMovementControl $control): JsonResponse

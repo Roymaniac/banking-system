@@ -356,9 +356,10 @@ GET  /api/v1/operations/money-movement
 GET  /api/v1/operations/money-movement/events
 POST /api/v1/operations/money-movement/suspend
 POST /api/v1/operations/money-movement/resume
+POST /api/v1/operations/money-movement/resume-requests/{request}/approve
 ```
 
-Viewing current state requires `operations.view`, reviewing its bounded event history requires `money_movement.audit`, and changing the switch requires `money_movement.manage`. API changes record the authenticated operator's identity alongside the reason.
+Viewing current state requires `operations.view`, reviewing its bounded event history requires `money_movement.audit`, and changing the switch requires `money_movement.manage`. API suspension is immediate. API resumption creates a 30-minute approval request that a different operator with `money_movement.approve` must approve. API actions record both authenticated identities and the reason.
 
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.

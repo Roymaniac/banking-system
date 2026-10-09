@@ -63,6 +63,13 @@ Route::prefix('v1/operations')
         Route::post('/money-movement/resume', [MoneyMovementControlController::class, 'resume'])
             ->middleware('permission:money_movement.manage')
             ->name('api.v1.operations.money-movement.resume');
+        Route::post(
+            '/money-movement/resume-requests/{resumeRequest}/approve',
+            [MoneyMovementControlController::class, 'approveResume'],
+        )
+            ->whereUuid('resumeRequest')
+            ->middleware('permission:money_movement.approve')
+            ->name('api.v1.operations.money-movement.resume-requests.approve');
         Route::post('/accounts/{account}/deposits', [TrustedTransactionController::class, 'deposit'])
             ->whereUuid('account')
             ->middleware(['permission:transactions.deposit', 'throttle:money-movement'])

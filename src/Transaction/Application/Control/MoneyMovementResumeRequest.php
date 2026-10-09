@@ -14,6 +14,7 @@ final readonly class MoneyMovementResumeRequest
         public Uuid $id,
         public Uuid $requestedBy,
         public string $reason,
+        public ?int $controlRevision,
         public string $status,
         public DateTimeImmutable $requestedAt,
         public DateTimeImmutable $expiresAt,

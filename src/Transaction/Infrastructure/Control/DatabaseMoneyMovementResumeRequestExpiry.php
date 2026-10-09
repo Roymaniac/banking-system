@@ -19,9 +19,34 @@ final readonly class DatabaseMoneyMovementResumeRequestExpiry implements MoneyMo
 
     public function expire(): int
     {
-        return $this->connection->table('money_movement_resume_requests')
-            ->where('status', 'pending')
-            ->where('expires_at', '<=', $this->clock->now()->setTimezone(new DateTimeZone('UTC')))
-            ->update(['status' => 'expired']);
+        return $this->connection->transaction(function (): int {
+            $now = $this->clock->now()->setTimezone(new DateTimeZone('UTC'));
+            $expired = $this->connection->table('money_movement_resume_requests')
+                ->where('status', 'pending')
+                ->where('expires_at', '<=', $now)
+                ->update(['status' => 'expired']);
+
+            $control = $this->connection->table('money_movement_controls')
+                ->where('name', 'global')
+                ->first();
+
+            if ($control === null) {
+                return $expired;
+            }
+
+            $superseded = $this->connection->table('money_movement_resume_requests')
+                ->where('status', 'pending')
+                ->where(function ($query) use ($control): void {
+                    $query->whereNull('control_revision')
+                        ->orWhere('control_revision', '<>', (int) $control->revision);
+                })
+                ->update([
+                    'status' => 'superseded',
+                    'closure_reason' => 'A newer suspension replaced this approval request.',
+                    'closed_at' => $now,
+                ]);
+
+            return $expired + $superseded;
+        });
     }
 }

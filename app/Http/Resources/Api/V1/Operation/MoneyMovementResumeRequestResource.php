@@ -15,7 +15,7 @@ use Transaction\Application\Control\MoneyMovementResumeRequest;
  */
 final class MoneyMovementResumeRequestResource extends JsonResource
 {
-    /** @return array<string, null|string> */
+    /** @return array<string, int|null|string> */
     public function toArray(Request $request): array
     {
         /** @var MoneyMovementResumeRequest $resumeRequest */
@@ -25,6 +25,7 @@ final class MoneyMovementResumeRequestResource extends JsonResource
             'id' => $resumeRequest->id->value(),
             'requested_by' => $resumeRequest->requestedBy->value(),
             'reason' => $resumeRequest->reason,
+            'control_revision' => $resumeRequest->controlRevision,
             'status' => $resumeRequest->status,
             'requested_at' => $resumeRequest->requestedAt->format(DATE_ATOM),
             'expires_at' => $resumeRequest->expiresAt->format(DATE_ATOM),

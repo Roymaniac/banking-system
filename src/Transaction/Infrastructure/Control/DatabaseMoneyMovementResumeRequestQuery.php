@@ -61,6 +61,7 @@ final readonly class DatabaseMoneyMovementResumeRequestQuery implements MoneyMov
             new Uuid((string) $record->id),
             new Uuid((string) $record->requested_by),
             (string) $record->reason,
+            $record->control_revision === null ? null : (int) $record->control_revision,
             (string) $record->status,
             new DateTimeImmutable((string) $record->requested_at, $timezone),
             new DateTimeImmutable((string) $record->expires_at, $timezone),

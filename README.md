@@ -366,6 +366,8 @@ Viewing current state requires `operations.view`, reviewing its bounded event hi
 
 The requester may cancel their own pending request, while a different approver may reject it with a review reason. Cancellation, rejection, and expiry always leave money movement suspended.
 
+Every approval request is also tied to the safety switch revision that existed when the request was created. If another incident changes the suspension reason, the old request becomes `superseded` and cannot reopen money movement. The incident must be investigated and a new approval request submitted.
+
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.

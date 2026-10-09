@@ -6,6 +6,6 @@ namespace Transaction\Application\Control;
 
 interface MoneyMovementResumeRequestExpiry
 {
-    /** Returns how many stale requests were marked expired. */
+    /** Returns how many elapsed or superseded requests were closed. */
     public function expire(): int;
 }

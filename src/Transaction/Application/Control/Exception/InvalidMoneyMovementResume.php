@@ -42,4 +42,9 @@ final class InvalidMoneyMovementResume extends DomainException
     {
         return new self('The resume request has expired. Submit a new request.');
     }
+
+    public static function superseded(): self
+    {
+        return new self('A newer suspension replaced this resume request. Submit a new request after investigating it.');
+    }
 }

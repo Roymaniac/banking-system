@@ -89,6 +89,8 @@ Operator tooling may instead use the permission-protected money-movement API. Gr
 
 Requesters should cancel obsolete requests, and approvers should reject requests whose evidence is insufficient. Both actions require a reason and leave financial writes suspended.
 
+Approval requests record the safety-switch revision they reviewed. A new incident or changed suspension reason advances that revision, makes older requests `superseded`, and prevents a stale approval from reopening financial writes.
+
 Do not place secrets or private financial details into incident tickets. Reference protected audit records by their identifiers instead.
 
 ## Retention and access

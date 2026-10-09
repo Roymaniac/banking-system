@@ -57,10 +57,22 @@ it('suspends and resumes through auditable operator commands', function (): void
 
 it('does not create duplicate audit events when the requested state is unchanged', function (): void {
     $control = app(MoneyMovementControl::class);
-    $control->suspend('First investigation request for this incident.', 'test');
-    $control->suspend('Repeated investigation request for this incident.', 'test');
+    $reason = 'Investigation remains active for this incident.';
+    $control->suspend($reason, 'test');
+    $control->suspend($reason, 'test');
 
     $this->assertDatabaseCount('money_movement_control_events', 1);
+});
+
+it('advances the control revision when a new incident is reported during suspension', function (): void {
+    $control = app(MoneyMovementControl::class);
+    $control->suspend('Investigating the original reconciliation incident.', 'test');
+    $firstRevision = $control->current()->revision;
+
+    $control->suspend('A second reconciliation incident now requires review.', 'test');
+
+    expect($control->current()->revision)->toBe($firstRevision + 1);
+    $this->assertDatabaseCount('money_movement_control_events', 2);
 });
 
 it('rejects an operational reason that is too short', function (): void {

@@ -59,6 +59,7 @@ final readonly class DatabaseMoneyMovementControl implements MoneyMovementContro
             $control->reason === null ? null : (string) $control->reason,
             (string) $control->source,
             new DateTimeImmutable((string) $control->changed_at, new DateTimeZone('UTC')),
+            (int) $control->revision,
         );
     }
 
@@ -87,10 +88,20 @@ final readonly class DatabaseMoneyMovementControl implements MoneyMovementContro
                 ->first();
 
             if ($control !== null && filter_var($control->enabled, FILTER_VALIDATE_BOOL) === $enabled) {
-                return;
+                $sameSuspension = ! $enabled
+                    && (string) $control->reason === $reason
+                    && (string) $control->source === $source;
+
+                // Repeating the exact same decision is harmless. A different
+                // suspension reason represents a new incident and must advance
+                // the revision so older approval requests cannot resume it.
+                if ($enabled || $sameSuspension) {
+                    return;
+                }
             }
 
             $occurredAt = $this->utcNow();
+            $revision = $control === null ? 1 : (int) $control->revision + 1;
             $this->connection->table('money_movement_controls')->updateOrInsert(
                 ['name' => 'global'],
                 [
@@ -98,6 +109,7 @@ final readonly class DatabaseMoneyMovementControl implements MoneyMovementContro
                     'reason' => $enabled ? null : $reason,
                     'source' => $source,
                     'changed_at' => $occurredAt,
+                    'revision' => $revision,
                 ],
             );
 

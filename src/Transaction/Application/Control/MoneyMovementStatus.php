@@ -14,5 +14,6 @@ final readonly class MoneyMovementStatus
         public ?string $reason,
         public string $source,
         public DateTimeImmutable $changedAt,
+        public int $revision,
     ) {}
 }

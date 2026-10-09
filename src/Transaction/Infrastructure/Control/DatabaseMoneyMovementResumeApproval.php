@@ -38,8 +38,9 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
         }
 
         return $this->connection->transaction(function () use ($reason, $requestedBy): MoneyMovementResumeRequest {
-            $this->lockSuspendedControl();
+            $controlRevision = $this->lockSuspendedControl();
             $now = $this->utcNow();
+            $this->supersedeOlderRequests($controlRevision, $now);
             $pending = $this->connection->table('money_movement_resume_requests')
                 ->where('status', 'pending')
                 ->where('expires_at', '>', $now)
@@ -54,6 +55,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $this->uuidGenerator->generate(),
                 $requestedBy,
                 $reason,
+                $controlRevision,
                 'pending',
                 $now,
                 $now->add(new DateInterval('PT'.self::APPROVAL_WINDOW_MINUTES.'M')),
@@ -63,6 +65,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 'id' => $request->id->value(),
                 'requested_by' => $request->requestedBy->value(),
                 'reason' => $request->reason,
+                'control_revision' => $request->controlRevision,
                 'status' => $request->status,
                 'requested_at' => $request->requestedAt,
                 'expires_at' => $request->expiresAt,
@@ -77,7 +80,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
     public function approve(Uuid $requestId, Uuid $approvedBy): MoneyMovementResumeRequest
     {
         return $this->connection->transaction(function () use ($requestId, $approvedBy): MoneyMovementResumeRequest {
-            $this->lockSuspendedControl();
+            $controlRevision = $this->lockSuspendedControl();
             $record = $this->connection->table('money_movement_resume_requests')
                 ->where('id', $requestId->value())
                 ->where('status', 'pending')
@@ -97,6 +100,9 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
             if ($request->expiresAt <= $now) {
                 throw InvalidMoneyMovementResume::expired();
             }
+            if ($request->controlRevision === null || $request->controlRevision !== $controlRevision) {
+                throw InvalidMoneyMovementResume::superseded();
+            }
 
             $this->control->resume($request->reason, 'operator_api_approval', $approvedBy);
             $this->connection->table('money_movement_resume_requests')
@@ -111,6 +117,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $request->id,
                 $request->requestedBy,
                 $request->reason,
+                $request->controlRevision,
                 'approved',
                 $request->requestedAt,
                 $request->expiresAt,
@@ -187,6 +194,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $request->id,
                 $request->requestedBy,
                 $request->reason,
+                $request->controlRevision,
                 $status,
                 $request->requestedAt,
                 $request->expiresAt,
@@ -197,7 +205,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
         });
     }
 
-    private function lockSuspendedControl(): void
+    private function lockSuspendedControl(): int
     {
         $control = $this->connection->table('money_movement_controls')
             ->where('name', 'global')
@@ -207,6 +215,23 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
         if ($control === null || filter_var($control->enabled, FILTER_VALIDATE_BOOL)) {
             throw InvalidMoneyMovementResume::whileEnabled();
         }
+
+        return (int) $control->revision;
+    }
+
+    private function supersedeOlderRequests(int $controlRevision, DateTimeImmutable $now): void
+    {
+        $this->connection->table('money_movement_resume_requests')
+            ->where('status', 'pending')
+            ->where(function ($query) use ($controlRevision): void {
+                $query->whereNull('control_revision')
+                    ->orWhere('control_revision', '<>', $controlRevision);
+            })
+            ->update([
+                'status' => 'superseded',
+                'closure_reason' => 'A newer suspension replaced this approval request.',
+                'closed_at' => $now,
+            ]);
     }
 
     private function hydrate(object $record): MoneyMovementResumeRequest
@@ -215,6 +240,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
             new Uuid((string) $record->id),
             new Uuid((string) $record->requested_by),
             (string) $record->reason,
+            $record->control_revision === null ? null : (int) $record->control_revision,
             (string) $record->status,
             new DateTimeImmutable((string) $record->requested_at, new DateTimeZone('UTC')),
             new DateTimeImmutable((string) $record->expires_at, new DateTimeZone('UTC')),

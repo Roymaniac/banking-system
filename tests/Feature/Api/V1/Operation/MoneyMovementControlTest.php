@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Shared\Domain\Identifier\Uuid;
+use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 
 uses(RefreshDatabase::class);
@@ -285,5 +286,44 @@ it('lets requesters cancel and independent approvers reject without resuming mon
     $this->assertDatabaseHas('money_movement_resume_requests', [
         'id' => $rejectRequestId,
         'status' => 'rejected',
+    ]);
+});
+
+it('prevents an old approval request from resuming a newer suspension', function (): void {
+    allowMoneyMovementControl();
+    $requester = moneyMovementOperator();
+    Sanctum::actingAs($requester);
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Investigating the original settlement discrepancy.',
+    ])->assertOk();
+    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'The original settlement discrepancy appears resolved.',
+    ])->assertAccepted()
+        ->assertJsonPath('data.resume_request.control_revision', 2)
+        ->json('data.resume_request.id');
+
+    app(MoneyMovementControl::class)->suspend(
+        'A newer reconciliation incident requires a separate investigation.',
+        'reconciliation',
+    );
+
+    $approver = moneyMovementOperator();
+    Sanctum::actingAs($approver);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$requestId}/approve")
+        ->assertConflict()
+        ->assertJsonPath(
+            'message',
+            'A newer suspension replaced this resume request. Submit a new request after investigating it.',
+        );
+
+    expect(app(MoneyMovementResumeRequestExpiry::class)->expire())->toBe(1);
+    $this->getJson('/api/v1/operations/money-movement/resume-requests?status=superseded')
+        ->assertOk()
+        ->assertJsonPath('data.resume_requests.0.id', $requestId)
+        ->assertJsonPath('data.resume_requests.0.status', 'superseded');
+    $this->assertDatabaseHas('money_movement_controls', [
+        'name' => 'global',
+        'enabled' => false,
+        'revision' => 3,
     ]);
 });

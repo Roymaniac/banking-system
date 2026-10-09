@@ -63,6 +63,9 @@ Route::prefix('v1/operations')
         Route::post('/money-movement/resume', [MoneyMovementControlController::class, 'resume'])
             ->middleware('permission:money_movement.manage')
             ->name('api.v1.operations.money-movement.resume');
+        Route::get('/money-movement/resume-requests', [MoneyMovementControlController::class, 'resumeRequests'])
+            ->middleware('permission:money_movement.approve')
+            ->name('api.v1.operations.money-movement.resume-requests.index');
         Route::post(
             '/money-movement/resume-requests/{resumeRequest}/approve',
             [MoneyMovementControlController::class, 'approveResume'],

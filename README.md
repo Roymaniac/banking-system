@@ -354,12 +354,13 @@ Authorized operations tooling can use the protected API as well:
 ```text
 GET  /api/v1/operations/money-movement
 GET  /api/v1/operations/money-movement/events
+GET  /api/v1/operations/money-movement/resume-requests
 POST /api/v1/operations/money-movement/suspend
 POST /api/v1/operations/money-movement/resume
 POST /api/v1/operations/money-movement/resume-requests/{request}/approve
 ```
 
-Viewing current state requires `operations.view`, reviewing its bounded event history requires `money_movement.audit`, and changing the switch requires `money_movement.manage`. API suspension is immediate. API resumption creates a 30-minute approval request that a different operator with `money_movement.approve` must approve. API actions record both authenticated identities and the reason.
+Viewing current state requires `operations.view`, reviewing its bounded event history requires `money_movement.audit`, and changing the switch requires `money_movement.manage`. API suspension is immediate. API resumption creates a 30-minute approval request that a different operator with `money_movement.approve` can discover in the bounded approval queue and approve. The scheduler marks elapsed requests as expired every minute. API actions record both authenticated identities and the reason.
 
 - Duplicate transaction references are rejected.
 - Reversals create opposite entries and preserve the original audit trail.

@@ -101,6 +101,8 @@ use Shared\Infrastructure\Persistence\LaravelTransactionManager;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementControlEventQuery;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
+use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
+use Transaction\Application\Control\MoneyMovementResumeRequestQuery;
 use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\Reversal\ReverseTransaction;
@@ -116,6 +118,8 @@ use Transaction\Infrastructure\Control\ControlledMoneyMovementTransactionManager
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControl;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControlEventQuery;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeApproval;
+use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeRequestExpiry;
+use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeRequestQuery;
 use Transaction\Infrastructure\Persistence\DatabaseDailyTransactionLimitRepository;
 use Transaction\Infrastructure\Persistence\DatabaseDepositRepository;
 use Transaction\Infrastructure\Persistence\DatabaseMultipleTransferRepository;
@@ -136,6 +140,14 @@ class AppServiceProvider extends ServiceProvider
             DatabaseMoneyMovementControlEventQuery::class,
         );
         $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
+        $this->app->singleton(
+            MoneyMovementResumeRequestExpiry::class,
+            DatabaseMoneyMovementResumeRequestExpiry::class,
+        );
+        $this->app->singleton(
+            MoneyMovementResumeRequestQuery::class,
+            DatabaseMoneyMovementResumeRequestQuery::class,
+        );
         $this->app->when([
             MakeDeposit::class,
             MakeWithdrawal::class,

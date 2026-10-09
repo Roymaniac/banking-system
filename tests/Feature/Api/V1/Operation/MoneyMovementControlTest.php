@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Shared\Domain\Identifier\Uuid;
+use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 
 uses(RefreshDatabase::class);
 
@@ -40,6 +41,7 @@ it('requires authentication and explicit permissions', function (): void {
     ])->assertUnauthorized();
     $this->postJson('/api/v1/operations/money-movement/resume-requests/'.Uuid::generate()->value().'/approve')
         ->assertUnauthorized();
+    $this->getJson('/api/v1/operations/money-movement/resume-requests')->assertUnauthorized();
 
     Sanctum::actingAs(moneyMovementOperator());
 
@@ -50,6 +52,40 @@ it('requires authentication and explicit permissions', function (): void {
     ])->assertForbidden();
     $this->postJson('/api/v1/operations/money-movement/resume-requests/'.Uuid::generate()->value().'/approve')
         ->assertForbidden();
+    $this->getJson('/api/v1/operations/money-movement/resume-requests')->assertForbidden();
+});
+
+it('shows a bounded approval queue and materializes expired requests', function (): void {
+    allowMoneyMovementControl();
+    $requester = moneyMovementOperator();
+    Sanctum::actingAs($requester);
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Incident review requires a temporary financial pause.',
+    ])->assertOk();
+    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'All reconciliation checks completed successfully.',
+    ])->assertAccepted()->json('data.resume_request.id');
+
+    Sanctum::actingAs(moneyMovementOperator());
+    $this->getJson('/api/v1/operations/money-movement/resume-requests?status=pending&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.resume_requests')
+        ->assertJsonPath('data.resume_requests.0.id', $requestId)
+        ->assertJsonPath('data.resume_requests.0.requested_by', $requester->identity_user_id)
+        ->assertJsonPath('meta.total', 1);
+
+    DB::table('money_movement_resume_requests')->where('id', $requestId)->update([
+        'expires_at' => now()->subMinute(),
+    ]);
+    expect(app(MoneyMovementResumeRequestExpiry::class)->expire())->toBe(1);
+
+    $this->getJson('/api/v1/operations/money-movement/resume-requests?status=expired')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.resume_requests')
+        ->assertJsonPath('data.resume_requests.0.status', 'expired');
+    $this->getJson('/api/v1/operations/money-movement/resume-requests?status=pending')
+        ->assertOk()
+        ->assertJsonCount(0, 'data.resume_requests');
 });
 
 it('lists bounded control history with incident filters', function (): void {

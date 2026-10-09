@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1\Operation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Operation\ChangeMoneyMovementStatusRequest;
 use App\Http\Requests\Api\V1\Operation\ListMoneyMovementControlEventsRequest;
+use App\Http\Requests\Api\V1\Operation\ListMoneyMovementResumeRequestsRequest;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementControlEventResource;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementResumeRequestResource;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementStatusResource;
@@ -17,6 +18,7 @@ use Shared\Domain\Identifier\Uuid;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementControlEventQuery;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
+use Transaction\Application\Control\MoneyMovementResumeRequestQuery;
 
 /** Provides permission-protected operator access to the global safety switch. */
 final class MoneyMovementControlController extends Controller
@@ -73,6 +75,24 @@ final class MoneyMovementControlController extends Controller
                 'resume_request' => new MoneyMovementResumeRequestResource($resumeRequest),
             ],
         ], 202);
+    }
+
+    public function resumeRequests(
+        ListMoneyMovementResumeRequestsRequest $request,
+        MoneyMovementResumeRequestQuery $resumeRequests,
+    ): JsonResponse {
+        $result = $resumeRequests->list(
+            $request->filters(),
+            $request->pageNumber(),
+            $request->pageSize(),
+        );
+
+        return response()->json([
+            'data' => [
+                'resume_requests' => MoneyMovementResumeRequestResource::collection($result['items']),
+            ],
+            'meta' => $result['pagination'],
+        ]);
     }
 
     public function approveResume(

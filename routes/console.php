@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use Notification\Infrastructure\Outbox\ProcessEmailOutboxJob;
 use Shared\Infrastructure\Health\RecordSchedulerHeartbeat;
+use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -28,4 +29,10 @@ Schedule::call(fn () => app(RecordSchedulerHeartbeat::class)->record())
 Schedule::command('banking:reconcile-ledger')
     ->name('ledger-reconciliation')
     ->hourly()
+    ->withoutOverlapping();
+
+// Expired requests must disappear from the live approval queue promptly.
+Schedule::call(fn () => app(MoneyMovementResumeRequestExpiry::class)->expire())
+    ->name('expire-money-movement-resume-requests')
+    ->everyMinute()
     ->withoutOverlapping();

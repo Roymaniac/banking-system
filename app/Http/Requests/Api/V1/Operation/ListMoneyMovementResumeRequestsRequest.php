@@ -28,6 +28,13 @@ final class ListMoneyMovementResumeRequestsRequest extends FormRequest
             'status' => ['sometimes', Rule::in(['pending', 'approved', 'rejected', 'cancelled', 'expired', 'superseded'])],
             'requested_by' => ['sometimes', 'uuid'],
             'approved_by' => ['sometimes', 'uuid'],
+            'incident_reference' => [
+                'sometimes',
+                'string',
+                'min:3',
+                'max:50',
+                'regex:/^[A-Za-z0-9][A-Za-z0-9._\/-]*$/',
+            ],
         ];
     }
 
@@ -54,9 +61,10 @@ final class ListMoneyMovementResumeRequestsRequest extends FormRequest
             $filters['to'] = new DateTimeImmutable($this->string('to')->toString().' 23:59:59.999999', $timezone);
         }
 
-        foreach (['status', 'requested_by', 'approved_by'] as $name) {
+        foreach (['status', 'requested_by', 'approved_by', 'incident_reference'] as $name) {
             if ($this->filled($name)) {
-                $filters[$name] = $this->string($name)->toString();
+                $value = $this->string($name)->toString();
+                $filters[$name] = $name === 'incident_reference' ? strtoupper($value) : $value;
             }
         }
 

@@ -25,6 +25,8 @@ final class MoneyMovementResumeRequestResource extends JsonResource
             'id' => $resumeRequest->id->value(),
             'requested_by' => $resumeRequest->requestedBy->value(),
             'reason' => $resumeRequest->reason,
+            'incident_reference' => $resumeRequest->incidentReference,
+            'evidence_summary' => $resumeRequest->evidenceSummary,
             'control_revision' => $resumeRequest->controlRevision,
             'status' => $resumeRequest->status,
             'requested_at' => $resumeRequest->requestedAt->format(DATE_ATOM),

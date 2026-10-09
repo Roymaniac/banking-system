@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Operation;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Operation\ChangeMoneyMovementStatusRequest;
+use App\Http\Requests\Api\V1\Operation\CreateMoneyMovementResumeRequest;
 use App\Http\Requests\Api\V1\Operation\ListMoneyMovementControlEventsRequest;
 use App\Http\Requests\Api\V1\Operation\ListMoneyMovementResumeRequestsRequest;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementControlEventResource;
@@ -61,12 +62,14 @@ final class MoneyMovementControlController extends Controller
     }
 
     public function resume(
-        ChangeMoneyMovementStatusRequest $request,
+        CreateMoneyMovementResumeRequest $request,
         MoneyMovementResumeApproval $approval,
         CurrentCustomer $currentIdentity,
     ): JsonResponse {
         $resumeRequest = $approval->request(
             $request->string('reason')->toString(),
+            $request->string('incident_reference')->toString(),
+            $request->string('evidence_summary')->toString(),
             $currentIdentity->userId($request),
         );
 

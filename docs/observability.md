@@ -93,6 +93,8 @@ Approval requests record the safety-switch revision they reviewed. A new inciden
 
 New requests queue encrypted email alerts for active, verified staff holding `money_movement.approve`, excluding the requester. Monitor the email outbox so exhausted approval alerts are investigated before the 30-minute approval window closes; reviewers can still discover requests through the protected queue.
 
+Resume requests require an external incident reference and a bounded evidence summary. Reviewers should compare that summary with the authoritative incident record before approving. The protected queue can be filtered by incident reference, while notification emails deliberately omit the evidence text.
+
 Production CLI resumption is disabled by default so it cannot bypass two-person approval. Emergency `--break-glass` use requires a separately authorized operator UUID, an incident reference, and explicit confirmation. It emits a `critical` `operations.money_movement_break_glass_resumed` security event; alert immediately and review both the application record and infrastructure shell-access logs.
 
 Do not place secrets or private financial details into incident tickets. Reference protected audit records by their identifiers instead.

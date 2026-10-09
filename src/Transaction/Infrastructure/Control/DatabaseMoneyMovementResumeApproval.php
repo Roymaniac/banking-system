@@ -31,15 +31,22 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
         private UuidGenerator $uuidGenerator,
     ) {}
 
-    public function request(string $reason, Uuid $requestedBy): MoneyMovementResumeRequest
-    {
-        $reason = trim($reason);
+    public function request(
+        string $reason,
+        string $incidentReference,
+        string $evidenceSummary,
+        Uuid $requestedBy,
+    ): MoneyMovementResumeRequest {
+        $reason = $this->validatedReason($reason);
+        $incidentReference = $this->validatedIncidentReference($incidentReference);
+        $evidenceSummary = $this->validatedEvidenceSummary($evidenceSummary);
 
-        if (mb_strlen($reason) < 10 || mb_strlen($reason) > 255) {
-            throw new InvalidArgumentException('The operational reason must contain between 10 and 255 characters.');
-        }
-
-        return $this->connection->transaction(function () use ($reason, $requestedBy): MoneyMovementResumeRequest {
+        return $this->connection->transaction(function () use (
+            $reason,
+            $incidentReference,
+            $evidenceSummary,
+            $requestedBy,
+        ): MoneyMovementResumeRequest {
             $controlRevision = $this->lockSuspendedControl();
             $now = $this->utcNow();
             $this->supersedeOlderRequests($controlRevision, $now);
@@ -57,6 +64,8 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $this->uuidGenerator->generate(),
                 $requestedBy,
                 $reason,
+                $incidentReference,
+                $evidenceSummary,
                 $controlRevision,
                 'pending',
                 $now,
@@ -67,6 +76,8 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 'id' => $request->id->value(),
                 'requested_by' => $request->requestedBy->value(),
                 'reason' => $request->reason,
+                'incident_reference' => $request->incidentReference,
+                'evidence_summary' => $request->evidenceSummary,
                 'control_revision' => $request->controlRevision,
                 'status' => $request->status,
                 'requested_at' => $request->requestedAt,
@@ -121,6 +132,8 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $request->id,
                 $request->requestedBy,
                 $request->reason,
+                $request->incidentReference,
+                $request->evidenceSummary,
                 $request->controlRevision,
                 'approved',
                 $request->requestedAt,
@@ -198,6 +211,8 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $request->id,
                 $request->requestedBy,
                 $request->reason,
+                $request->incidentReference,
+                $request->evidenceSummary,
                 $request->controlRevision,
                 $status,
                 $request->requestedAt,
@@ -244,6 +259,8 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
             new Uuid((string) $record->id),
             new Uuid((string) $record->requested_by),
             (string) $record->reason,
+            $record->incident_reference === null ? null : (string) $record->incident_reference,
+            $record->evidence_summary === null ? null : (string) $record->evidence_summary,
             $record->control_revision === null ? null : (int) $record->control_revision,
             (string) $record->status,
             new DateTimeImmutable((string) $record->requested_at, new DateTimeZone('UTC')),
@@ -269,6 +286,30 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
         }
 
         return $reason;
+    }
+
+    private function validatedIncidentReference(string $incidentReference): string
+    {
+        $incidentReference = strtoupper(trim($incidentReference));
+
+        if (preg_match('/^[A-Z0-9][A-Z0-9._\/-]{2,49}$/', $incidentReference) !== 1) {
+            throw new InvalidArgumentException(
+                'The incident reference must contain 3 to 50 letters, numbers, dots, slashes, underscores, or hyphens.',
+            );
+        }
+
+        return $incidentReference;
+    }
+
+    private function validatedEvidenceSummary(string $evidenceSummary): string
+    {
+        $evidenceSummary = trim($evidenceSummary);
+
+        if (mb_strlen($evidenceSummary) < 30 || mb_strlen($evidenceSummary) > 2000) {
+            throw new InvalidArgumentException('The evidence summary must contain between 30 and 2000 characters.');
+        }
+
+        return $evidenceSummary;
     }
 
     private function utcNow(): DateTimeImmutable

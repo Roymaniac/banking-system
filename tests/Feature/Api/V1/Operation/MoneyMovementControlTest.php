@@ -38,6 +38,16 @@ function allowMoneyMovementControl(): void
     });
 }
 
+/** @return array{reason: string, incident_reference: string, evidence_summary: string} */
+function moneyMovementResumePayload(string $reason, string $incidentReference = 'INC-1000'): array
+{
+    return [
+        'reason' => $reason,
+        'incident_reference' => $incidentReference,
+        'evidence_summary' => 'Ledger reconciliation, queue health, and settlement checks all passed.',
+    ];
+}
+
 /** @param list<array{user: User, staff_status: string}> $reviewers */
 function configureMoneyMovementApprovers(array $reviewers): void
 {
@@ -125,9 +135,10 @@ it('shows a bounded approval queue and materializes expired requests', function 
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Incident review requires a temporary financial pause.',
     ])->assertOk();
-    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'All reconciliation checks completed successfully.',
-    ])->assertAccepted()->json('data.resume_request.id');
+    $requestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('All reconciliation checks completed successfully.', 'INC-1001'),
+    )->assertAccepted()->json('data.resume_request.id');
 
     Sanctum::actingAs(moneyMovementOperator());
     $this->getJson('/api/v1/operations/money-movement/resume-requests?status=pending&per_page=1')
@@ -135,7 +146,15 @@ it('shows a bounded approval queue and materializes expired requests', function 
         ->assertJsonCount(1, 'data.resume_requests')
         ->assertJsonPath('data.resume_requests.0.id', $requestId)
         ->assertJsonPath('data.resume_requests.0.requested_by', $requester->identity_user_id)
+        ->assertJsonPath('data.resume_requests.0.incident_reference', 'INC-1001')
+        ->assertJsonPath(
+            'data.resume_requests.0.evidence_summary',
+            'Ledger reconciliation, queue health, and settlement checks all passed.',
+        )
         ->assertJsonPath('meta.total', 1);
+    $this->getJson('/api/v1/operations/money-movement/resume-requests?incident_reference=inc-1001')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.resume_requests');
 
     DB::table('money_movement_resume_requests')->where('id', $requestId)->update([
         'expires_at' => now()->subMinute(),
@@ -159,9 +178,10 @@ it('lists bounded control history with incident filters', function (): void {
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Investigating incident INC-4096 before settlement.',
     ])->assertOk();
-    $resumeRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'Incident INC-4096 resolved after independent review.',
-    ])->assertAccepted()->json('data.resume_request.id');
+    $resumeRequestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('Incident INC-4096 resolved after independent review.', 'INC-4096'),
+    )->assertAccepted()->json('data.resume_request.id');
     $approver = moneyMovementOperator();
     Sanctum::actingAs($approver);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
@@ -224,10 +244,12 @@ it('requires a different authenticated operator to approve resumption', function
     ]);
 
     $resumeReason = 'Incident INC-2048 resolved and independently approved.';
-    $resumeRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => $resumeReason,
-    ])->assertAccepted()
+    $resumeRequestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload($resumeReason, 'INC-2048'),
+    )->assertAccepted()
         ->assertJsonPath('data.resume_request.status', 'pending')
+        ->assertJsonPath('data.resume_request.incident_reference', 'INC-2048')
         ->json('data.resume_request.id');
 
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
@@ -265,22 +287,46 @@ it('validates the incident reason before changing state', function (): void {
     $this->assertDatabaseCount('money_movement_control_events', 0);
 });
 
+it('requires structured incident evidence before creating a resume request', function (): void {
+    allowMoneyMovementControl();
+    Sanctum::actingAs(moneyMovementOperator());
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Evidence validation requires a suspended safety switch.',
+    ])->assertOk();
+
+    $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'Proposed recovery without the required evidence fields.',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['incident_reference', 'evidence_summary']);
+
+    $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'Proposed recovery with malformed supporting evidence.',
+        'incident_reference' => 'incident reference with spaces',
+        'evidence_summary' => 'Too short.',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['incident_reference', 'evidence_summary']);
+
+    $this->assertDatabaseCount('money_movement_resume_requests', 0);
+});
+
 it('rejects resume requests while enabled and expired approvals while suspended', function (): void {
     allowMoneyMovementControl();
     $requester = moneyMovementOperator();
     Sanctum::actingAs($requester);
 
-    $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'No suspension exists for this proposed request.',
-    ])->assertConflict()
+    $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('No suspension exists for this proposed request.', 'INC-2001'),
+    )->assertConflict()
         ->assertJsonPath('message', 'Money movement is already enabled.');
 
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Investigating an incident before approval testing.',
     ])->assertOk();
-    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'Investigation completed but approval window elapsed.',
-    ])->assertAccepted()->json('data.resume_request.id');
+    $requestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('Investigation completed but approval window elapsed.', 'INC-2002'),
+    )->assertAccepted()->json('data.resume_request.id');
     DB::table('money_movement_resume_requests')->where('id', $requestId)->update([
         'expires_at' => now()->subMinute(),
     ]);
@@ -301,9 +347,10 @@ it('lets requesters cancel and independent approvers reject without resuming mon
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Incident investigation requires financial writes to stop.',
     ])->assertOk();
-    $cancelRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'Initial evidence suggested the incident was resolved.',
-    ])->assertAccepted()->json('data.resume_request.id');
+    $cancelRequestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('Initial evidence suggested the incident was resolved.', 'INC-3001'),
+    )->assertAccepted()->json('data.resume_request.id');
 
     Sanctum::actingAs($reviewer);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$cancelRequestId}/cancel", [
@@ -319,9 +366,10 @@ it('lets requesters cancel and independent approvers reject without resuming mon
         ->assertJsonPath('data.resume_request.closed_by', $requester->identity_user_id)
         ->assertJsonPath('data.resume_request.closure_reason', 'New evidence requires continued investigation.');
 
-    $rejectRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'Updated evidence is ready for independent review.',
-    ])->assertAccepted()->json('data.resume_request.id');
+    $rejectRequestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('Updated evidence is ready for independent review.', 'INC-3001'),
+    )->assertAccepted()->json('data.resume_request.id');
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$rejectRequestId}/reject", [
         'reason' => 'Requester cannot serve as their own independent reviewer.',
     ])->assertConflict()
@@ -358,9 +406,10 @@ it('prevents an old approval request from resuming a newer suspension', function
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Investigating the original settlement discrepancy.',
     ])->assertOk();
-    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => 'The original settlement discrepancy appears resolved.',
-    ])->assertAccepted()
+    $requestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload('The original settlement discrepancy appears resolved.', 'INC-4001'),
+    )->assertAccepted()
         ->assertJsonPath('data.resume_request.control_revision', 2)
         ->json('data.resume_request.id');
 
@@ -412,9 +461,10 @@ it('durably notifies only active verified independent approvers', function (): v
         'reason' => 'Settlement review requires financial writes to remain stopped.',
     ])->assertOk();
     $resumeReason = 'Settlement evidence is ready for independent approval.';
-    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
-        'reason' => $resumeReason,
-    ])->assertAccepted()->json('data.resume_request.id');
+    $requestId = $this->postJson(
+        '/api/v1/operations/money-movement/resume',
+        moneyMovementResumePayload($resumeReason, 'INC-5001'),
+    )->assertAccepted()->json('data.resume_request.id');
 
     $messages = app(EmailOutboxRepository::class)->pending(10);
 
@@ -424,6 +474,7 @@ it('durably notifies only active verified independent approvers', function (): v
         ->and($messages[0]->email()->body()->value())->toContain($requestId)
         ->toContain('https://operations.example.test/resume-requests')
         ->not->toContain($resumeReason)
+        ->not->toContain('Ledger reconciliation, queue health, and settlement checks all passed.')
         ->not->toContain($requester->email);
 });
 
@@ -440,6 +491,8 @@ it('does not create a resume request when its durable notification cannot be rec
 
     expect(fn () => app(MoneyMovementResumeApproval::class)->request(
         'Evidence is ready but its notification cannot be stored.',
+        'INC-6001',
+        'All reconciliation and settlement checks completed successfully.',
         UserId::generate(),
     ))->toThrow(RuntimeException::class, 'Outbox storage unavailable.');
 

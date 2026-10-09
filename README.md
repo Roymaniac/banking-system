@@ -366,6 +366,8 @@ POST /api/v1/operations/money-movement/resume-requests/{request}/cancel
 
 Viewing current state requires `operations.view`, reviewing its bounded event history requires `money_movement.audit`, and changing the switch requires `money_movement.manage`. API suspension is immediate. API resumption creates a 30-minute approval request that a different operator with `money_movement.approve` can discover in the bounded approval queue and approve. The scheduler marks elapsed requests as expired every minute. API actions record both authenticated identities and the reason.
 
+Each new API resume request must also provide an `incident_reference` and a 30–2,000 character `evidence_summary`. The reference connects the decision to the external incident or change record, while the summary gives the independent reviewer enough operational evidence to evaluate the request. Both remain in the protected approval history; neither is placed in notification emails.
+
 The requester may cancel their own pending request, while a different approver may reject it with a review reason. Cancellation, rejection, and expiry always leave money movement suspended.
 
 Every approval request is also tied to the safety switch revision that existed when the request was created. If another incident changes the suspension reason, the old request becomes `superseded` and cannot reopen money movement. The incident must be investigated and a new approval request submitted.

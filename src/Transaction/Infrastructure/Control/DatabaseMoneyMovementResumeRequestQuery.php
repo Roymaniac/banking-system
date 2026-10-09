@@ -27,7 +27,7 @@ final readonly class DatabaseMoneyMovementResumeRequestQuery implements MoneyMov
             $query->where('requested_at', '<=', $filters['to']);
         }
 
-        foreach (['status', 'requested_by', 'approved_by'] as $column) {
+        foreach (['status', 'requested_by', 'approved_by', 'incident_reference'] as $column) {
             if (isset($filters[$column])) {
                 $query->where($column, $filters[$column]);
             }
@@ -61,6 +61,8 @@ final readonly class DatabaseMoneyMovementResumeRequestQuery implements MoneyMov
             new Uuid((string) $record->id),
             new Uuid((string) $record->requested_by),
             (string) $record->reason,
+            $record->incident_reference === null ? null : (string) $record->incident_reference,
+            $record->evidence_summary === null ? null : (string) $record->evidence_summary,
             $record->control_revision === null ? null : (int) $record->control_revision,
             (string) $record->status,
             new DateTimeImmutable((string) $record->requested_at, $timezone),

@@ -8,7 +8,12 @@ use Shared\Domain\Identifier\Uuid;
 
 interface MoneyMovementResumeApproval
 {
-    public function request(string $reason, Uuid $requestedBy): MoneyMovementResumeRequest;
+    public function request(
+        string $reason,
+        string $incidentReference,
+        string $evidenceSummary,
+        Uuid $requestedBy,
+    ): MoneyMovementResumeRequest;
 
     public function approve(Uuid $requestId, Uuid $approvedBy): MoneyMovementResumeRequest;
 

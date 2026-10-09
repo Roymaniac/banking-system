@@ -285,9 +285,12 @@ Email-verification and password-reset links can target a separately hosted front
 ```dotenv
 FRONTEND_VERIFICATION_URL=https://example.com/verify-email
 FRONTEND_PASSWORD_RESET_URL=https://example.com/reset-password
+OPERATIONS_PORTAL_URL=https://operations.example.com/money-movement/resume-requests
 ```
 
 Email contents and recipients are encrypted while waiting in the outbox. The scheduler finds pending messages, and the queue worker performs delivery. Operators with `notifications.view` can inspect delivery health; `notifications.retry` is required to retry an exhausted message.
+
+Creating a money-movement resume request also queues a privacy-safe email for every active, verified staff member who currently has `money_movement.approve`. The requester is excluded because approval must be independent. The email contains the request identifier, expiry time, and protected operations-portal link, but not the incident reason. The request and encrypted email intents are stored in one transaction so a partial notification cannot be reported as successful.
 
 ## Architecture
 
@@ -429,7 +432,7 @@ Before deployment:
 3. Provide a securely generated `APP_KEY`; changing it later makes existing encrypted outbox data unreadable.
 4. Configure a production database, cache, queue, mail transport, and HTTPS.
 5. Configure settlement-ledger UUIDs for every enabled currency.
-6. Configure the customer-facing verification and password-reset URLs.
+6. Configure the customer-facing verification and password-reset URLs and the protected operations-portal URL.
 7. Run `php artisan migrate --force` during a controlled deployment.
 8. Run persistent queue workers and the scheduler under process supervision.
 9. Cache Laravel configuration and routes after environment values are final.

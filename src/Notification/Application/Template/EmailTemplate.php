@@ -9,12 +9,14 @@ enum EmailTemplate: string
 {
     case EmailVerification = 'email_verification';
     case PasswordReset = 'password_reset';
+    case MoneyMovementResumeApproval = 'money_movement_resume_approval';
 
     public function subject(): string
     {
         return match ($this) {
             self::EmailVerification => 'Verify your email address',
             self::PasswordReset => 'Reset your password',
+            self::MoneyMovementResumeApproval => 'Money movement resume approval required',
         };
     }
 
@@ -29,6 +31,7 @@ enum EmailTemplate: string
         return match ($this) {
             self::EmailVerification => ['verificationUrl', 'expiresAt'],
             self::PasswordReset => ['resetUrl', 'expiresAt'],
+            self::MoneyMovementResumeApproval => ['requestId', 'expiresAt', 'reviewUrl'],
         };
     }
 }

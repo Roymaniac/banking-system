@@ -82,6 +82,7 @@ use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRepository;
 use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRetryGateway;
 use Notification\Infrastructure\Outbox\OutboxEmailSender;
 use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
+use Notification\Infrastructure\Transaction\EmailMoneyMovementResumeNotifier;
 use Reporting\Application\Customer\CustomerReportQuery;
 use Reporting\Application\Ledger\LedgerReportQuery;
 use Reporting\Application\Transaction\TransactionReportQuery;
@@ -102,6 +103,7 @@ use Shared\Infrastructure\Persistence\LaravelTransactionManager;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementControlEventQuery;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
+use Transaction\Application\Control\MoneyMovementResumeNotifier;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 use Transaction\Application\Control\MoneyMovementResumeRequestQuery;
 use Transaction\Application\Control\MoneyMovementSecurityMonitor;
@@ -142,6 +144,7 @@ class AppServiceProvider extends ServiceProvider
             DatabaseMoneyMovementControlEventQuery::class,
         );
         $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
+        $this->app->singleton(MoneyMovementResumeNotifier::class, EmailMoneyMovementResumeNotifier::class);
         $this->app->singleton(MoneyMovementSecurityMonitor::class, AuditMoneyMovementSecurityMonitor::class);
         $this->app->singleton(
             MoneyMovementResumeRequestExpiry::class,

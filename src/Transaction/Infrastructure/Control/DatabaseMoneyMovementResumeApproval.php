@@ -15,6 +15,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Control\Exception\InvalidMoneyMovementResume;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
+use Transaction\Application\Control\MoneyMovementResumeNotifier;
 use Transaction\Application\Control\MoneyMovementResumeRequest;
 
 /** Requires two distinct authenticated operators before restoring financial writes. */
@@ -25,6 +26,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
     public function __construct(
         private ConnectionInterface $connection,
         private MoneyMovementControl $control,
+        private MoneyMovementResumeNotifier $notifier,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
     ) {}
@@ -72,6 +74,8 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 'approved_by' => null,
                 'approved_at' => null,
             ]);
+
+            $this->notifier->pending($request);
 
             return $request;
         });

@@ -9,8 +9,12 @@ use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use Notification\Domain\Outbox\Repository\EmailOutboxRepository;
 use Shared\Domain\Identifier\Uuid;
 use Transaction\Application\Control\MoneyMovementControl;
+use Transaction\Application\Control\MoneyMovementResumeApproval;
+use Transaction\Application\Control\MoneyMovementResumeNotifier;
+use Transaction\Application\Control\MoneyMovementResumeRequest;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 
 uses(RefreshDatabase::class);
@@ -32,6 +36,64 @@ function allowMoneyMovementControl(): void
             return true;
         }
     });
+}
+
+/** @param list<array{user: User, staff_status: string}> $reviewers */
+function configureMoneyMovementApprovers(array $reviewers): void
+{
+    $departmentId = Uuid::generate()->value();
+    $roleId = Uuid::generate()->value();
+    $permissionId = Uuid::generate()->value();
+    DB::table('departments')->insert([
+        'id' => $departmentId,
+        'code' => 'OPS',
+        'name' => 'Operations',
+        'status' => 'active',
+        'created_at' => now(),
+        'deactivated_at' => null,
+        'version' => 1,
+    ]);
+    DB::table('administration_roles')->insert([
+        'id' => $roleId,
+        'name' => 'money-movement-approver',
+        'label' => 'Money Movement Approver',
+        'status' => 'active',
+        'created_at' => now(),
+        'deactivated_at' => null,
+        'version' => 1,
+    ]);
+    DB::table('administration_permissions')->insert([
+        'id' => $permissionId,
+        'name' => 'money_movement.approve',
+        'label' => 'Approve money movement resumption',
+        'created_at' => now(),
+        'version' => 1,
+    ]);
+    DB::table('role_permission_assignments')->insert([
+        'role_id' => $roleId,
+        'permission_id' => $permissionId,
+        'granted_at' => now(),
+    ]);
+
+    foreach ($reviewers as $index => $reviewer) {
+        $staffId = Uuid::generate()->value();
+        DB::table('staff')->insert([
+            'id' => $staffId,
+            'user_id' => $reviewer['user']->identity_user_id,
+            'employee_number' => 'OPS-'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
+            'department_id' => $departmentId,
+            'job_title' => 'Incident Reviewer',
+            'status' => $reviewer['staff_status'],
+            'hired_at' => now(),
+            'deactivated_at' => $reviewer['staff_status'] === 'active' ? null : now(),
+            'version' => 1,
+        ]);
+        DB::table('staff_role_assignments')->insert([
+            'role_id' => $roleId,
+            'staff_id' => $staffId,
+            'assigned_at' => now(),
+        ]);
+    }
 }
 
 it('requires authentication and explicit permissions', function (): void {
@@ -326,4 +388,60 @@ it('prevents an old approval request from resuming a newer suspension', function
         'enabled' => false,
         'revision' => 3,
     ]);
+});
+
+it('durably notifies only active verified independent approvers', function (): void {
+    allowMoneyMovementControl();
+    config()->set('notification.operations_url', 'https://operations.example.test/resume-requests');
+    $requester = moneyMovementOperator();
+    $eligibleReviewer = moneyMovementOperator();
+    $unverifiedReviewer = User::factory()->create([
+        'identity_user_id' => UserId::generate()->value(),
+        'email_verified_at' => null,
+    ]);
+    $inactiveReviewer = moneyMovementOperator();
+    configureMoneyMovementApprovers([
+        ['user' => $requester, 'staff_status' => 'active'],
+        ['user' => $eligibleReviewer, 'staff_status' => 'active'],
+        ['user' => $unverifiedReviewer, 'staff_status' => 'active'],
+        ['user' => $inactiveReviewer, 'staff_status' => 'inactive'],
+    ]);
+
+    Sanctum::actingAs($requester);
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Settlement review requires financial writes to remain stopped.',
+    ])->assertOk();
+    $resumeReason = 'Settlement evidence is ready for independent approval.';
+    $requestId = $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => $resumeReason,
+    ])->assertAccepted()->json('data.resume_request.id');
+
+    $messages = app(EmailOutboxRepository::class)->pending(10);
+
+    expect($messages)->toHaveCount(1)
+        ->and($messages[0]->email()->recipient()->value())->toBe($eligibleReviewer->email)
+        ->and($messages[0]->email()->subject()->value())->toBe('Money movement resume approval required')
+        ->and($messages[0]->email()->body()->value())->toContain($requestId)
+        ->toContain('https://operations.example.test/resume-requests')
+        ->not->toContain($resumeReason)
+        ->not->toContain($requester->email);
+});
+
+it('does not create a resume request when its durable notification cannot be recorded', function (): void {
+    app()->instance(MoneyMovementResumeNotifier::class, new class implements MoneyMovementResumeNotifier
+    {
+        public function pending(MoneyMovementResumeRequest $request): void
+        {
+            throw new RuntimeException('Outbox storage unavailable.');
+        }
+    });
+    $control = app(MoneyMovementControl::class);
+    $control->suspend('Notification transaction rollback is under test.', 'test');
+
+    expect(fn () => app(MoneyMovementResumeApproval::class)->request(
+        'Evidence is ready but its notification cannot be stored.',
+        UserId::generate(),
+    ))->toThrow(RuntimeException::class, 'Outbox storage unavailable.');
+
+    $this->assertDatabaseCount('money_movement_resume_requests', 0);
 });

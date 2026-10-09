@@ -7,4 +7,6 @@ return [
     // be hosted separately from this API.
     'verification_url' => env('FRONTEND_VERIFICATION_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/verify-email'),
     'password_reset_url' => env('FRONTEND_PASSWORD_RESET_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/reset-password'),
+    // This page must require operator authentication and approval permission.
+    'operations_url' => env('OPERATIONS_PORTAL_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/operations/money-movement/resume-requests'),
 ];

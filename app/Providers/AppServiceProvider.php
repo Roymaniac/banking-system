@@ -99,6 +99,7 @@ use Shared\Infrastructure\Health\DatabaseSystemHealthCheck;
 use Shared\Infrastructure\Identifier\NativeUuidGenerator;
 use Shared\Infrastructure\Persistence\LaravelTransactionManager;
 use Transaction\Application\Control\MoneyMovementControl;
+use Transaction\Application\Control\MoneyMovementControlEventQuery;
 use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\Reversal\ReverseTransaction;
@@ -112,6 +113,7 @@ use Transaction\Domain\Transfer\Repository\TransferRepository;
 use Transaction\Domain\Withdrawal\Repository\WithdrawalRepository;
 use Transaction\Infrastructure\Control\ControlledMoneyMovementTransactionManager;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControl;
+use Transaction\Infrastructure\Control\DatabaseMoneyMovementControlEventQuery;
 use Transaction\Infrastructure\Persistence\DatabaseDailyTransactionLimitRepository;
 use Transaction\Infrastructure\Persistence\DatabaseDepositRepository;
 use Transaction\Infrastructure\Persistence\DatabaseMultipleTransferRepository;
@@ -127,6 +129,10 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(MoneyMovementControl::class, DatabaseMoneyMovementControl::class);
+        $this->app->singleton(
+            MoneyMovementControlEventQuery::class,
+            DatabaseMoneyMovementControlEventQuery::class,
+        );
         $this->app->when([
             MakeDeposit::class,
             MakeWithdrawal::class,

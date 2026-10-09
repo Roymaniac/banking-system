@@ -32,6 +32,7 @@ function allowMoneyMovementControl(): void
 
 it('requires authentication and explicit permissions', function (): void {
     $this->getJson('/api/v1/operations/money-movement')->assertUnauthorized();
+    $this->getJson('/api/v1/operations/money-movement/events')->assertUnauthorized();
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Unauthorized incident control attempt.',
     ])->assertUnauthorized();
@@ -39,9 +40,47 @@ it('requires authentication and explicit permissions', function (): void {
     Sanctum::actingAs(moneyMovementOperator());
 
     $this->getJson('/api/v1/operations/money-movement')->assertForbidden();
+    $this->getJson('/api/v1/operations/money-movement/events')->assertForbidden();
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Unauthorized incident control attempt.',
     ])->assertForbidden();
+});
+
+it('lists bounded control history with incident filters', function (): void {
+    allowMoneyMovementControl();
+    $operator = moneyMovementOperator();
+    Sanctum::actingAs($operator);
+
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Investigating incident INC-4096 before settlement.',
+    ])->assertOk();
+    $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'Incident INC-4096 resolved after independent review.',
+    ])->assertOk();
+
+    $this->getJson('/api/v1/operations/money-movement/events?per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.events')
+        ->assertJsonPath('data.events.0.action', 'resumed')
+        ->assertJsonPath('data.events.0.actor_user_id', $operator->identity_user_id)
+        ->assertJsonPath('meta.total', 2)
+        ->assertJsonPath('meta.last_page', 2);
+
+    $this->getJson('/api/v1/operations/money-movement/events?action=suspended')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.events')
+        ->assertJsonPath('data.events.0.action', 'suspended')
+        ->assertJsonPath('data.events.0.source', 'operator_api')
+        ->assertJsonPath('meta.total', 1);
+});
+
+it('rejects unsafe control-history pagination and filters', function (): void {
+    allowMoneyMovementControl();
+    Sanctum::actingAs(moneyMovementOperator());
+
+    $this->getJson('/api/v1/operations/money-movement/events?per_page=101&action=deleted')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['per_page', 'action']);
 });
 
 it('shows the protected current state to an authorized operator', function (): void {

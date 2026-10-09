@@ -54,6 +54,9 @@ Route::prefix('v1/operations')
         Route::get('/money-movement', [MoneyMovementControlController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.money-movement.show');
+        Route::get('/money-movement/events', [MoneyMovementControlController::class, 'events'])
+            ->middleware('permission:money_movement.audit')
+            ->name('api.v1.operations.money-movement.events.index');
         Route::post('/money-movement/suspend', [MoneyMovementControlController::class, 'suspend'])
             ->middleware('permission:money_movement.manage')
             ->name('api.v1.operations.money-movement.suspend');

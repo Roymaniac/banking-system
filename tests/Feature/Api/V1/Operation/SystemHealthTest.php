@@ -132,7 +132,8 @@ it('registers the scheduler heartbeat to run every minute', function (): void {
     expect($descriptions)
         ->toContain('scheduler-heartbeat')
         ->toContain('ledger-reconciliation')
-        ->toContain('expire-money-movement-resume-requests');
+        ->toContain('expire-money-movement-resume-requests')
+        ->toContain('remind-money-movement-resume-requests');
 });
 
 it('returns service unavailable when reconciliation has never run', function (): void {

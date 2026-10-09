@@ -8,4 +8,6 @@ namespace Transaction\Application\Control;
 interface MoneyMovementResumeNotifier
 {
     public function pending(MoneyMovementResumeRequest $request): void;
+
+    public function expiringSoon(MoneyMovementResumeRequest $request): void;
 }

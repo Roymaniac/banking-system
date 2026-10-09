@@ -27,9 +27,19 @@ final readonly class EmailMoneyMovementResumeNotifier implements MoneyMovementRe
 
     public function pending(MoneyMovementResumeRequest $request): void
     {
+        $this->notify($request, EmailTemplate::MoneyMovementResumeApproval);
+    }
+
+    public function expiringSoon(MoneyMovementResumeRequest $request): void
+    {
+        $this->notify($request, EmailTemplate::MoneyMovementResumeReminder);
+    }
+
+    private function notify(MoneyMovementResumeRequest $request, EmailTemplate $template): void
+    {
         foreach ($this->reviewerEmails($request) as $email) {
             $message = $this->templates->render(
-                EmailTemplate::MoneyMovementResumeApproval,
+                $template,
                 new RecipientEmail($email),
                 [
                     'requestId' => $request->id->value(),

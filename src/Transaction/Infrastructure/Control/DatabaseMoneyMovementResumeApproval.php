@@ -274,6 +274,9 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
             $record->closed_at === null
                 ? null
                 : new DateTimeImmutable((string) $record->closed_at, new DateTimeZone('UTC')),
+            $record->reminded_at === null
+                ? null
+                : new DateTimeImmutable((string) $record->reminded_at, new DateTimeZone('UTC')),
         );
     }
 

@@ -14,6 +14,7 @@ use Shared\Domain\Identifier\Uuid;
 use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
 use Transaction\Application\Control\MoneyMovementResumeNotifier;
+use Transaction\Application\Control\MoneyMovementResumeReminder;
 use Transaction\Application\Control\MoneyMovementResumeRequest;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 
@@ -476,12 +477,36 @@ it('durably notifies only active verified independent approvers', function (): v
         ->not->toContain($resumeReason)
         ->not->toContain('Ledger reconciliation, queue health, and settlement checks all passed.')
         ->not->toContain($requester->email);
+
+    expect(app(MoneyMovementResumeReminder::class)->sendDue())->toBe(0);
+    DB::table('money_movement_resume_requests')->where('id', $requestId)->update([
+        'expires_at' => now()->addMinutes(5),
+    ]);
+
+    expect(app(MoneyMovementResumeReminder::class)->sendDue())->toBe(1)
+        ->and(app(MoneyMovementResumeReminder::class)->sendDue())->toBe(0);
+    $messages = app(EmailOutboxRepository::class)->pending(10);
+    expect($messages)->toHaveCount(2)
+        ->and($messages[1]->email()->recipient()->value())->toBe($eligibleReviewer->email)
+        ->and($messages[1]->email()->subject()->value())
+        ->toBe('Urgent: money movement resume approval expires soon');
+    $this->assertDatabaseHas('money_movement_resume_requests', [
+        'id' => $requestId,
+        'status' => 'pending',
+    ]);
+    expect(DB::table('money_movement_resume_requests')->where('id', $requestId)->value('reminded_at'))
+        ->not->toBeNull();
 });
 
 it('does not create a resume request when its durable notification cannot be recorded', function (): void {
     app()->instance(MoneyMovementResumeNotifier::class, new class implements MoneyMovementResumeNotifier
     {
         public function pending(MoneyMovementResumeRequest $request): void
+        {
+            throw new RuntimeException('Outbox storage unavailable.');
+        }
+
+        public function expiringSoon(MoneyMovementResumeRequest $request): void
         {
             throw new RuntimeException('Outbox storage unavailable.');
         }

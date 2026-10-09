@@ -104,6 +104,7 @@ use Transaction\Application\Control\MoneyMovementControl;
 use Transaction\Application\Control\MoneyMovementControlEventQuery;
 use Transaction\Application\Control\MoneyMovementResumeApproval;
 use Transaction\Application\Control\MoneyMovementResumeNotifier;
+use Transaction\Application\Control\MoneyMovementResumeReminder;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
 use Transaction\Application\Control\MoneyMovementResumeRequestQuery;
 use Transaction\Application\Control\MoneyMovementSecurityMonitor;
@@ -122,6 +123,7 @@ use Transaction\Infrastructure\Control\ControlledMoneyMovementTransactionManager
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControl;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementControlEventQuery;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeApproval;
+use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeReminder;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeRequestExpiry;
 use Transaction\Infrastructure\Control\DatabaseMoneyMovementResumeRequestQuery;
 use Transaction\Infrastructure\Persistence\DatabaseDailyTransactionLimitRepository;
@@ -145,6 +147,7 @@ class AppServiceProvider extends ServiceProvider
         );
         $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
         $this->app->singleton(MoneyMovementResumeNotifier::class, EmailMoneyMovementResumeNotifier::class);
+        $this->app->singleton(MoneyMovementResumeReminder::class, DatabaseMoneyMovementResumeReminder::class);
         $this->app->singleton(MoneyMovementSecurityMonitor::class, AuditMoneyMovementSecurityMonitor::class);
         $this->app->singleton(
             MoneyMovementResumeRequestExpiry::class,

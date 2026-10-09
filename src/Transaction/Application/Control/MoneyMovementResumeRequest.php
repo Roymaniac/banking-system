@@ -25,5 +25,6 @@ final readonly class MoneyMovementResumeRequest
         public ?Uuid $closedBy = null,
         public ?string $closureReason = null,
         public ?DateTimeImmutable $closedAt = null,
+        public ?DateTimeImmutable $remindedAt = null,
     ) {}
 }

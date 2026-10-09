@@ -31,6 +31,7 @@ final class MoneyMovementResumeRequestResource extends JsonResource
             'status' => $resumeRequest->status,
             'requested_at' => $resumeRequest->requestedAt->format(DATE_ATOM),
             'expires_at' => $resumeRequest->expiresAt->format(DATE_ATOM),
+            'reminded_at' => $resumeRequest->remindedAt?->format(DATE_ATOM),
             'approved_by' => $resumeRequest->approvedBy?->value(),
             'approved_at' => $resumeRequest->approvedAt?->format(DATE_ATOM),
             'closed_by' => $resumeRequest->closedBy?->value(),

@@ -25,7 +25,7 @@ final class ListMoneyMovementResumeRequestsRequest extends FormRequest
             'to' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:from'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-            'status' => ['sometimes', Rule::in(['pending', 'approved', 'expired'])],
+            'status' => ['sometimes', Rule::in(['pending', 'approved', 'rejected', 'cancelled', 'expired'])],
             'requested_by' => ['sometimes', 'uuid'],
             'approved_by' => ['sometimes', 'uuid'],
         ];

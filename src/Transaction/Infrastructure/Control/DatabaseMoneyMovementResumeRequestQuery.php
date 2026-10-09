@@ -66,6 +66,9 @@ final readonly class DatabaseMoneyMovementResumeRequestQuery implements MoneyMov
             new DateTimeImmutable((string) $record->expires_at, $timezone),
             $record->approved_by === null ? null : new Uuid((string) $record->approved_by),
             $record->approved_at === null ? null : new DateTimeImmutable((string) $record->approved_at, $timezone),
+            $record->closed_by === null ? null : new Uuid((string) $record->closed_by),
+            $record->closure_reason === null ? null : (string) $record->closure_reason,
+            $record->closed_at === null ? null : new DateTimeImmutable((string) $record->closed_at, $timezone),
         );
     }
 }

@@ -113,6 +113,44 @@ final class MoneyMovementControlController extends Controller
         ]);
     }
 
+    public function rejectResume(
+        ChangeMoneyMovementStatusRequest $request,
+        string $resumeRequest,
+        MoneyMovementResumeApproval $approval,
+        CurrentCustomer $currentIdentity,
+    ): JsonResponse {
+        $rejected = $approval->reject(
+            new Uuid($resumeRequest),
+            $currentIdentity->userId($request),
+            $request->string('reason')->toString(),
+        );
+
+        return response()->json([
+            'data' => [
+                'resume_request' => new MoneyMovementResumeRequestResource($rejected),
+            ],
+        ]);
+    }
+
+    public function cancelResume(
+        ChangeMoneyMovementStatusRequest $request,
+        string $resumeRequest,
+        MoneyMovementResumeApproval $approval,
+        CurrentCustomer $currentIdentity,
+    ): JsonResponse {
+        $cancelled = $approval->cancel(
+            new Uuid($resumeRequest),
+            $currentIdentity->userId($request),
+            $request->string('reason')->toString(),
+        );
+
+        return response()->json([
+            'data' => [
+                'resume_request' => new MoneyMovementResumeRequestResource($cancelled),
+            ],
+        ]);
+    }
+
     private function response(MoneyMovementControl $control): JsonResponse
     {
         return response()->json([

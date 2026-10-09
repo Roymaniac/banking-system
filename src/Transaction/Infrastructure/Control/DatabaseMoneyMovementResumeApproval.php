@@ -120,6 +120,83 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
         });
     }
 
+    public function reject(Uuid $requestId, Uuid $rejectedBy, string $reason): MoneyMovementResumeRequest
+    {
+        $reason = $this->validatedReason($reason);
+
+        return $this->close($requestId, $rejectedBy, $reason, 'rejected', false);
+    }
+
+    public function cancel(Uuid $requestId, Uuid $cancelledBy, string $reason): MoneyMovementResumeRequest
+    {
+        $reason = $this->validatedReason($reason);
+
+        return $this->close($requestId, $cancelledBy, $reason, 'cancelled', true);
+    }
+
+    private function close(
+        Uuid $requestId,
+        Uuid $closedBy,
+        string $reason,
+        string $status,
+        bool $requesterMustMatch,
+    ): MoneyMovementResumeRequest {
+        return $this->connection->transaction(function () use (
+            $requestId,
+            $closedBy,
+            $reason,
+            $status,
+            $requesterMustMatch,
+        ): MoneyMovementResumeRequest {
+            $record = $this->connection->table('money_movement_resume_requests')
+                ->where('id', $requestId->value())
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->first();
+
+            if ($record === null) {
+                throw InvalidMoneyMovementResume::requestNotFound();
+            }
+
+            $request = $this->hydrate($record);
+            $sameOperator = $request->requestedBy->value() === $closedBy->value();
+
+            if ($requesterMustMatch && ! $sameOperator) {
+                throw InvalidMoneyMovementResume::onlyRequesterCanCancel();
+            }
+            if (! $requesterMustMatch && $sameOperator) {
+                throw InvalidMoneyMovementResume::sameOperatorCannotReject();
+            }
+
+            $now = $this->utcNow();
+
+            if ($request->expiresAt <= $now) {
+                throw InvalidMoneyMovementResume::expired();
+            }
+
+            $this->connection->table('money_movement_resume_requests')
+                ->where('id', $request->id->value())
+                ->update([
+                    'status' => $status,
+                    'closed_by' => $closedBy->value(),
+                    'closure_reason' => $reason,
+                    'closed_at' => $now,
+                ]);
+
+            return new MoneyMovementResumeRequest(
+                $request->id,
+                $request->requestedBy,
+                $request->reason,
+                $status,
+                $request->requestedAt,
+                $request->expiresAt,
+                closedBy: $closedBy,
+                closureReason: $reason,
+                closedAt: $now,
+            );
+        });
+    }
+
     private function lockSuspendedControl(): void
     {
         $control = $this->connection->table('money_movement_controls')
@@ -145,7 +222,23 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
             $record->approved_at === null
                 ? null
                 : new DateTimeImmutable((string) $record->approved_at, new DateTimeZone('UTC')),
+            $record->closed_by === null ? null : new Uuid((string) $record->closed_by),
+            $record->closure_reason === null ? null : (string) $record->closure_reason,
+            $record->closed_at === null
+                ? null
+                : new DateTimeImmutable((string) $record->closed_at, new DateTimeZone('UTC')),
         );
+    }
+
+    private function validatedReason(string $reason): string
+    {
+        $reason = trim($reason);
+
+        if (mb_strlen($reason) < 10 || mb_strlen($reason) > 255) {
+            throw new InvalidArgumentException('The operational reason must contain between 10 and 255 characters.');
+        }
+
+        return $reason;
     }
 
     private function utcNow(): DateTimeImmutable

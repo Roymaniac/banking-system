@@ -23,6 +23,16 @@ final class InvalidMoneyMovementResume extends DomainException
         return new self('The resume request is not available for approval.');
     }
 
+    public static function sameOperatorCannotReject(): self
+    {
+        return new self('The requester must cancel their own request; a different operator may reject it.');
+    }
+
+    public static function onlyRequesterCanCancel(): self
+    {
+        return new self('Only the operator who created the resume request may cancel it.');
+    }
+
     public static function sameOperator(): self
     {
         return new self('A different operator must approve the resume request.');

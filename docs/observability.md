@@ -87,6 +87,8 @@ A reconciliation failure automatically suspends new money movement. It never aut
 
 Operator tooling may instead use the permission-protected money-movement API. Grant `money_movement.manage` only to incident responders authorized to stop or request restoration of financial writes. API restoration requires a second operator with `money_movement.approve` within 30 minutes; that permission also exposes the bounded approval queue. The scheduler marks elapsed requests as expired every minute. Grant `money_movement.audit` to reviewers who need its bounded, filterable event history, and review those immutable records after every use.
 
+Requesters should cancel obsolete requests, and approvers should reject requests whose evidence is insufficient. Both actions require a reason and leave financial writes suspended.
+
 Do not place secrets or private financial details into incident tickets. Reference protected audit records by their identifiers instead.
 
 ## Retention and access

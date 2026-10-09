@@ -229,3 +229,61 @@ it('rejects resume requests while enabled and expired approvals while suspended'
 
     $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => false]);
 });
+
+it('lets requesters cancel and independent approvers reject without resuming money movement', function (): void {
+    allowMoneyMovementControl();
+    $requester = moneyMovementOperator();
+    $reviewer = moneyMovementOperator();
+    Sanctum::actingAs($requester);
+    $this->postJson('/api/v1/operations/money-movement/suspend', [
+        'reason' => 'Incident investigation requires financial writes to stop.',
+    ])->assertOk();
+    $cancelRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'Initial evidence suggested the incident was resolved.',
+    ])->assertAccepted()->json('data.resume_request.id');
+
+    Sanctum::actingAs($reviewer);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$cancelRequestId}/cancel", [
+        'reason' => 'Reviewer cannot cancel a request they did not create.',
+    ])->assertConflict()
+        ->assertJsonPath('message', 'Only the operator who created the resume request may cancel it.');
+
+    Sanctum::actingAs($requester);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$cancelRequestId}/cancel", [
+        'reason' => 'New evidence requires continued investigation.',
+    ])->assertOk()
+        ->assertJsonPath('data.resume_request.status', 'cancelled')
+        ->assertJsonPath('data.resume_request.closed_by', $requester->identity_user_id)
+        ->assertJsonPath('data.resume_request.closure_reason', 'New evidence requires continued investigation.');
+
+    $rejectRequestId = $this->postJson('/api/v1/operations/money-movement/resume', [
+        'reason' => 'Updated evidence is ready for independent review.',
+    ])->assertAccepted()->json('data.resume_request.id');
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$rejectRequestId}/reject", [
+        'reason' => 'Requester cannot serve as their own independent reviewer.',
+    ])->assertConflict()
+        ->assertJsonPath(
+            'message',
+            'The requester must cancel their own request; a different operator may reject it.',
+        );
+
+    Sanctum::actingAs($reviewer);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$rejectRequestId}/reject", [
+        'reason' => 'Reconciliation evidence is incomplete and needs review.',
+    ])->assertOk()
+        ->assertJsonPath('data.resume_request.status', 'rejected')
+        ->assertJsonPath('data.resume_request.closed_by', $reviewer->identity_user_id)
+        ->assertJsonPath('data.resume_request.closure_reason', 'Reconciliation evidence is incomplete and needs review.');
+
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$rejectRequestId}/approve")
+        ->assertConflict();
+    $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => false]);
+    $this->assertDatabaseHas('money_movement_resume_requests', [
+        'id' => $cancelRequestId,
+        'status' => 'cancelled',
+    ]);
+    $this->assertDatabaseHas('money_movement_resume_requests', [
+        'id' => $rejectRequestId,
+        'status' => 'rejected',
+    ]);
+});

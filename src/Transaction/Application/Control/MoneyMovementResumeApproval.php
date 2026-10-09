@@ -11,4 +11,8 @@ interface MoneyMovementResumeApproval
     public function request(string $reason, Uuid $requestedBy): MoneyMovementResumeRequest;
 
     public function approve(Uuid $requestId, Uuid $approvedBy): MoneyMovementResumeRequest;
+
+    public function reject(Uuid $requestId, Uuid $rejectedBy, string $reason): MoneyMovementResumeRequest;
+
+    public function cancel(Uuid $requestId, Uuid $cancelledBy, string $reason): MoneyMovementResumeRequest;
 }

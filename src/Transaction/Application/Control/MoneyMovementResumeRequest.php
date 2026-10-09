@@ -19,5 +19,8 @@ final readonly class MoneyMovementResumeRequest
         public DateTimeImmutable $expiresAt,
         public ?Uuid $approvedBy = null,
         public ?DateTimeImmutable $approvedAt = null,
+        public ?Uuid $closedBy = null,
+        public ?string $closureReason = null,
+        public ?DateTimeImmutable $closedAt = null,
     ) {}
 }

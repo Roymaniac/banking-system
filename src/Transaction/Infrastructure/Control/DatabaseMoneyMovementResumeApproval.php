@@ -130,7 +130,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                     'approved_at' => $now,
                 ]);
 
-            return new MoneyMovementResumeRequest(
+            $approved = new MoneyMovementResumeRequest(
                 $request->id,
                 $request->requestedBy,
                 $request->reason,
@@ -143,6 +143,9 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 $approvedBy,
                 $now,
             );
+            $this->notifier->outcome($approved);
+
+            return $approved;
         });
     }
 
@@ -209,7 +212,7 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                     'closed_at' => $now,
                 ]);
 
-            return new MoneyMovementResumeRequest(
+            $closed = new MoneyMovementResumeRequest(
                 $request->id,
                 $request->requestedBy,
                 $request->reason,
@@ -223,6 +226,9 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
                 closureReason: $reason,
                 closedAt: $now,
             );
+            $this->notifier->outcome($closed);
+
+            return $closed;
         });
     }
 
@@ -242,17 +248,43 @@ final readonly class DatabaseMoneyMovementResumeApproval implements MoneyMovemen
 
     private function supersedeOlderRequests(int $controlRevision, DateTimeImmutable $now): void
     {
-        $this->connection->table('money_movement_resume_requests')
+        $records = $this->connection->table('money_movement_resume_requests')
             ->where('status', 'pending')
             ->where(function ($query) use ($controlRevision): void {
                 $query->whereNull('control_revision')
                     ->orWhere('control_revision', '<>', $controlRevision);
             })
-            ->update([
-                'status' => 'superseded',
-                'closure_reason' => 'A newer suspension replaced this approval request.',
-                'closed_at' => $now,
-            ]);
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($records as $record) {
+            $request = $this->hydrate($record);
+            $closureReason = 'A newer suspension replaced this approval request.';
+            $this->connection->table('money_movement_resume_requests')
+                ->where('id', $request->id->value())
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'superseded',
+                    'closure_reason' => $closureReason,
+                    'closed_at' => $now,
+                ]);
+
+            $this->notifier->outcome(new MoneyMovementResumeRequest(
+                $request->id,
+                $request->requestedBy,
+                $request->reason,
+                $request->incidentReference,
+                $request->evidenceSummary,
+                $request->controlRevision,
+                'superseded',
+                $request->requestedAt,
+                $request->expiresAt,
+                closedBy: null,
+                closureReason: $closureReason,
+                closedAt: $now,
+                remindedAt: $request->remindedAt,
+            ));
+        }
     }
 
     private function hydrate(object $record): MoneyMovementResumeRequest

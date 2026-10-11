@@ -49,6 +49,11 @@ function allowMoneyMovementControl(): void
         {
             return 1;
         }
+
+        public function outcome(MoneyMovementResumeRequest $request): int
+        {
+            return 1;
+        }
     });
 }
 
@@ -527,6 +532,20 @@ it('durably notifies only active verified independent approvers', function (): v
     ]);
     expect(DB::table('money_movement_resume_requests')->where('id', $requestId)->value('reminded_at'))
         ->not->toBeNull();
+
+    Sanctum::actingAs($eligibleReviewer);
+    $this->postJson("/api/v1/operations/money-movement/resume-requests/{$requestId}/reject", [
+        'reason' => 'The attached recovery evidence requires another reconciliation pass.',
+    ])->assertOk();
+
+    $messages = app(EmailOutboxRepository::class)->pending(10);
+    expect($messages)->toHaveCount(3)
+        ->and($messages[2]->email()->recipient()->value())->toBe($requester->email)
+        ->and($messages[2]->email()->subject()->value())->toBe('Money movement resume request updated')
+        ->and($messages[2]->email()->body()->value())->toContain($requestId)
+        ->toContain('REJECTED')
+        ->not->toContain($resumeReason)
+        ->not->toContain('The attached recovery evidence requires another reconciliation pass.');
 });
 
 it('rolls back a request when no independent approver is eligible', function (): void {
@@ -569,6 +588,11 @@ it('does not create a resume request when its durable notification cannot be rec
         {
             throw new RuntimeException('Outbox storage unavailable.');
         }
+
+        public function outcome(MoneyMovementResumeRequest $request): int
+        {
+            throw new RuntimeException('Outbox storage unavailable.');
+        }
     });
     $control = app(MoneyMovementControl::class);
     $control->suspend('Notification transaction rollback is under test.', 'test');
@@ -581,4 +605,52 @@ it('does not create a resume request when its durable notification cannot be rec
     ))->toThrow(RuntimeException::class, 'Outbox storage unavailable.');
 
     $this->assertDatabaseCount('money_movement_resume_requests', 0);
+});
+
+it('does not finalize a request when its outcome notification cannot be recorded', function (): void {
+    app()->instance(MoneyMovementResumeNotifier::class, new class implements MoneyMovementResumeNotifier
+    {
+        public function pending(MoneyMovementResumeRequest $request): int
+        {
+            return 1;
+        }
+
+        public function expiringSoon(MoneyMovementResumeRequest $request): int
+        {
+            return 1;
+        }
+
+        public function outcome(MoneyMovementResumeRequest $request): int
+        {
+            throw new RuntimeException('Outcome storage unavailable.');
+        }
+    });
+    app(MoneyMovementControl::class)->suspend('Outcome transaction rollback is under test.', 'test');
+    $requester = UserId::generate();
+    $request = app(MoneyMovementResumeApproval::class)->request(
+        'Recovery evidence is ready for independent review.',
+        'INC-8001',
+        'All reconciliation and settlement checks completed successfully.',
+        $requester,
+    );
+
+    expect(fn () => app(MoneyMovementResumeApproval::class)->reject(
+        $request->id,
+        UserId::generate(),
+        'The evidence needs another independent reconciliation pass.',
+    ))->toThrow(RuntimeException::class, 'Outcome storage unavailable.');
+    $this->assertDatabaseHas('money_movement_resume_requests', [
+        'id' => $request->id->value(),
+        'status' => 'pending',
+    ]);
+
+    DB::table('money_movement_resume_requests')->where('id', $request->id->value())->update([
+        'expires_at' => now()->subMinute(),
+    ]);
+    expect(fn () => app(MoneyMovementResumeRequestExpiry::class)->expire())
+        ->toThrow(RuntimeException::class, 'Outcome storage unavailable.');
+    $this->assertDatabaseHas('money_movement_resume_requests', [
+        'id' => $request->id->value(),
+        'status' => 'pending',
+    ]);
 });

@@ -296,6 +296,8 @@ At least one independent eligible approver must exist when the request is submit
 
 When a current pending request enters its final ten minutes, the scheduler queues one reminder to the same eligible reviewers. The persisted `reminded_at` timestamp prevents repeated reminders, and stale, completed, expired, or superseded requests are never reminded. If reviewer coverage temporarily disappears, `reminded_at` stays empty so the scheduler can retry after coverage is restored.
 
+When a request is approved, rejected, cancelled, expired, or superseded, the requester receives a durable outcome email. It contains only the request identifier, final status, and protected portal link; incident evidence and closure reasons remain inside the authenticated operations interface.
+
 ## Architecture
 
 The business code is organized into bounded contexts under `src`:

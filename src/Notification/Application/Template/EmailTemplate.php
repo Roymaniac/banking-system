@@ -11,6 +11,7 @@ enum EmailTemplate: string
     case PasswordReset = 'password_reset';
     case MoneyMovementResumeApproval = 'money_movement_resume_approval';
     case MoneyMovementResumeReminder = 'money_movement_resume_reminder';
+    case MoneyMovementResumeOutcome = 'money_movement_resume_outcome';
 
     public function subject(): string
     {
@@ -19,6 +20,7 @@ enum EmailTemplate: string
             self::PasswordReset => 'Reset your password',
             self::MoneyMovementResumeApproval => 'Money movement resume approval required',
             self::MoneyMovementResumeReminder => 'Urgent: money movement resume approval expires soon',
+            self::MoneyMovementResumeOutcome => 'Money movement resume request updated',
         };
     }
 
@@ -35,6 +37,7 @@ enum EmailTemplate: string
             self::PasswordReset => ['resetUrl', 'expiresAt'],
             self::MoneyMovementResumeApproval => ['requestId', 'expiresAt', 'reviewUrl'],
             self::MoneyMovementResumeReminder => ['requestId', 'expiresAt', 'reviewUrl'],
+            self::MoneyMovementResumeOutcome => ['requestId', 'status', 'reviewUrl'],
         };
     }
 }

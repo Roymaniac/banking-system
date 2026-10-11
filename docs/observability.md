@@ -97,6 +97,8 @@ Request creation fails safely when no independent eligible approver exists. Trea
 
 The scheduler queues one additional reminder when a current pending request has ten minutes or less remaining. The `reminded_at` field makes delivery intent visible and prevents inbox flooding. No reminder is created after completion, expiry, or supersession. A zero-recipient attempt leaves `reminded_at` empty for retry after reviewer coverage returns.
 
+Every terminal status queues a privacy-safe outcome email for the verified requester. Approval, rejection, cancellation, expiry, and supersession are committed in the same database transaction as their encrypted outbox record, so an outbox storage failure leaves the request eligible for a safe retry. Outcome emails omit incident evidence and closure reasons.
+
 Resume requests require an external incident reference and a bounded evidence summary. Reviewers should compare that summary with the authoritative incident record before approving. The protected queue can be filtered by incident reference, while notification emails deliberately omit the evidence text.
 
 Production CLI resumption is disabled by default so it cannot bypass two-person approval. Emergency `--break-glass` use requires a separately authorized operator UUID, an incident reference, and explicit confirmation. It emits a `critical` `operations.money_movement_break_glass_resumed` security event; alert immediately and review both the application record and infrastructure shell-access logs.

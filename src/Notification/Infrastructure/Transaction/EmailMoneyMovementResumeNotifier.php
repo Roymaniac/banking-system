@@ -15,7 +15,7 @@ use Notification\Domain\Email\ValueObject\RecipientEmail;
 use Transaction\Application\Control\MoneyMovementResumeNotifier;
 use Transaction\Application\Control\MoneyMovementResumeRequest;
 
-/** Queues privacy-safe approval alerts for active and verified reviewers. */
+/** Queues privacy-safe reviewer alerts and requester outcome notices. */
 final readonly class EmailMoneyMovementResumeNotifier implements MoneyMovementResumeNotifier
 {
     public function __construct(
@@ -27,15 +27,42 @@ final readonly class EmailMoneyMovementResumeNotifier implements MoneyMovementRe
 
     public function pending(MoneyMovementResumeRequest $request): int
     {
-        return $this->notify($request, EmailTemplate::MoneyMovementResumeApproval);
+        return $this->notifyReviewers($request, EmailTemplate::MoneyMovementResumeApproval);
     }
 
     public function expiringSoon(MoneyMovementResumeRequest $request): int
     {
-        return $this->notify($request, EmailTemplate::MoneyMovementResumeReminder);
+        return $this->notifyReviewers($request, EmailTemplate::MoneyMovementResumeReminder);
     }
 
-    private function notify(MoneyMovementResumeRequest $request, EmailTemplate $template): int
+    public function outcome(MoneyMovementResumeRequest $request): int
+    {
+        // A missing or unverified requester email must not block the final
+        // safety decision; there is simply no trusted address to notify.
+        $email = $this->connection->table('users')
+            ->where('identity_user_id', $request->requestedBy->value())
+            ->whereNotNull('email_verified_at')
+            ->value('email');
+
+        if (! is_string($email) || $email === '') {
+            return 0;
+        }
+
+        $message = $this->templates->render(
+            EmailTemplate::MoneyMovementResumeOutcome,
+            new RecipientEmail($email),
+            [
+                'requestId' => $request->id->value(),
+                'status' => strtoupper($request->status),
+                'reviewUrl' => (string) $this->config->get('notification.operations_url'),
+            ],
+        );
+        $this->emails->send($message);
+
+        return 1;
+    }
+
+    private function notifyReviewers(MoneyMovementResumeRequest $request, EmailTemplate $template): int
     {
         $reviewerEmails = $this->reviewerEmails($request);
 

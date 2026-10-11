@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 return [
+    // Clients may safely retry a successful money request during this window.
+    'idempotency' => [
+        'retention_hours' => env('IDEMPOTENCY_RETENTION_HOURS', 24),
+    ],
+
     // These UUIDs belong to internal ledgers and must never come from API input.
     'settlement_ledgers' => [
         'deposit' => [

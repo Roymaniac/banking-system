@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Account\Domain\Account\ValueObject\AccountId;
 use App\Models\User;
+use App\Support\Idempotency\PruneExpiredIdempotencyRecords;
 use Identity\Application\Authorization\AuthorizationChecker;
 use Identity\Domain\Authorization\ValueObject\Permission;
 use Identity\Domain\User\ValueObject\UserId;
@@ -64,6 +65,12 @@ function allowTrustedOperations(): void
     });
 }
 
+/** Gives each independent money request its own safe retry identifier. */
+function trustedOperationRequest(): mixed
+{
+    return test()->withHeader('Idempotency-Key', Uuid::generate()->value());
+}
+
 it('requires authentication and the operation-specific permission', function (): void {
     $accountId = AccountId::generate()->value();
 
@@ -85,7 +92,7 @@ it('posts a configured trusted deposit and returns a safe receipt', function ():
     allowTrustedOperations();
     Sanctum::actingAs(trustedOperationUser());
 
-    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
+    trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 5000,
         'reference' => 'STAFF-DEPOSIT-001',
     ])->assertCreated()
@@ -115,7 +122,7 @@ it('posts a trusted withdrawal using the server-configured settlement ledger', f
     allowTrustedOperations();
     Sanctum::actingAs(trustedOperationUser());
 
-    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/withdrawals", [
+    trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/withdrawals", [
         'minor_units' => 3000,
         'reference' => 'STAFF-WITHDRAWAL-001',
     ])->assertCreated()
@@ -135,18 +142,18 @@ it('reverses a posted operation and prevents a second reversal', function (): vo
     allowTrustedOperations();
     Sanctum::actingAs(trustedOperationUser());
 
-    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
+    trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 5000,
         'reference' => 'REVERSIBLE-DEPOSIT-001',
     ])->assertCreated();
     $entryId = (string) DB::table('deposits')->value('ledger_entry_id');
     $payload = ['reference' => 'REVERSAL-001', 'reason' => 'Duplicate external settlement'];
 
-    $this->postJson("/api/v1/operations/ledger-entries/{$entryId}/reversals", $payload)
+    trustedOperationRequest()->postJson("/api/v1/operations/ledger-entries/{$entryId}/reversals", $payload)
         ->assertCreated()
         ->assertJsonPath('data.reversal.reference', 'REVERSAL-001')
         ->assertJsonPath('data.reversal.reason', 'Duplicate external settlement');
-    $this->postJson("/api/v1/operations/ledger-entries/{$entryId}/reversals", [
+    trustedOperationRequest()->postJson("/api/v1/operations/ledger-entries/{$entryId}/reversals", [
         'reference' => 'REVERSAL-002',
         'reason' => 'Second attempt',
     ])->assertConflict();
@@ -162,7 +169,7 @@ it('fails safely when a settlement ledger is not configured', function (): void 
     allowTrustedOperations();
     Sanctum::actingAs(trustedOperationUser());
 
-    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
+    trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 1000,
         'reference' => 'NO-SETTLEMENT-001',
     ])->assertStatus(503)
@@ -179,7 +186,7 @@ it('blocks financial writes while leaving the API available for investigation', 
         'reason' => 'Financial integrity investigation is in progress.',
     ])->assertSuccessful();
 
-    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
+    trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 5000,
         'reference' => 'SUSPENDED-DEPOSIT-001',
     ])->assertServiceUnavailable()
@@ -187,4 +194,126 @@ it('blocks financial writes while leaving the API available for investigation', 
 
     $this->assertDatabaseMissing('deposits', ['reference' => 'SUSPENDED-DEPOSIT-001']);
     $this->get('/up')->assertOk();
+});
+
+it('requires a safe idempotency key for an authorized money request', function (): void {
+    $target = createTrustedOperationAccount('1834567890');
+    $settlement = createTrustedOperationAccount('2834567890');
+    config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
+    allowTrustedOperations();
+    Sanctum::actingAs(trustedOperationUser());
+
+    $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
+        'minor_units' => 5000,
+        'reference' => 'MISSING-KEY-DEPOSIT-001',
+    ])->assertUnprocessable()
+        ->assertJsonPath(
+            'message',
+            'The Idempotency-Key header is required and must contain 8 to 100 safe characters.',
+        );
+
+    $this->assertDatabaseMissing('deposits', ['reference' => 'MISSING-KEY-DEPOSIT-001']);
+});
+
+it('replays the first successful response without posting money twice', function (): void {
+    $target = createTrustedOperationAccount('1934567890');
+    $settlement = createTrustedOperationAccount('2934567890');
+    config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
+    allowTrustedOperations();
+    Sanctum::actingAs(trustedOperationUser());
+    $key = Uuid::generate()->value();
+    $payload = ['minor_units' => 5000, 'reference' => 'RETRIED-DEPOSIT-001'];
+    $url = "/api/v1/operations/accounts/{$target['account_id']}/deposits";
+
+    $first = $this->withHeader('Idempotency-Key', $key)->postJson($url, $payload);
+    $second = $this->withHeader('Idempotency-Key', $key)->postJson($url, $payload);
+
+    $first->assertCreated()->assertHeader('Idempotency-Replayed', 'false');
+    $second->assertCreated()
+        ->assertHeader('Idempotency-Replayed', 'true')
+        ->assertExactJson($first->json());
+    $this->assertDatabaseCount('deposits', 1)
+        ->assertDatabaseHas('ledger_balances', [
+            'ledger_id' => $target['ledger_id'],
+            'balance_minor_units' => 5000,
+        ]);
+});
+
+it('rejects an idempotency key reused for different money instructions', function (): void {
+    $target = createTrustedOperationAccount('1034567890');
+    $settlement = createTrustedOperationAccount('2034567890');
+    config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
+    allowTrustedOperations();
+    Sanctum::actingAs(trustedOperationUser());
+    $key = Uuid::generate()->value();
+    $url = "/api/v1/operations/accounts/{$target['account_id']}/deposits";
+
+    $this->withHeader('Idempotency-Key', $key)->postJson($url, [
+        'minor_units' => 5000,
+        'reference' => 'KEY-MISMATCH-DEPOSIT-001',
+    ])->assertCreated();
+
+    $this->withHeader('Idempotency-Key', $key)->postJson($url, [
+        'minor_units' => 9000,
+        'reference' => 'KEY-MISMATCH-DEPOSIT-002',
+    ])->assertConflict()
+        ->assertJsonPath(
+            'message',
+            'This idempotency key was already used with different request data.',
+        );
+
+    $this->assertDatabaseCount('deposits', 1)
+        ->assertDatabaseHas('ledger_balances', [
+            'ledger_id' => $target['ledger_id'],
+            'balance_minor_units' => 5000,
+        ]);
+});
+
+it('allows the same key to retry after an unsuccessful response', function (): void {
+    $target = createTrustedOperationAccount('1134567890');
+    $settlement = createTrustedOperationAccount('2134567890');
+    allowTrustedOperations();
+    Sanctum::actingAs(trustedOperationUser());
+    $key = Uuid::generate()->value();
+    $url = "/api/v1/operations/accounts/{$target['account_id']}/deposits";
+    $payload = ['minor_units' => 5000, 'reference' => 'RECOVERED-DEPOSIT-001'];
+
+    $this->withHeader('Idempotency-Key', $key)->postJson($url, $payload)
+        ->assertStatus(503);
+
+    config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
+
+    $this->withHeader('Idempotency-Key', $key)->postJson($url, $payload)
+        ->assertCreated()
+        ->assertHeader('Idempotency-Replayed', 'false');
+
+    $this->assertDatabaseCount('deposits', 1);
+});
+
+it('prunes expired idempotency records without removing live retry responses', function (): void {
+    $baseRecord = [
+        'actor_id' => UserId::generate()->value(),
+        'route' => 'api.v1.operations.deposits.store',
+        'key_hash' => hash('sha256', 'pruning-test-key'),
+        'request_hash' => hash('sha256', 'pruning-test-request'),
+        'state' => 'completed',
+        'response_status' => 201,
+        'response_body' => '{}',
+        'content_type' => 'application/json',
+        'created_at' => now()->subDay(),
+        'completed_at' => now()->subDay(),
+    ];
+
+    DB::table('api_idempotency_records')->insert([
+        [...$baseRecord, 'id' => Uuid::generate()->value(), 'expires_at' => now()->subMinute()],
+        [
+            ...$baseRecord,
+            'id' => Uuid::generate()->value(),
+            'key_hash' => hash('sha256', 'live-pruning-test-key'),
+            'expires_at' => now()->addHour(),
+        ],
+    ]);
+
+    expect(app(PruneExpiredIdempotencyRecords::class)->prune())->toBe(1);
+    $this->assertDatabaseCount('api_idempotency_records', 1);
 });

@@ -259,7 +259,7 @@ API money values use integer minor units and always include or derive a currency
 
 Dates and times use ISO 8601. Stored operational timestamps are normalized to UTC.
 
-Transaction references provide idempotency. Repeating a financial request with an existing reference is rejected instead of posting the money twice.
+Transaction references provide a second domain-level duplicate check. HTTP retry safety is described in the API idempotency section below.
 
 ## Trusted settlement configuration
 
@@ -397,6 +397,10 @@ The command requires an explicit confirmation (or `--yes` in a controlled non-in
 `GET /api/v1/operations/health` is the protected readiness endpoint. It checks operational dependencies such as the database, scheduler heartbeat, queue failures, and notification backlog. It requires the `operations.view` permission.
 
 While money movement is suspended, readiness also reports safe approval-workflow signals: whether the current request is pending, expiring within ten minutes, or overdue, plus bounded counts and the next expiry time. It never exposes request IDs, incident references, reasons, or evidence.
+
+## API idempotency
+
+Money-changing API calls require an `Idempotency-Key` header containing 8 to 100 safe characters. A client should generate one unique key for each intended operation and keep the same key when retrying after a timeout or lost response. An identical retry returns the original response with `Idempotency-Replayed: true`; changing the request while reusing its key returns HTTP 409. Successful responses are retained for 24 hours by default, controlled by `IDEMPOTENCY_RETENTION_HOURS`.
 
 ## Observability
 

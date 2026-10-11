@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureIdempotentMoneyRequest;
 use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\TraceApiRequest;
 use Audit\Infrastructure\Http\Middleware\RecordUserActivityMiddleware;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Capture authenticated changes from both web and API requests.
         $middleware->append(RecordUserActivityMiddleware::class);
         $middleware->alias([
+            'idempotent-money' => EnsureIdempotentMoneyRequest::class,
             'permission' => RequirePermission::class,
         ]);
     })

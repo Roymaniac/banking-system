@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Idempotency\PruneExpiredIdempotencyRecords;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -42,4 +43,10 @@ Schedule::call(fn () => app(MoneyMovementResumeRequestExpiry::class)->expire())
 Schedule::call(fn () => app(MoneyMovementResumeReminder::class)->sendDue())
     ->name('remind-money-movement-resume-requests')
     ->everyMinute()
+    ->withoutOverlapping();
+
+// Retry responses expire automatically so the safety table stays bounded.
+Schedule::call(fn () => app(PruneExpiredIdempotencyRecords::class)->prune())
+    ->name('prune-api-idempotency-records')
+    ->hourly()
     ->withoutOverlapping();

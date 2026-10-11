@@ -71,6 +71,12 @@ function multipleTransferPayload(array $recipients, string $reference = 'BATCH-2
     return ['reference' => $reference, 'recipients' => $recipients];
 }
 
+/** Gives each independent batch its own safe retry identifier. */
+function multipleTransferRequest(): mixed
+{
+    return test()->withHeader('Idempotency-Key', Uuid::generate()->value());
+}
+
 it('pays every recipient atomically and returns a safe batch receipt', function (): void {
     $senderUser = multipleTransferApiUser();
     $sender = createMultipleTransferApiAccount($senderUser, '1534567890');
@@ -79,7 +85,7 @@ it('pays every recipient atomically and returns a safe batch receipt', function 
     fundMultipleTransferApiLedger($sender['ledger_id'], 20000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    multipleTransferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/multiple-transfers",
         multipleTransferPayload([
             ['account_number' => $first['number'], 'minor_units' => 3000],
@@ -112,7 +118,7 @@ it('rolls back the complete batch when funds are insufficient', function (): voi
     fundMultipleTransferApiLedger($sender['ledger_id'], 5000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    multipleTransferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/multiple-transfers",
         multipleTransferPayload([
             ['account_number' => $first['number'], 'minor_units' => 3000],
@@ -136,7 +142,7 @@ it('rejects duplicate recipients and a sender included as a recipient', function
     fundMultipleTransferApiLedger($sender['ledger_id'], 10000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    multipleTransferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/multiple-transfers",
         multipleTransferPayload([
             ['account_number' => $recipient['number'], 'minor_units' => 1000],
@@ -145,7 +151,7 @@ it('rejects duplicate recipients and a sender included as a recipient', function
     )->assertUnprocessable()
         ->assertJsonValidationErrors(['recipients.1.account_number']);
 
-    $this->postJson(
+    multipleTransferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/multiple-transfers",
         multipleTransferPayload([
             ['account_number' => $sender['number'], 'minor_units' => 1000],
@@ -160,7 +166,7 @@ it('prevents foreign senders and unavailable recipient accounts', function (): v
     fundMultipleTransferApiLedger($sender['ledger_id'], 10000);
 
     Sanctum::actingAs(multipleTransferApiUser());
-    $this->postJson(
+    multipleTransferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/multiple-transfers",
         multipleTransferPayload([
             ['account_number' => '2634567890', 'minor_units' => 1000],
@@ -188,12 +194,12 @@ it('prevents duplicate references and validates bounded input', function (): voi
         ['account_number' => $recipient['number'], 'minor_units' => 1000],
     ]);
 
-    $this->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", $payload)
+    multipleTransferRequest()->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", $payload)
         ->assertCreated();
-    $this->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", $payload)
+    multipleTransferRequest()->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", $payload)
         ->assertConflict();
 
-    $this->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", [
+    multipleTransferRequest()->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", [
         'reference' => 'invalid reference!',
         'recipients' => [],
     ])->assertUnprocessable()
@@ -207,7 +213,7 @@ it('prevents duplicate references and validates bounded input', function (): voi
         range(1, 21),
     );
 
-    $this->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", [
+    multipleTransferRequest()->postJson("/api/v1/accounts/{$sender['account_id']}/multiple-transfers", [
         'reference' => 'BATCH-TOO-LARGE',
         'recipients' => $tooManyRecipients,
     ])->assertUnprocessable()

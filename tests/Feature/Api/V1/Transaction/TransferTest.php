@@ -81,6 +81,12 @@ function transferPayload(string $recipientNumber, array $changes = []): array
     ], $changes);
 }
 
+/** Gives each independent transfer its own safe retry identifier. */
+function transferRequest(): mixed
+{
+    return test()->withHeader('Idempotency-Key', Uuid::generate()->value());
+}
+
 it('moves money between active accounts and returns a safe receipt', function (): void {
     $senderUser = transferApiUser();
     $sender = createTransferApiAccount($senderUser, '1234567890');
@@ -88,7 +94,7 @@ it('moves money between active accounts and returns a safe receipt', function ()
     fundTransferApiLedger($sender['ledger_id'], 10000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload($recipient['number']),
     )->assertCreated()
@@ -115,7 +121,7 @@ it('prevents a customer from transferring from another customer account', functi
 
     Sanctum::actingAs(transferApiUser());
 
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload($recipient['number']),
     )->assertNotFound()
@@ -129,7 +135,7 @@ it('rejects transfers when funds are insufficient', function (): void {
     fundTransferApiLedger($sender['ledger_id'], 1000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload($recipient['number']),
     )->assertUnprocessable()
@@ -148,16 +154,16 @@ it('prevents duplicate references and transfers to the same account', function (
     fundTransferApiLedger($sender['ledger_id'], 10000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload($recipient['number']),
     )->assertCreated();
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload($recipient['number']),
     )->assertConflict();
 
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload($sender['number'], ['reference' => 'mobile-20261001-002']),
     )->assertUnprocessable()
@@ -171,7 +177,7 @@ it('rejects unavailable recipients and currency mismatches', function (): void {
     fundTransferApiLedger($sender['ledger_id'], 10000);
     Sanctum::actingAs($senderUser);
 
-    $this->postJson(
+    transferRequest()->postJson(
         "/api/v1/accounts/{$sender['account_id']}/transfers",
         transferPayload('3334567890'),
     )->assertUnprocessable()
@@ -195,7 +201,7 @@ it('validates public transfer input and requires authentication', function (): v
     $sender = createTransferApiAccount($senderUser, '9234567890');
     Sanctum::actingAs($senderUser);
 
-    $this->postJson("/api/v1/accounts/{$sender['account_id']}/transfers", [
+    transferRequest()->postJson("/api/v1/accounts/{$sender['account_id']}/transfers", [
         'recipient_account_number' => 'invalid',
         'minor_units' => 0,
         'reference' => 'unsafe reference!',

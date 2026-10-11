@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Transaction\MakeMultipleTransferRequest;
 use App\Http\Resources\Api\V1\Transaction\MultipleTransferResource;
 use App\Http\Support\Api\V1\CurrentAccount;
+use Dedoc\Scramble\Attributes\Parameter;
 use Illuminate\Http\JsonResponse;
 use Shared\Contracts\Clock;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
@@ -27,6 +28,7 @@ use Transaction\Domain\MultipleTransfer\Exception\MultipleTransferLedgerUnavaila
 /** Completes one atomic transfer to several public account numbers. */
 final class MultipleTransferController extends Controller
 {
+    #[Parameter(in: 'header', name: 'Idempotency-Key', description: 'Unique retry key for this intended operation.', required: true, type: 'string', infer: false, example: '0199f4f2-9b31-70f2-8a29-8a706bfcf501')]
     public function store(
         MakeMultipleTransferRequest $request,
         string $account,

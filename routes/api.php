@@ -89,15 +89,15 @@ Route::prefix('v1/operations')
             ->name('api.v1.operations.money-movement.resume-requests.cancel');
         Route::post('/accounts/{account}/deposits', [TrustedTransactionController::class, 'deposit'])
             ->whereUuid('account')
-            ->middleware(['permission:transactions.deposit', 'throttle:money-movement'])
+            ->middleware(['permission:transactions.deposit', 'throttle:money-movement', 'idempotent-money'])
             ->name('api.v1.operations.deposits.store');
         Route::post('/accounts/{account}/withdrawals', [TrustedTransactionController::class, 'withdraw'])
             ->whereUuid('account')
-            ->middleware(['permission:transactions.withdraw', 'throttle:money-movement'])
+            ->middleware(['permission:transactions.withdraw', 'throttle:money-movement', 'idempotent-money'])
             ->name('api.v1.operations.withdrawals.store');
         Route::post('/ledger-entries/{entry}/reversals', [TrustedTransactionController::class, 'reverse'])
             ->whereUuid('entry')
-            ->middleware(['permission:transactions.reverse', 'throttle:money-movement'])
+            ->middleware(['permission:transactions.reverse', 'throttle:money-movement', 'idempotent-money'])
             ->name('api.v1.operations.reversals.store');
     });
 
@@ -217,14 +217,14 @@ Route::prefix('v1/accounts')
             ->name('api.v1.accounts.balance.show');
         Route::post('/{account}/transfers', [TransferController::class, 'store'])
             ->whereUuid('account')
-            ->middleware('throttle:money-movement')
+            ->middleware(['throttle:money-movement', 'idempotent-money'])
             ->name('api.v1.accounts.transfers.store');
         Route::get('/{account}/transactions', [TransactionHistoryController::class, 'index'])
             ->whereUuid('account')
             ->name('api.v1.accounts.transactions.index');
         Route::post('/{account}/multiple-transfers', [MultipleTransferController::class, 'store'])
             ->whereUuid('account')
-            ->middleware('throttle:money-movement')
+            ->middleware(['throttle:money-movement', 'idempotent-money'])
             ->name('api.v1.accounts.multiple-transfers.store');
         Route::get('/{account}/daily-limit', [DailyTransactionLimitController::class, 'show'])
             ->whereUuid('account')

@@ -80,4 +80,14 @@ it('generates a versioned OpenAPI contract with bearer authentication', function
         ->not->toHaveKey('/docs/api.json')
         ->and($document['paths']['/auth/login']['post']['security'])->toBe([])
         ->and($document['security'])->toBe([['http' => []]]);
+
+    $idempotencyHeader = collect(
+        $document['paths']['/accounts/{account}/transfers']['post']['parameters'],
+    )->firstWhere('name', 'Idempotency-Key');
+
+    expect($idempotencyHeader)->toMatchArray([
+        'name' => 'Idempotency-Key',
+        'in' => 'header',
+        'required' => true,
+    ]);
 });

@@ -12,6 +12,7 @@ use App\Http\Requests\Api\V1\Operation\ReverseTransactionRequest;
 use App\Http\Resources\Api\V1\Operation\MoneyMovementResource;
 use App\Http\Resources\Api\V1\Operation\ReversalResource;
 use App\Support\Banking\ConfiguredSettlementLedgers;
+use Dedoc\Scramble\Attributes\Parameter;
 use Illuminate\Http\JsonResponse;
 use Ledger\Domain\Entry\ValueObject\LedgerEntryId;
 use Shared\Contracts\Clock;
@@ -39,6 +40,7 @@ use Transaction\Domain\Withdrawal\Exception\WithdrawalLedgerUnavailable;
 /** Handles permission-protected money operations performed by trusted systems. */
 final class TrustedTransactionController extends Controller
 {
+    #[Parameter(in: 'header', name: 'Idempotency-Key', description: 'Unique retry key for this intended operation.', required: true, type: 'string', infer: false, example: '0199f4f2-9b31-70f2-8a29-8a706bfcf501')]
     public function deposit(
         MoneyMovementRequest $request,
         string $account,
@@ -83,6 +85,7 @@ final class TrustedTransactionController extends Controller
         ], 201);
     }
 
+    #[Parameter(in: 'header', name: 'Idempotency-Key', description: 'Unique retry key for this intended operation.', required: true, type: 'string', infer: false, example: '0199f4f2-9b31-70f2-8a29-8a706bfcf501')]
     public function withdraw(
         MoneyMovementRequest $request,
         string $account,
@@ -129,6 +132,7 @@ final class TrustedTransactionController extends Controller
         ], 201);
     }
 
+    #[Parameter(in: 'header', name: 'Idempotency-Key', description: 'Unique retry key for this intended operation.', required: true, type: 'string', infer: false, example: '0199f4f2-9b31-70f2-8a29-8a706bfcf501')]
     public function reverse(
         ReverseTransactionRequest $request,
         string $entry,

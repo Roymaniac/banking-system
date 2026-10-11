@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Health;
 
+use DateInterval;
 use DateTimeImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\ConnectionInterface;
@@ -18,6 +19,8 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
     private const SCHEDULER_MAX_AGE_SECONDS = 120;
 
     private const RECONCILIATION_MAX_AGE_SECONDS = 7200;
+
+    private const RESUME_REQUEST_EXPIRING_MINUTES = 10;
 
     public function __construct(
         private ConnectionInterface $connection,
@@ -89,11 +92,41 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
         }
 
         $enabled = filter_var($control->enabled, FILTER_VALIDATE_BOOL);
+        $now = $this->clock->now();
+        $expiringAt = $now->add(new DateInterval('PT'.self::RESUME_REQUEST_EXPIRING_MINUTES.'M'));
+        $currentRequests = $this->connection->table('money_movement_resume_requests')
+            ->where('status', 'pending')
+            ->where('control_revision', (int) $control->revision);
+        $pending = (clone $currentRequests)
+            ->where('expires_at', '>', $now)
+            ->count();
+        $expiring = (clone $currentRequests)
+            ->where('expires_at', '>', $now)
+            ->where('expires_at', '<=', $expiringAt)
+            ->count();
+        $overdue = (clone $currentRequests)
+            ->where('expires_at', '<=', $now)
+            ->count();
+        $nextExpiresAt = (clone $currentRequests)
+            ->where('expires_at', '>', $now)
+            ->min('expires_at');
 
         return [
             'status' => $enabled ? 'healthy' : 'degraded',
             'enabled' => $enabled,
             'changed_at' => (new DateTimeImmutable((string) $control->changed_at))->format(DATE_ATOM),
+            'approval_status' => match (true) {
+                $overdue > 0 => 'overdue',
+                $expiring > 0 => 'expiring',
+                $pending > 0 => 'pending',
+                default => 'none',
+            },
+            'pending_resume_requests' => $pending,
+            'expiring_resume_requests' => $expiring,
+            'overdue_resume_requests' => $overdue,
+            'next_request_expires_at' => $nextExpiresAt === null
+                ? null
+                : (new DateTimeImmutable((string) $nextExpiresAt))->format(DATE_ATOM),
         ];
     }
 

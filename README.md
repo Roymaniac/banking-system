@@ -396,6 +396,8 @@ The command requires an explicit confirmation (or `--yes` in a controlled non-in
 
 `GET /api/v1/operations/health` is the protected readiness endpoint. It checks operational dependencies such as the database, scheduler heartbeat, queue failures, and notification backlog. It requires the `operations.view` permission.
 
+While money movement is suspended, readiness also reports safe approval-workflow signals: whether the current request is pending, expiring within ten minutes, or overdue, plus bounded counts and the next expiry time. It never exposes request IDs, incident references, reasons, or evidence.
+
 ## Observability
 
 Every HTTP response includes an `X-Request-ID` that connects the response to structured Laravel and Nginx logs. Completion logs use safe route names and omit raw URLs, query strings, request bodies, and route parameters so operational tracing does not unnecessarily copy banking data.

@@ -66,7 +66,9 @@ it('reports healthy when critical services are current', function (): void {
         ->assertJsonPath('data.components.ledger_reconciliation.status', 'healthy')
         ->assertJsonPath('data.components.queue.status', 'healthy')
         ->assertJsonPath('data.components.queue.driver', 'database')
-        ->assertJsonPath('data.components.notifications.status', 'healthy');
+        ->assertJsonPath('data.components.notifications.status', 'healthy')
+        ->assertJsonPath('data.components.money_movement.approval_status', 'none')
+        ->assertJsonPath('data.components.money_movement.pending_resume_requests', 0);
 });
 
 it('reports degraded without going offline for operational backlogs', function (): void {
@@ -199,11 +201,63 @@ it('reports degraded while money movement is intentionally suspended', function 
         'source' => 'test',
         'changed_at' => now(),
     ]);
+    DB::table('money_movement_resume_requests')->insert([
+        'id' => Uuid::generate()->value(),
+        'requested_by' => Uuid::generate()->value(),
+        'reason' => 'Reconciliation has completed and recovery is ready for review.',
+        'control_revision' => 1,
+        'status' => 'pending',
+        'requested_at' => now()->subMinutes(20),
+        'expires_at' => now()->addMinutes(5),
+    ]);
 
     $this->getJson('/api/v1/operations/health')
         ->assertOk()
         ->assertJsonPath('data.status', 'degraded')
         ->assertJsonPath('data.components.money_movement.status', 'degraded')
         ->assertJsonPath('data.components.money_movement.enabled', false)
-        ->assertJsonMissingPath('data.components.money_movement.reason');
+        ->assertJsonPath('data.components.money_movement.approval_status', 'expiring')
+        ->assertJsonPath('data.components.money_movement.pending_resume_requests', 1)
+        ->assertJsonPath('data.components.money_movement.expiring_resume_requests', 1)
+        ->assertJsonPath('data.components.money_movement.overdue_resume_requests', 0)
+        ->assertJsonPath('data.components.money_movement.next_request_expires_at', fn (mixed $value): bool => is_string($value))
+        ->assertJsonMissingPath('data.components.money_movement.reason')
+        ->assertJsonMissingPath('data.components.money_movement.request_id');
+});
+
+it('makes an overdue resume approval visible without exposing incident details', function (): void {
+    allowSystemHealthApi();
+    Sanctum::actingAs(systemHealthApiUser());
+    config()->set('queue.default', 'database');
+    app(RecordSchedulerHeartbeat::class)->record();
+    recordHealthyLedgerReconciliation();
+    DB::table('money_movement_controls')->where('name', 'global')->update([
+        'enabled' => false,
+        'reason' => 'A private incident reason that readiness must not expose.',
+        'source' => 'test',
+        'changed_at' => now(),
+    ]);
+    DB::table('money_movement_resume_requests')->insert([
+        'id' => Uuid::generate()->value(),
+        'requested_by' => Uuid::generate()->value(),
+        'reason' => 'A private recovery reason that readiness must not expose.',
+        'incident_reference' => 'INC-PRIVATE',
+        'evidence_summary' => 'Private reconciliation evidence remains in the protected approval record.',
+        'control_revision' => 1,
+        'status' => 'pending',
+        'requested_at' => now()->subMinutes(35),
+        'expires_at' => now()->subMinutes(5),
+    ]);
+
+    $this->getJson('/api/v1/operations/health')
+        ->assertOk()
+        ->assertJsonPath('data.status', 'degraded')
+        ->assertJsonPath('data.components.money_movement.approval_status', 'overdue')
+        ->assertJsonPath('data.components.money_movement.pending_resume_requests', 0)
+        ->assertJsonPath('data.components.money_movement.expiring_resume_requests', 0)
+        ->assertJsonPath('data.components.money_movement.overdue_resume_requests', 1)
+        ->assertJsonPath('data.components.money_movement.next_request_expires_at', null)
+        ->assertJsonMissingPath('data.components.money_movement.reason')
+        ->assertJsonMissingPath('data.components.money_movement.incident_reference')
+        ->assertJsonMissingPath('data.components.money_movement.evidence_summary');
 });

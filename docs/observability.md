@@ -43,7 +43,7 @@ Request completion logging itself can be disabled with `OBSERVABILITY_REQUEST_LO
 Use the endpoints for different purposes:
 
 - `GET /up` is public liveness. The container or load balancer uses it to determine whether Laravel responds.
-- `GET /api/v1/operations/health` is protected readiness. Authorized operators use it to inspect the database, scheduler heartbeat, queue failures, and notification backlog.
+- `GET /api/v1/operations/health` is protected readiness. Authorized operators use it to inspect the database, scheduler heartbeat, queue failures, notification backlog, and safe resume-approval timing signals.
 
 Liveness does not prove the database schema or background processes are healthy. Readiness must be monitored separately using a dedicated operator credential stored in the monitoring platform's secret manager.
 
@@ -59,6 +59,8 @@ Configure the monitoring platform to notify operators when:
 | Database | Readiness reports database unhealthy | Critical |
 | Reconciliation | Latest check fails or is older than two hours | Critical |
 | Money movement | Safety switch is suspended | Critical |
+| Resume approval | `approval_status` becomes `expiring` | Warning |
+| Resume approval | `approval_status` remains `overdue` after a scheduler cycle | Critical |
 | HTTP errors | 5xx responses exceed 1% for five minutes | Critical |
 | Queue failures | `failed_jobs` is greater than zero | Warning |
 | Email delivery | `exhausted_messages` is greater than zero | Warning |

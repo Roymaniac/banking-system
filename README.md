@@ -208,6 +208,8 @@ The complete tagging, registry authentication, migration-first deployment, rollb
 
 Register a customer identity with `POST /api/v1/auth/register`. Registration stores the password as a secure hash, creates a one-time email-verification token, and records an encrypted verification email in the durable outbox as one transaction. The customer verifies through `POST /api/v1/auth/email/verify`; login remains unavailable until verification succeeds. `POST /api/v1/auth/email/verification` resends the message using the same public response whether or not the email exists.
 
+Password recovery starts with `POST /api/v1/auth/password/forgot`, which always returns the same response so registered email addresses stay private. Complete recovery through `POST /api/v1/auth/password/reset` with the emailed one-time token, a new password, and `password_confirmation`. A successful reset consumes the token and revokes every existing Sanctum session, requiring each device to sign in again.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

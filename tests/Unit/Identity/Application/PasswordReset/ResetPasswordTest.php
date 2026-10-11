@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Identity\Application\Authentication\PasswordHasher;
 use Identity\Application\PasswordReset\ResetPassword;
 use Identity\Application\PasswordReset\ResetPasswordCommand;
+use Identity\Application\Security\UserSessionRevoker;
 use Identity\Domain\PasswordReset\Exception\InvalidPasswordResetToken;
 use Identity\Domain\PasswordReset\PasswordResetRequest;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
@@ -87,6 +88,9 @@ it('changes the password, consumes the token, and publishes the event', function
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
     $users->shouldReceive('save')->once()->with($user);
 
+    $sessions = Mockery::mock(UserSessionRevoker::class);
+    $sessions->shouldReceive('revokeAll')->once()->with($user->id());
+
     $passwordHasher = Mockery::mock(PasswordHasher::class);
     $passwordHasher->shouldReceive('hash')->once()->with('a-new-secure-password')->andReturn($newHash);
 
@@ -97,6 +101,7 @@ it('changes the password, consumes the token, and publishes the event', function
     $service = new ResetPassword(
         $requests,
         $users,
+        $sessions,
         $passwordHasher,
         new ResetPasswordTestClock(new DateTimeImmutable('2026-09-16T10:15:00+00:00')),
         $uuidGenerator,
@@ -128,6 +133,7 @@ it('rejects an expired reset token', function (): void {
     $service = new ResetPassword(
         $requests,
         Mockery::mock(UserRepository::class),
+        Mockery::mock(UserSessionRevoker::class),
         Mockery::mock(PasswordHasher::class),
         new ResetPasswordTestClock(new DateTimeImmutable('2026-09-16T10:30:00+00:00')),
         Mockery::mock(UuidGenerator::class),
@@ -142,6 +148,7 @@ it('hides the reason a malformed reset token is rejected', function (): void {
     $service = new ResetPassword(
         Mockery::mock(PasswordResetRequestRepository::class),
         Mockery::mock(UserRepository::class),
+        Mockery::mock(UserSessionRevoker::class),
         Mockery::mock(PasswordHasher::class),
         new ResetPasswordTestClock(new DateTimeImmutable('2026-09-16T10:15:00+00:00')),
         Mockery::mock(UuidGenerator::class),

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Audit\ActivityController;
 use App\Http\Controllers\Api\V1\Audit\DomainEventController;
 use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
+use App\Http\Controllers\Api\V1\Authentication\PasswordRecoveryController;
 use App\Http\Controllers\Api\V1\Authentication\RegistrationController;
 use App\Http\Controllers\Api\V1\Compliance\DueDiligenceReviewController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
@@ -50,6 +51,12 @@ Route::prefix('v1/auth')->group(function (): void {
     Route::post('/login', [AuthenticationController::class, 'login'])
         ->middleware('throttle:login')
         ->name('api.v1.auth.login');
+    Route::post('/password/forgot', [PasswordRecoveryController::class, 'request'])
+        ->middleware('throttle:login')
+        ->name('api.v1.auth.password.forgot');
+    Route::post('/password/reset', [PasswordRecoveryController::class, 'reset'])
+        ->middleware('throttle:login')
+        ->name('api.v1.auth.password.reset');
 
     Route::middleware(['auth:sanctum', 'throttle:customer-api'])->group(function (): void {
         Route::get('/me', [AuthenticationController::class, 'current'])

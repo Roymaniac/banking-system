@@ -146,7 +146,7 @@ it('rolls back registration when verification delivery cannot be recorded', func
         ->andThrow(new RuntimeException('Simulated verification delivery failure.'));
     app()->instance(EmailVerificationNotifier::class, $notifier);
 
-    expect(fn() => app(RegisterUser::class)->handle(new RegisterUserCommand(
+    expect(fn () => app(RegisterUser::class)->handle(new RegisterUserCommand(
         'rollback-registration@example.com',
         'CorrectHorseBattery1!',
     )))->toThrow(RuntimeException::class, 'Simulated verification delivery failure.');

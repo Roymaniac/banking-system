@@ -50,6 +50,7 @@ use Identity\Application\EmailVerification\EmailVerificationTokenGenerator;
 use Identity\Application\PasswordReset\PasswordResetNotifier;
 use Identity\Application\PasswordReset\PasswordResetTokenGenerator;
 use Identity\Application\Security\SecurityMonitor;
+use Identity\Application\Security\UserSessionRevoker;
 use Identity\Domain\EmailVerification\Repository\EmailVerificationRequestRepository;
 use Identity\Domain\PasswordReset\Repository\PasswordResetRequestRepository;
 use Identity\Domain\User\Repository\UserRepository;
@@ -59,6 +60,7 @@ use Identity\Infrastructure\EmailVerification\SecureEmailVerificationTokenGenera
 use Identity\Infrastructure\PasswordReset\DatabasePasswordResetRequestRepository;
 use Identity\Infrastructure\PasswordReset\SecurePasswordResetTokenGenerator;
 use Identity\Infrastructure\Persistence\DatabaseUserRepository;
+use Identity\Infrastructure\Security\DatabaseUserSessionRevoker;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Ledger\Application\Balance\ProjectLedgerBalance;
@@ -191,6 +193,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AuditLogRepository::class, DatabaseAuditLogRepository::class);
         $this->app->singleton(SecurityEventRepository::class, DatabaseSecurityEventRepository::class);
         $this->app->singleton(SecurityMonitor::class, AuditSecurityMonitor::class);
+        $this->app->singleton(UserSessionRevoker::class, DatabaseUserSessionRevoker::class);
         $this->app->singleton(CustomerReportQuery::class, DatabaseCustomerReportQuery::class);
         $this->app->singleton(LedgerReportQuery::class, DatabaseLedgerReportQuery::class);
         $this->app->singleton(TransactionReportQuery::class, DatabaseTransactionReportQuery::class);

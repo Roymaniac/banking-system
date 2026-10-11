@@ -86,3 +86,56 @@ jobs:
 
       - name: Build web image
         run: docker build --target web --tag banking-system-web:ci .
+
+  postgresql-concurrency:
+    name: PostgreSQL concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: banking_test
+          POSTGRES_USER: banking_test
+          POSTGRES_PASSWORD: banking-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U banking_test -d banking_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: banking_test
+      DB_USERNAME: banking_test
+      DB_PASSWORD: banking-test-password
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pcntl, pdo_pgsql
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Verify PostgreSQL migrations
+        run: php artisan migrate:fresh --force
+
+      - name: Verify financial row locking
+        run: composer test:postgresql

@@ -429,9 +429,12 @@ composer analyse
 composer openapi:check
 composer security:check
 composer test
+composer test:postgresql
 ```
 
-The security check audits the exact versions in `composer.lock` against Composer's vulnerability advisory database. GitHub Actions repeats these checks, verifies that all migrations run successfully on a clean SQLite database, validates the Compose configuration, and builds both production images.
+`composer test:postgresql` requires a PostgreSQL test database plus the PHP `pdo_pgsql` and `pcntl` extensions. It starts real competing processes and verifies that the database locks allow only one withdrawal to spend shared funds and only one operator to approve a resume request.
+
+The security check audits the exact versions in `composer.lock` against Composer's vulnerability advisory database. GitHub Actions repeats these checks, verifies migrations on clean SQLite and PostgreSQL databases, runs the PostgreSQL concurrency suite, validates the Compose configuration, and builds both production images.
 
 ## Production checklist
 

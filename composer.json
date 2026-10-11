@@ -75,6 +75,9 @@
         "test": [
             "./vendor/bin/pest"
         ],
+        "test:postgresql": [
+            "./vendor/bin/pest --configuration=phpunit.postgresql.xml"
+        ],
         "format:check": [
             "./vendor/bin/pint --test"
         ],

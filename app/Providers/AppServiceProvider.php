@@ -37,6 +37,10 @@ use Audit\Infrastructure\Persistence\DatabaseAuditLogRepository;
 use Audit\Infrastructure\Persistence\DatabaseAuditTrailQuery;
 use Audit\Infrastructure\Persistence\DatabaseSecurityEventRepository;
 use Audit\Infrastructure\Transaction\AuditMoneyMovementSecurityMonitor;
+use Compliance\Application\DueDiligence\CustomerDueDiligenceChecker;
+use Compliance\Application\DueDiligence\DueDiligenceGateway;
+use Compliance\Infrastructure\Persistence\DatabaseCustomerDueDiligenceChecker;
+use Compliance\Infrastructure\Persistence\DatabaseDueDiligenceGateway;
 use Customer\Domain\Customer\Repository\CustomerRepository;
 use Customer\Infrastructure\Persistence\DatabaseCustomerRepository;
 use Identity\Application\Authentication\PasswordHasher;
@@ -142,6 +146,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(DueDiligenceGateway::class, DatabaseDueDiligenceGateway::class);
+        $this->app->singleton(
+            CustomerDueDiligenceChecker::class,
+            DatabaseCustomerDueDiligenceChecker::class,
+        );
         $this->app->singleton(MoneyMovementControl::class, DatabaseMoneyMovementControl::class);
         $this->app->singleton(
             MoneyMovementControlEventQuery::class,

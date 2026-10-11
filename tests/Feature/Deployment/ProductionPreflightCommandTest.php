@@ -10,6 +10,7 @@ function configureProductionPreflight(): void
         'app.env' => 'production',
         'app.debug' => false,
         'app.key' => 'base64:'.base64_encode(random_bytes(32)),
+        'compliance.document_fingerprint_key' => bin2hex(random_bytes(32)),
         'app.url' => 'https://bank.example.com',
         'notification.verification_url' => 'https://bank.example.com/verify-email',
         'notification.password_reset_url' => 'https://bank.example.com/reset-password',
@@ -83,6 +84,19 @@ it('rejects unbounded ordinary or privileged API token lifetimes', function (): 
 
     $this->artisan('banking:production-preflight')
         ->expectsOutputToContain('API token lifetimes are bounded')
+        ->expectsOutputToContain('Production preflight failed 1 check(s)')
+        ->assertFailed();
+});
+
+it('requires a separate secret for matching identity documents', function (): void {
+    configureProductionPreflight();
+    config()->set(
+        'compliance.document_fingerprint_key',
+        config()->get('app.key'),
+    );
+
+    $this->artisan('banking:production-preflight')
+        ->expectsOutputToContain('Identity document fingerprint key is independently configured')
         ->expectsOutputToContain('Production preflight failed 1 check(s)')
         ->assertFailed();
 });

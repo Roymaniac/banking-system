@@ -243,6 +243,18 @@ Content-Type: application/json
 
 Use the returned bearer token for privileged requests. It expires after 15 minutes by default, and a staff deactivation or removed permission still takes effect through the authorization check. Successful and rejected privileged-access attempts are written to the security audit trail.
 
+## Customer identity verification
+
+Customers submit identity evidence through `POST /api/v1/customer/compliance/due-diligence`. The raw document number is encrypted at rest and is never returned by the API; responses show only its final four characters. A separate keyed fingerprint detects one document being reused across customers without storing a searchable plain-text number.
+
+Authorized compliance staff use the privileged review endpoints under `/api/v1/compliance/due-diligence`. The person whose identity is being checked cannot approve or reject their own case. Rejected evidence can be corrected and resubmitted, while every submission and decision is kept in an append-only history. An account cannot be activated until its customer's case is approved.
+
+Production must provide an independent secret of at least 32 characters. Do not reuse `APP_KEY`:
+
+```dotenv
+KYC_DOCUMENT_FINGERPRINT_KEY=
+```
+
 ## Request limits
 
 The API applies separate per-minute budgets to login attempts, routine customer requests, money movement, privileged operations, and reporting. Authenticated budgets are isolated per user. Login keys combine the client address with a one-way hash of the normalized email address, so the email is not exposed in cache keys.
@@ -462,7 +474,7 @@ Before deployment:
 
 1. Use PHP 8.4.1 or newer and run `composer install --no-dev --classmap-authoritative`, or deploy the repository's production application image.
 2. Set `APP_ENV=production`, `APP_DEBUG=false`, and a production `APP_URL`.
-3. Provide a securely generated `APP_KEY`; changing it later makes existing encrypted outbox data unreadable.
+3. Provide securely generated, different values for `APP_KEY` and `KYC_DOCUMENT_FINGERPRINT_KEY`; changing them later affects encrypted data or identity-document matching.
 4. Configure a production database, cache, queue, mail transport, and HTTPS.
 5. Configure settlement-ledger UUIDs for every enabled currency.
 6. Configure the customer-facing verification and password-reset URLs and the protected operations-portal URL.

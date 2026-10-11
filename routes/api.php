@@ -15,8 +15,10 @@ use App\Http\Controllers\Api\V1\Audit\ActivityController;
 use App\Http\Controllers\Api\V1\Audit\DomainEventController;
 use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
+use App\Http\Controllers\Api\V1\Compliance\DueDiligenceReviewController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
+use App\Http\Controllers\Api\V1\Customer\CustomerDueDiligenceController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
@@ -123,6 +125,27 @@ Route::prefix('v1/customer')
         Route::put('/profile/contacts/{contact}', [CustomerContactController::class, 'update'])
             ->whereUuid('contact')
             ->name('api.v1.customer.contacts.update');
+
+        Route::get('/compliance/due-diligence', [CustomerDueDiligenceController::class, 'show'])
+            ->name('api.v1.customer.due-diligence.show');
+        Route::post('/compliance/due-diligence', [CustomerDueDiligenceController::class, 'submit'])
+            ->name('api.v1.customer.due-diligence.submit');
+    });
+
+Route::prefix('v1/compliance')
+    ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
+    ->group(function (): void {
+        Route::get('/due-diligence', [DueDiligenceReviewController::class, 'index'])
+            ->middleware('permission:compliance.view')
+            ->name('api.v1.compliance.due-diligence.index');
+        Route::post('/due-diligence/{case}/approve', [DueDiligenceReviewController::class, 'approve'])
+            ->whereUuid('case')
+            ->middleware('permission:compliance.review')
+            ->name('api.v1.compliance.due-diligence.approve');
+        Route::post('/due-diligence/{case}/reject', [DueDiligenceReviewController::class, 'reject'])
+            ->whereUuid('case')
+            ->middleware('permission:compliance.review')
+            ->name('api.v1.compliance.due-diligence.reject');
     });
 
 Route::prefix('v1/administration')

@@ -13,6 +13,8 @@ use Account\Domain\Account\ValueObject\AccountNumber;
 use Account\Domain\Account\ValueObject\AccountStatus;
 use Account\Domain\Account\ValueObject\AccountType;
 use Account\Domain\Account\ValueObject\CurrencyCode;
+use Compliance\Application\DueDiligence\CustomerDueDiligenceChecker;
+use Compliance\Domain\DueDiligence\Exception\InvalidDueDiligenceAction;
 use Customer\Domain\Customer\ValueObject\CustomerId;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
@@ -69,6 +71,8 @@ it('activates, saves, and publishes an account', function (): void {
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->once()->andReturn(Uuid::generate());
     $publisher = new ActivateAccountTestPublisher;
+    $dueDiligence = Mockery::mock(CustomerDueDiligenceChecker::class);
+    $dueDiligence->shouldReceive('assertApproved')->once()->with($account->customerId());
 
     (new ActivateAccount(
         $accounts,
@@ -76,6 +80,7 @@ it('activates, saves, and publishes an account', function (): void {
         $ids,
         new ActivateAccountTestTransactions,
         $publisher,
+        $dueDiligence,
     ))->handle(new ActivateAccountCommand($account->id()));
 
     expect($account->status())->toBe(AccountStatus::Active)
@@ -93,5 +98,30 @@ it('rejects an unknown account', function (): void {
         Mockery::mock(UuidGenerator::class),
         new ActivateAccountTestTransactions,
         new ActivateAccountTestPublisher,
+        Mockery::mock(CustomerDueDiligenceChecker::class),
     ))->handle(new ActivateAccountCommand(AccountId::generate()));
 })->throws(AccountNotFound::class, 'The requested account does not exist.');
+
+it('does not activate an account before identity verification is approved', function (): void {
+    $account = activateAccountTestAccount();
+    $accounts = Mockery::mock(AccountRepository::class);
+    $accounts->shouldReceive('findById')->once()->andReturn($account);
+    $dueDiligence = Mockery::mock(CustomerDueDiligenceChecker::class);
+    $dueDiligence->shouldReceive('assertApproved')->once()->andThrow(
+        InvalidDueDiligenceAction::because(
+            'Customer identity verification must be approved before the account can be activated.',
+        ),
+    );
+
+    (new ActivateAccount(
+        $accounts,
+        new ActivateAccountTestClock,
+        Mockery::mock(UuidGenerator::class),
+        new ActivateAccountTestTransactions,
+        new ActivateAccountTestPublisher,
+        $dueDiligence,
+    ))->handle(new ActivateAccountCommand($account->id()));
+})->throws(
+    InvalidDueDiligenceAction::class,
+    'Customer identity verification must be approved before the account can be activated.',
+);

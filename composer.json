@@ -40,6 +40,7 @@
             "Audit\\": "src/Audit/",
             "Reporting\\": "src/Reporting/",
             "Administration\\": "src/Administration/",
+            "Compliance\\": "src/Compliance/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }

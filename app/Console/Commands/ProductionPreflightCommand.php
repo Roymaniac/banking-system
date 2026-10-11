@@ -30,6 +30,7 @@ final class ProductionPreflightCommand extends Command
             'Application environment is production' => fn (): bool => $this->config->get('app.env') === 'production',
             'Debug mode is disabled' => fn (): bool => $this->config->get('app.debug') === false,
             'Application encryption key is configured' => fn (): bool => $this->hasApplicationKey(),
+            'Identity document fingerprint key is independently configured' => fn (): bool => $this->hasSafeFingerprintKey(),
             'Application URL uses HTTPS' => fn (): bool => $this->usesHttps($this->config->get('app.url')),
             'Customer-facing URLs use HTTPS' => fn (): bool => $this->customerUrlsUseHttps(),
             'Queue uses a durable driver' => fn (): bool => $this->usesDurableDriver('queue.default', ['sync', 'null']),
@@ -71,6 +72,18 @@ final class ProductionPreflightCommand extends Command
         $key = $this->config->get('app.key');
 
         return is_string($key) && trim($key) !== '';
+    }
+
+    private function hasSafeFingerprintKey(): bool
+    {
+        $fingerprintKey = $this->config->get('compliance.document_fingerprint_key');
+        $applicationKey = $this->config->get('app.key');
+
+        // A separate secret keeps document matching independent from Laravel's
+        // encryption key and lets either key be rotated with a smaller impact.
+        return is_string($fingerprintKey)
+            && strlen($fingerprintKey) >= 32
+            && $fingerprintKey !== $applicationKey;
     }
 
     private function customerUrlsUseHttps(): bool

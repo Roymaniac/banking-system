@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordChangeController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordRecoveryController;
 use App\Http\Controllers\Api\V1\Authentication\RegistrationController;
+use App\Http\Controllers\Api\V1\Authentication\SessionController;
 use App\Http\Controllers\Api\V1\Compliance\DueDiligenceReviewController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
@@ -67,6 +68,15 @@ Route::prefix('v1/auth')->group(function (): void {
         Route::post('/password/change', PasswordChangeController::class)
             ->middleware('throttle:privileged-auth')
             ->name('api.v1.auth.password.change');
+        Route::get('/sessions', [SessionController::class, 'index'])
+            ->name('api.v1.auth.sessions.index');
+        Route::delete('/sessions', [SessionController::class, 'destroyAll'])
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.sessions.destroy-all');
+        Route::delete('/sessions/{session}', [SessionController::class, 'destroy'])
+            ->whereNumber('session')
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.sessions.destroy');
         Route::post('/privileged-access', [AuthenticationController::class, 'privilegedAccess'])
             ->middleware('throttle:privileged-auth')
             ->name('api.v1.auth.privileged-access');

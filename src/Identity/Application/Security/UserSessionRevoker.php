@@ -11,6 +11,9 @@ interface UserSessionRevoker
 {
     public function revokeAll(UserId $userId): void;
 
+    /** Returns false when the requested session is not owned by this user. */
+    public function revoke(UserId $userId, int $sessionId): bool;
+
     /** Revokes every API session except the one completing a safe action. */
     public function revokeAllExcept(UserId $userId, ?int $keptSessionId): void;
 }

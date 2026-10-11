@@ -21,4 +21,8 @@ interface SecurityMonitor
     public function privilegedAccessGranted(UserId $userId): void;
 
     public function privilegedAccessDenied(UserId $userId): void;
+
+    public function sessionRevoked(UserId $userId): void;
+
+    public function allSessionsRevoked(UserId $userId): void;
 }

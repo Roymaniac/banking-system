@@ -212,6 +212,8 @@ Password recovery starts with `POST /api/v1/auth/password/forgot`, which always 
 
 A signed-in customer can use `POST /api/v1/auth/password/change` with `current_password`, `password`, and `password_confirmation`. The current password must be correct. After the change, the session making the request stays active while sessions on other devices are revoked.
 
+Customers can inspect their active devices with `GET /api/v1/auth/sessions`, revoke one owned session with `DELETE /api/v1/auth/sessions/{session}`, or sign out every device with `DELETE /api/v1/auth/sessions`. Session responses contain device names and timestamps but never stored token hashes.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

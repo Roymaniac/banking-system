@@ -76,3 +76,18 @@ it('records privileged session grants and denials without storing credentials', 
             'identity.privileged_access_denied',
         );
 });
+
+it('records customer session revocations without storing token identifiers', function (): void {
+    $userId = UserId::generate();
+    $monitor = app(SecurityMonitor::class);
+
+    $monitor->sessionRevoked($userId);
+    $monitor->allSessionsRevoked($userId);
+
+    $records = DB::table('security_events')->get();
+
+    expect($records->pluck('type')->all())
+        ->toContain('identity.session_revoked', 'identity.all_sessions_revoked')
+        ->and($records->pluck('subject_id')->unique()->all())->toBe([$userId->value()])
+        ->and($records->pluck('details')->all())->each->toBe('[]');
+});

@@ -80,6 +80,24 @@ final readonly class AuditSecurityMonitor implements SecurityMonitor
         );
     }
 
+    public function sessionRevoked(UserId $userId): void
+    {
+        $this->record(
+            SecurityEventType::SessionRevoked,
+            SecuritySeverity::Information,
+            $userId->value(),
+        );
+    }
+
+    public function allSessionsRevoked(UserId $userId): void
+    {
+        $this->record(
+            SecurityEventType::AllSessionsRevoked,
+            SecuritySeverity::Information,
+            $userId->value(),
+        );
+    }
+
     /** @param array<string, bool|int|float|string|null> $details */
     private function record(
         SecurityEventType $type,

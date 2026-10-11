@@ -19,6 +19,21 @@ final readonly class DatabaseUserSessionRevoker implements UserSessionRevoker
         $this->deleteSessions($userId, null);
     }
 
+    public function revoke(UserId $userId, int $sessionId): bool
+    {
+        $authenticationUserId = $this->authenticationUserId($userId);
+
+        if ($authenticationUserId === null) {
+            return false;
+        }
+
+        return $this->connection->table('personal_access_tokens')
+            ->where('id', $sessionId)
+            ->where('tokenable_type', User::class)
+            ->where('tokenable_id', $authenticationUserId)
+            ->delete() === 1;
+    }
+
     public function revokeAllExcept(UserId $userId, ?int $keptSessionId): void
     {
         $this->deleteSessions($userId, $keptSessionId);
@@ -26,9 +41,7 @@ final readonly class DatabaseUserSessionRevoker implements UserSessionRevoker
 
     private function deleteSessions(UserId $userId, ?int $keptSessionId): void
     {
-        $authenticationUserId = $this->connection->table('users')
-            ->where('identity_user_id', $userId->value())
-            ->value('id');
+        $authenticationUserId = $this->authenticationUserId($userId);
 
         if ($authenticationUserId === null) {
             return;
@@ -45,5 +58,14 @@ final readonly class DatabaseUserSessionRevoker implements UserSessionRevoker
         }
 
         $sessions->delete();
+    }
+
+    private function authenticationUserId(UserId $userId): ?int
+    {
+        $id = $this->connection->table('users')
+            ->where('identity_user_id', $userId->value())
+            ->value('id');
+
+        return $id === null ? null : (int) $id;
     }
 }

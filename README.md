@@ -249,6 +249,8 @@ Customers submit identity evidence through `POST /api/v1/customer/compliance/due
 
 Authorized compliance staff use the privileged review endpoints under `/api/v1/compliance/due-diligence`. The person whose identity is being checked cannot approve or reject their own case. Rejected evidence can be corrected and resubmitted, while every submission and decision is kept in an append-only history. An account cannot be activated until its customer's case is approved.
 
+After approval, staff with the `accounts.provision` permission can call `POST /api/v1/operations/accounts/{account}/provision`. One database transaction assigns the permanent account number, activates the pending account, and creates its authoritative ledger. If any step fails, none of those changes are kept.
+
 Production must provide an independent secret of at least 32 characters. Do not reuse `APP_KEY`:
 
 ```dotenv

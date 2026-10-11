@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerDueDiligenceController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
+use App\Http\Controllers\Api\V1\Operation\AccountProvisioningController;
 use App\Http\Controllers\Api\V1\Operation\MoneyMovementControlController;
 use App\Http\Controllers\Api\V1\Operation\SystemHealthController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
@@ -53,6 +54,10 @@ Route::prefix('v1/auth')->group(function (): void {
 Route::prefix('v1/operations')
     ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
     ->group(function (): void {
+        Route::post('/accounts/{account}/provision', [AccountProvisioningController::class, 'store'])
+            ->whereUuid('account')
+            ->middleware('permission:accounts.provision')
+            ->name('api.v1.operations.accounts.provision');
         Route::get('/health', [SystemHealthController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.health.show');

@@ -75,6 +75,7 @@ it('generates a versioned OpenAPI contract with bearer authentication', function
             '/customer/compliance/due-diligence',
             '/compliance/due-diligence',
             '/operations/health',
+            '/operations/accounts/{account}/provision',
             '/reports/ledger',
             '/audit/domain-events',
             '/notifications/outbox',

@@ -24,19 +24,18 @@ final readonly class UnfreezeAccount
 
     public function handle(UnfreezeAccountCommand $command): void
     {
-        $account = $this->accounts->findById($command->accountId);
+        $domainEvents = $this->transactions->run(function () use ($command): array {
+            $account = $this->accounts->findByIdForUpdate($command->accountId);
 
-        if ($account === null) {
-            throw AccountNotFound::create();
-        }
+            if ($account === null) {
+                throw AccountNotFound::create();
+            }
 
-        $account->unfreeze(
-            $this->clock->now(),
-            $this->uuidGenerator->generate(),
-            $command->correlationId,
-        );
-
-        $domainEvents = $this->transactions->run(function () use ($account): array {
+            $account->unfreeze(
+                $this->clock->now(),
+                $this->uuidGenerator->generate(),
+                $command->correlationId,
+            );
             $this->accounts->save($account);
 
             return $account->pullDomainEvents();

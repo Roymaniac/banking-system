@@ -251,6 +251,8 @@ Authorized compliance staff use the privileged review endpoints under `/api/v1/c
 
 After approval, staff with the `accounts.provision` permission can call `POST /api/v1/operations/accounts/{account}/provision`. One database transaction assigns the permanent account number, activates the pending account, and creates its authoritative ledger. If any step fails, none of those changes are kept.
 
+Privileged staff can restrict accounts through the freeze and unfreeze operations using the `accounts.freeze` permission. Permanent closure requires `accounts.close`, a controlled closure reason, and a zero ledger balance. These operations share account-row locks with money movement so a status decision cannot race with an already-authorized transaction.
+
 Production must provide an independent secret of at least 32 characters. Do not reuse `APP_KEY`:
 
 ```dotenv

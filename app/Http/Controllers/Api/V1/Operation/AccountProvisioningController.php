@@ -12,11 +12,11 @@ use Account\Domain\Account\Exception\InvalidAccountStatusTransition;
 use Account\Domain\Account\ValueObject\AccountId;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\Operation\AccountProvisioningResource;
+use App\Http\Support\Api\V1\RequestCorrelation;
 use Compliance\Domain\DueDiligence\Exception\InvalidDueDiligenceAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Ledger\Domain\Ledger\Exception\LedgerAlreadyExists;
-use Shared\Domain\Identifier\CorrelationId;
 
 /** Lets trusted staff complete an approved customer's account onboarding. */
 final class AccountProvisioningController extends Controller
@@ -25,11 +25,12 @@ final class AccountProvisioningController extends Controller
         Request $request,
         string $account,
         ProvisionAccount $provision,
+        RequestCorrelation $correlation,
     ): JsonResponse {
         try {
             $result = $provision->handle(new ProvisionAccountCommand(
                 new AccountId($account),
-                new CorrelationId((string) $request->attributes->get('request_id')),
+                $correlation->from($request),
             ));
         } catch (AccountNotFound $exception) {
             return response()->json(['message' => $exception->getMessage()], 404);

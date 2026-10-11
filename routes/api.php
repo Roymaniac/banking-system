@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Customer\CustomerDueDiligenceController;
 use App\Http\Controllers\Api\V1\Customer\CustomerProfileController;
 use App\Http\Controllers\Api\V1\Ledger\AccountBalanceController;
 use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
+use App\Http\Controllers\Api\V1\Operation\AccountLifecycleController;
 use App\Http\Controllers\Api\V1\Operation\AccountProvisioningController;
 use App\Http\Controllers\Api\V1\Operation\MoneyMovementControlController;
 use App\Http\Controllers\Api\V1\Operation\SystemHealthController;
@@ -58,6 +59,18 @@ Route::prefix('v1/operations')
             ->whereUuid('account')
             ->middleware('permission:accounts.provision')
             ->name('api.v1.operations.accounts.provision');
+        Route::post('/accounts/{account}/freeze', [AccountLifecycleController::class, 'freeze'])
+            ->whereUuid('account')
+            ->middleware('permission:accounts.freeze')
+            ->name('api.v1.operations.accounts.freeze');
+        Route::post('/accounts/{account}/unfreeze', [AccountLifecycleController::class, 'unfreeze'])
+            ->whereUuid('account')
+            ->middleware('permission:accounts.freeze')
+            ->name('api.v1.operations.accounts.unfreeze');
+        Route::post('/accounts/{account}/close', [AccountLifecycleController::class, 'close'])
+            ->whereUuid('account')
+            ->middleware('permission:accounts.close')
+            ->name('api.v1.operations.accounts.close');
         Route::get('/health', [SystemHealthController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.health.show');

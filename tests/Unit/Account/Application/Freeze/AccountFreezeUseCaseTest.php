@@ -68,7 +68,7 @@ function accountFreezeUseCaseAccount(): Account
 it('freezes and unfreezes an account through the application services', function (): void {
     $account = accountFreezeUseCaseAccount();
     $accounts = Mockery::mock(AccountRepository::class);
-    $accounts->shouldReceive('findById')->twice()->with($account->id())->andReturn($account);
+    $accounts->shouldReceive('findByIdForUpdate')->twice()->with($account->id())->andReturn($account);
     $accounts->shouldReceive('save')->twice()->with($account);
     $ids = Mockery::mock(UuidGenerator::class);
     $ids->shouldReceive('generate')->twice()->andReturn(Uuid::generate(), Uuid::generate());

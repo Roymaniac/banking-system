@@ -44,7 +44,7 @@ it('keeps liveness public but protects detailed readiness information', function
     $this->get('/up')->assertOk()->assertDontSee('pending_jobs');
     $this->getJson('/api/v1/operations/health')->assertUnauthorized();
 
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
 
     $this->getJson('/api/v1/operations/health')
         ->assertForbidden()
@@ -53,7 +53,7 @@ it('keeps liveness public but protects detailed readiness information', function
 
 it('reports healthy when critical services are current', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
     recordHealthyLedgerReconciliation();
@@ -73,7 +73,7 @@ it('reports healthy when critical services are current', function (): void {
 
 it('reports degraded without going offline for operational backlogs', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
     recordHealthyLedgerReconciliation();
@@ -103,7 +103,7 @@ it('reports degraded without going offline for operational backlogs', function (
 
 it('returns service unavailable when the scheduler heartbeat is stale', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     recordHealthyLedgerReconciliation();
     DB::table('system_heartbeats')->insert([
@@ -140,7 +140,7 @@ it('registers the scheduler heartbeat to run every minute', function (): void {
 
 it('returns service unavailable when reconciliation has never run', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
 
@@ -152,7 +152,7 @@ it('returns service unavailable when reconciliation has never run', function ():
 
 it('returns service unavailable when reconciliation found a mismatch', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
     DB::table('ledger_reconciliation_statuses')->insert([
@@ -172,7 +172,7 @@ it('returns service unavailable when reconciliation found a mismatch', function 
 
 it('returns service unavailable when reconciliation is stale', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
     DB::table('ledger_reconciliation_statuses')->insert([
@@ -191,7 +191,7 @@ it('returns service unavailable when reconciliation is stale', function (): void
 
 it('reports degraded while money movement is intentionally suspended', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
     recordHealthyLedgerReconciliation();
@@ -227,7 +227,7 @@ it('reports degraded while money movement is intentionally suspended', function 
 
 it('makes an overdue resume approval visible without exposing incident details', function (): void {
     allowSystemHealthApi();
-    Sanctum::actingAs(systemHealthApiUser());
+    Sanctum::actingAs(systemHealthApiUser(), ['privileged']);
     config()->set('queue.default', 'database');
     app(RecordSchedulerHeartbeat::class)->record();
     recordHealthyLedgerReconciliation();

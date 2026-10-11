@@ -54,7 +54,7 @@ it('requires authentication and notification viewing permission', function (): v
     $messageId = Uuid::generate()->value();
     $this->postJson("/api/v1/notifications/outbox/{$messageId}/retry")->assertUnauthorized();
 
-    Sanctum::actingAs(notificationOperationsUser());
+    Sanctum::actingAs(notificationOperationsUser(), ['privileged']);
 
     $this->getJson('/api/v1/notifications/outbox')
         ->assertForbidden()
@@ -64,7 +64,7 @@ it('requires authentication and notification viewing permission', function (): v
 
 it('reports pending delivered and exhausted outbox health', function (): void {
     allowNotificationOperations();
-    Sanctum::actingAs(notificationOperationsUser());
+    Sanctum::actingAs(notificationOperationsUser(), ['privileged']);
     $pendingId = addOutboxRecord();
     addOutboxRecord([
         'attempts' => 1,
@@ -95,7 +95,7 @@ it('reports pending delivered and exhausted outbox health', function (): void {
 
 it('filters outbox records by status attempts and inclusive recorded date', function (): void {
     allowNotificationOperations();
-    Sanctum::actingAs(notificationOperationsUser());
+    Sanctum::actingAs(notificationOperationsUser(), ['privileged']);
     $matchingId = addOutboxRecord([
         'attempts' => 5,
         'recorded_at' => '2026-10-04 23:59:59',
@@ -120,7 +120,7 @@ it('filters outbox records by status attempts and inclusive recorded date', func
 
 it('rejects unknown statuses invalid periods and unsafe page sizes', function (): void {
     allowNotificationOperations();
-    Sanctum::actingAs(notificationOperationsUser());
+    Sanctum::actingAs(notificationOperationsUser(), ['privileged']);
 
     $this->getJson('/api/v1/notifications/outbox?status=failed&from=2026-10-04&to=2026-10-01&page=0&per_page=101&attempts=-1')
         ->assertUnprocessable()
@@ -129,7 +129,7 @@ it('rejects unknown statuses invalid periods and unsafe page sizes', function ()
 
 it('requeues an exhausted email and records the operator action', function (): void {
     allowNotificationOperations();
-    Sanctum::actingAs(notificationOperationsUser());
+    Sanctum::actingAs(notificationOperationsUser(), ['privileged']);
     $messageId = addOutboxRecord([
         'attempts' => 5,
         'last_attempted_at' => '2026-10-04 10:00:00',
@@ -162,7 +162,7 @@ it('requeues an exhausted email and records the operator action', function (): v
 
 it('refuses retry for pending delivered and missing outbox messages', function (): void {
     allowNotificationOperations();
-    Sanctum::actingAs(notificationOperationsUser());
+    Sanctum::actingAs(notificationOperationsUser(), ['privileged']);
     $pendingId = addOutboxRecord(['attempts' => 4]);
     $deliveredId = addOutboxRecord([
         'attempts' => 5,

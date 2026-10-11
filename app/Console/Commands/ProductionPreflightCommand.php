@@ -35,6 +35,7 @@ final class ProductionPreflightCommand extends Command
             'Queue uses a durable driver' => fn (): bool => $this->usesDurableDriver('queue.default', ['sync', 'null']),
             'Cache uses a shared driver' => fn (): bool => $this->usesDurableDriver('cache.default', ['array', 'null']),
             'Mail uses a delivery transport' => fn (): bool => $this->usesDurableDriver('mail.default', ['array', 'log']),
+            'API token lifetimes are bounded' => fn (): bool => $this->hasSafeTokenLifetimes(),
             'Settlement ledger identifiers are configured' => fn (): bool => $this->hasSettlementLedgers(),
             'Database accepts connections' => fn (): bool => $this->databaseIsAvailable(),
         ];
@@ -117,6 +118,19 @@ final class ProductionPreflightCommand extends Command
 
         // Reusing one ledger for two purposes would corrupt settlement reporting.
         return count(array_unique($identifiers)) === count($identifiers);
+    }
+
+    private function hasSafeTokenLifetimes(): bool
+    {
+        $ordinaryMinutes = $this->config->get('sanctum.expiration');
+        $privilegedMinutes = $this->config->get('security.privileged_access.minutes');
+
+        return is_int($ordinaryMinutes)
+            && $ordinaryMinutes >= 1
+            && $ordinaryMinutes <= 1440
+            && is_int($privilegedMinutes)
+            && $privilegedMinutes >= 1
+            && $privilegedMinutes <= 30;
     }
 
     private function databaseIsAvailable(): bool

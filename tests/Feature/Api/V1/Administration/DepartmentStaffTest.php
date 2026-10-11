@@ -41,7 +41,7 @@ function createAdministrationDepartment(string $code, string $name): string
 it('requires authentication and explicit administration permissions', function (): void {
     $this->postJson('/api/v1/administration/departments')->assertUnauthorized();
 
-    Sanctum::actingAs(administrationApiUser());
+    Sanctum::actingAs(administrationApiUser(), ['privileged']);
 
     $this->postJson('/api/v1/administration/departments', [
         'code' => 'OPS',
@@ -52,7 +52,7 @@ it('requires authentication and explicit administration permissions', function (
 
 it('creates renames and deactivates a department', function (): void {
     allowAdministrationApi();
-    Sanctum::actingAs(administrationApiUser());
+    Sanctum::actingAs(administrationApiUser(), ['privileged']);
 
     $departmentId = createAdministrationDepartment('OPS', 'Operations');
 
@@ -74,7 +74,7 @@ it('creates renames and deactivates a department', function (): void {
 
 it('rejects duplicate department codes and changes to inactive departments', function (): void {
     allowAdministrationApi();
-    Sanctum::actingAs(administrationApiUser());
+    Sanctum::actingAs(administrationApiUser(), ['privileged']);
     $departmentId = createAdministrationDepartment('RISK', 'Risk');
 
     $this->postJson('/api/v1/administration/departments', [
@@ -89,7 +89,7 @@ it('rejects duplicate department codes and changes to inactive departments', fun
 
 it('hires transfers and deactivates a staff member', function (): void {
     allowAdministrationApi();
-    Sanctum::actingAs(administrationApiUser());
+    Sanctum::actingAs(administrationApiUser(), ['privileged']);
     $operationsId = createAdministrationDepartment('OPS', 'Operations');
     $riskId = createAdministrationDepartment('RISK', 'Risk');
     $staffUser = administrationApiUser();
@@ -120,7 +120,7 @@ it('hires transfers and deactivates a staff member', function (): void {
 
 it('validates staff input and requires an active department', function (): void {
     allowAdministrationApi();
-    Sanctum::actingAs(administrationApiUser());
+    Sanctum::actingAs(administrationApiUser(), ['privileged']);
     $departmentId = createAdministrationDepartment('OLD', 'Old Department');
     $this->deleteJson("/api/v1/administration/departments/{$departmentId}")->assertOk();
 

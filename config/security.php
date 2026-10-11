@@ -3,11 +3,18 @@
 declare(strict_types=1);
 
 return [
+    'privileged_access' => [
+        // Staff must confirm their password again after this short window.
+        'minutes' => (int) env('PRIVILEGED_ACCESS_MINUTES', 15),
+    ],
+
     'rate_limits' => [
         // Login is intentionally strict because password hashing is expensive
         // and repeated attempts may indicate credential guessing.
         'login_per_minute' => (int) env('RATE_LIMIT_LOGIN_PER_MINUTE', 6),
         'login_ip_per_minute' => (int) env('RATE_LIMIT_LOGIN_IP_PER_MINUTE', 30),
+
+        'privileged_auth_per_minute' => (int) env('RATE_LIMIT_PRIVILEGED_AUTH_PER_MINUTE', 5),
 
         // Routine authenticated reads and profile changes are allowed a larger
         // budget while still protecting the application from accidental loops.

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureIdempotentMoneyRequest;
 use App\Http\Middleware\RequirePermission;
+use App\Http\Middleware\RequirePrivilegedToken;
 use App\Http\Middleware\TraceApiRequest;
 use Audit\Infrastructure\Http\Middleware\RecordUserActivityMiddleware;
 use Illuminate\Foundation\Application;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'idempotent-money' => EnsureIdempotentMoneyRequest::class,
             'permission' => RequirePermission::class,
+            'privileged-token' => RequirePrivilegedToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

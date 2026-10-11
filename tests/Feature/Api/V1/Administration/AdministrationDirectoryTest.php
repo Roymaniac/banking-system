@@ -40,7 +40,7 @@ function directoryDepartment(string $code, string $name): string
 it('protects administration directory reads', function (): void {
     $this->getJson('/api/v1/administration/departments')->assertUnauthorized();
 
-    Sanctum::actingAs(directoryApiUser());
+    Sanctum::actingAs(directoryApiUser(), ['privileged']);
 
     $this->getJson('/api/v1/administration/departments')
         ->assertForbidden()
@@ -49,7 +49,7 @@ it('protects administration directory reads', function (): void {
 
 it('lists searches filters and paginates departments', function (): void {
     allowDirectoryApi();
-    Sanctum::actingAs(directoryApiUser());
+    Sanctum::actingAs(directoryApiUser(), ['privileged']);
     directoryDepartment('OPS', 'Operations');
     $riskId = directoryDepartment('RISK', 'Risk Management');
     directoryDepartment('TECH', 'Technology');
@@ -67,7 +67,7 @@ it('lists searches filters and paginates departments', function (): void {
 
 it('shows staff with its department and assigned roles', function (): void {
     allowDirectoryApi();
-    Sanctum::actingAs(directoryApiUser());
+    Sanctum::actingAs(directoryApiUser(), ['privileged']);
     $departmentId = directoryDepartment('SEC', 'Security');
     $staffUser = directoryApiUser();
     $staffId = $this->postJson('/api/v1/administration/staff', [
@@ -95,7 +95,7 @@ it('shows staff with its department and assigned roles', function (): void {
 
 it('shows roles with permissions and permissions with roles', function (): void {
     allowDirectoryApi();
-    Sanctum::actingAs(directoryApiUser());
+    Sanctum::actingAs(directoryApiUser(), ['privileged']);
     $roleId = $this->postJson('/api/v1/administration/roles', [
         'name' => 'account_auditor',
         'label' => 'Account Auditor',
@@ -122,7 +122,7 @@ it('shows roles with permissions and permissions with roles', function (): void 
 
 it('returns safe not-found responses and validates list bounds', function (): void {
     allowDirectoryApi();
-    Sanctum::actingAs(directoryApiUser());
+    Sanctum::actingAs(directoryApiUser(), ['privileged']);
     $missing = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
     $this->getJson("/api/v1/administration/departments/{$missing}")->assertNotFound();

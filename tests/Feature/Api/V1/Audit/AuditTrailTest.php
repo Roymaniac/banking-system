@@ -35,7 +35,7 @@ function allowAuditTrailApi(): void
 it('protects every audit trail with authentication and explicit permissions', function (): void {
     $this->getJson('/api/v1/audit/domain-events')->assertUnauthorized();
 
-    Sanctum::actingAs(auditTrailApiUser());
+    Sanctum::actingAs(auditTrailApiUser(), ['privileged']);
 
     $this->getJson('/api/v1/audit/domain-events')
         ->assertForbidden()
@@ -46,7 +46,7 @@ it('protects every audit trail with authentication and explicit permissions', fu
 
 it('filters and paginates domain audit events newest first', function (): void {
     allowAuditTrailApi();
-    Sanctum::actingAs(auditTrailApiUser());
+    Sanctum::actingAs(auditTrailApiUser(), ['privileged']);
     $aggregateId = Uuid::generate()->value();
     $correlationId = Uuid::generate()->value();
     $olderId = Uuid::generate()->value();
@@ -88,7 +88,7 @@ it('filters and paginates domain audit events newest first', function (): void {
 
 it('filters authenticated activity by actor action and response status', function (): void {
     allowAuditTrailApi();
-    Sanctum::actingAs(auditTrailApiUser());
+    Sanctum::actingAs(auditTrailApiUser(), ['privileged']);
     $actorId = Uuid::generate()->value();
     DB::table('activity_log')->insert([
         'id' => Uuid::generate()->value(),
@@ -112,7 +112,7 @@ it('filters authenticated activity by actor action and response status', functio
 
 it('filters security events by controlled type severity and subject', function (): void {
     allowAuditTrailApi();
-    Sanctum::actingAs(auditTrailApiUser());
+    Sanctum::actingAs(auditTrailApiUser(), ['privileged']);
     $subjectId = Uuid::generate()->value();
     DB::table('security_events')->insert([
         'id' => Uuid::generate()->value(),
@@ -135,7 +135,7 @@ it('filters security events by controlled type severity and subject', function (
 
 it('rejects unsafe pagination dates and unknown security filters', function (): void {
     allowAuditTrailApi();
-    Sanctum::actingAs(auditTrailApiUser());
+    Sanctum::actingAs(auditTrailApiUser(), ['privileged']);
 
     $this->getJson('/api/v1/audit/security-events?from=2026-10-04&to=2026-10-01&page=0&per_page=101&type=unknown&severity=emergency')
         ->assertUnprocessable()

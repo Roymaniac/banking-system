@@ -49,7 +49,7 @@ function createApiPermission(string $name = 'accounts.view'): string
 it('protects role management with authentication and permission checks', function (): void {
     $this->postJson('/api/v1/administration/roles')->assertUnauthorized();
 
-    Sanctum::actingAs(rolePermissionApiUser());
+    Sanctum::actingAs(rolePermissionApiUser(), ['privileged']);
 
     $this->postJson('/api/v1/administration/roles', [
         'name' => 'auditor',
@@ -60,7 +60,7 @@ it('protects role management with authentication and permission checks', functio
 
 it('creates and deactivates a role', function (): void {
     allowRolePermissionApi();
-    Sanctum::actingAs(rolePermissionApiUser());
+    Sanctum::actingAs(rolePermissionApiUser(), ['privileged']);
 
     $roleId = createApiRole();
 
@@ -79,7 +79,7 @@ it('creates and deactivates a role', function (): void {
 
 it('creates permissions and rejects duplicate catalogue names', function (): void {
     allowRolePermissionApi();
-    Sanctum::actingAs(rolePermissionApiUser());
+    Sanctum::actingAs(rolePermissionApiUser(), ['privileged']);
 
     $permissionId = createApiPermission();
 
@@ -97,7 +97,7 @@ it('creates permissions and rejects duplicate catalogue names', function (): voi
 
 it('assigns a role to active staff only once', function (): void {
     allowRolePermissionApi();
-    Sanctum::actingAs(rolePermissionApiUser());
+    Sanctum::actingAs(rolePermissionApiUser(), ['privileged']);
 
     $departmentId = $this->postJson('/api/v1/administration/departments', [
         'code' => 'SEC',
@@ -126,7 +126,7 @@ it('assigns a role to active staff only once', function (): void {
 
 it('grants and revokes a role permission', function (): void {
     allowRolePermissionApi();
-    Sanctum::actingAs(rolePermissionApiUser());
+    Sanctum::actingAs(rolePermissionApiUser(), ['privileged']);
     $roleId = createApiRole('account_reader');
     $permissionId = createApiPermission('accounts.read');
     $url = "/api/v1/administration/roles/{$roleId}/permissions/{$permissionId}";
@@ -152,7 +152,7 @@ it('grants and revokes a role permission', function (): void {
 
 it('validates role and permission names before calling the domain', function (): void {
     allowRolePermissionApi();
-    Sanctum::actingAs(rolePermissionApiUser());
+    Sanctum::actingAs(rolePermissionApiUser(), ['privileged']);
 
     $this->postJson('/api/v1/administration/roles', [
         'name' => 'not valid',

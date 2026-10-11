@@ -226,7 +226,22 @@ Authorization: Bearer YOUR_TOKEN
 Accept: application/json
 ```
 
-Customer endpoints verify ownership using the authenticated user's linked identity. Administrative and operational endpoints additionally require explicit permissions such as `administration.view`, `transactions.deposit`, or `audit.view`.
+Customer endpoints verify ownership using the authenticated user's linked identity. Ordinary tokens expire after 24 hours by default.
+
+Administrative, operational, reporting, audit, and notification endpoints require a short privileged staff session in addition to their explicit permission. An active staff member obtains one by confirming their password with an ordinary token:
+
+```http
+POST /api/v1/auth/privileged-access
+Authorization: Bearer ORDINARY_TOKEN
+Content-Type: application/json
+
+{
+  "password": "current-password",
+  "device_name": "operations-workstation"
+}
+```
+
+Use the returned bearer token for privileged requests. It expires after 15 minutes by default, and a staff deactivation or removed permission still takes effect through the authorization check. Successful and rejected privileged-access attempts are written to the security audit trail.
 
 ## Request limits
 
@@ -237,6 +252,7 @@ Clients that exceed a budget receive HTTP `429 Too Many Requests` with a `Retry-
 ```dotenv
 RATE_LIMIT_LOGIN_PER_MINUTE=6
 RATE_LIMIT_LOGIN_IP_PER_MINUTE=30
+RATE_LIMIT_PRIVILEGED_AUTH_PER_MINUTE=5
 RATE_LIMIT_CUSTOMER_PER_MINUTE=120
 RATE_LIMIT_MONEY_MOVEMENT_PER_MINUTE=20
 RATE_LIMIT_OPERATOR_PER_MINUTE=60

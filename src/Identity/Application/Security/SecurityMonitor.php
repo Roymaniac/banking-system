@@ -17,4 +17,8 @@ interface SecurityMonitor
     public function unverifiedLoginBlocked(UserId $userId): void;
 
     public function accessDenied(UserId $userId, Permission $permission): void;
+
+    public function privilegedAccessGranted(UserId $userId): void;
+
+    public function privilegedAccessDenied(UserId $userId): void;
 }

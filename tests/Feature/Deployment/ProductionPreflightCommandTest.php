@@ -73,3 +73,16 @@ it('rejects a settlement ledger reused for another purpose', function (): void {
         ->expectsOutputToContain('Production preflight failed 1 check(s)')
         ->assertFailed();
 });
+
+it('rejects unbounded ordinary or privileged API token lifetimes', function (): void {
+    configureProductionPreflight();
+    config()->set([
+        'sanctum.expiration' => null,
+        'security.privileged_access.minutes' => 120,
+    ]);
+
+    $this->artisan('banking:production-preflight')
+        ->expectsOutputToContain('API token lifetimes are bounded')
+        ->expectsOutputToContain('Production preflight failed 1 check(s)')
+        ->assertFailed();
+});

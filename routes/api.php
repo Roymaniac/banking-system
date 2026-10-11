@@ -42,11 +42,14 @@ Route::prefix('v1/auth')->group(function (): void {
             ->name('api.v1.auth.me');
         Route::post('/logout', [AuthenticationController::class, 'logout'])
             ->name('api.v1.auth.logout');
+        Route::post('/privileged-access', [AuthenticationController::class, 'privilegedAccess'])
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.privileged-access');
     });
 });
 
 Route::prefix('v1/operations')
-    ->middleware(['auth:sanctum', 'throttle:operator-api'])
+    ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
     ->group(function (): void {
         Route::get('/health', [SystemHealthController::class, 'show'])
             ->middleware('permission:operations.view')
@@ -123,7 +126,7 @@ Route::prefix('v1/customer')
     });
 
 Route::prefix('v1/administration')
-    ->middleware(['auth:sanctum', 'throttle:operator-api'])
+    ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
     ->group(function (): void {
         Route::get('/departments', [DepartmentDirectoryController::class, 'index'])
             ->middleware('permission:administration.view')
@@ -235,7 +238,7 @@ Route::prefix('v1/accounts')
     });
 
 Route::prefix('v1/reports')
-    ->middleware(['auth:sanctum', 'throttle:reporting-api'])
+    ->middleware(['auth:sanctum', 'throttle:reporting-api', 'privileged-token'])
     ->group(function (): void {
         Route::get('/customers/{customer}', [CustomerReportController::class, 'show'])
             ->whereUuid('customer')
@@ -251,7 +254,7 @@ Route::prefix('v1/reports')
     });
 
 Route::prefix('v1/audit')
-    ->middleware(['auth:sanctum', 'throttle:reporting-api'])
+    ->middleware(['auth:sanctum', 'throttle:reporting-api', 'privileged-token'])
     ->group(function (): void {
         Route::get('/domain-events', [DomainEventController::class, 'index'])
             ->middleware('permission:audit.view')
@@ -265,7 +268,7 @@ Route::prefix('v1/audit')
     });
 
 Route::prefix('v1/notifications')
-    ->middleware(['auth:sanctum', 'throttle:operator-api'])
+    ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
     ->group(function (): void {
         Route::get('/outbox', [EmailOutboxController::class, 'index'])
             ->middleware('permission:notifications.view')

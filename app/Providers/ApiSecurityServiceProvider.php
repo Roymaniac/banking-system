@@ -25,6 +25,11 @@ final class ApiSecurityServiceProvider extends ServiceProvider
             $this->authenticatedKey($request),
         ));
 
+        RateLimiter::for('privileged-auth', fn (Request $request): Limit => $this->limit(
+            'privileged_auth_per_minute',
+            'privileged-auth:'.$this->authenticatedKey($request).'|ip:'.$request->ip(),
+        ));
+
         RateLimiter::for('money-movement', fn (Request $request): Limit => $this->limit(
             'money_movement_per_minute',
             $this->authenticatedKey($request),

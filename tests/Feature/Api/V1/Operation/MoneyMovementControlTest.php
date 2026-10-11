@@ -135,7 +135,7 @@ it('requires authentication and explicit permissions', function (): void {
         ->assertUnauthorized();
     $this->getJson('/api/v1/operations/money-movement/resume-requests')->assertUnauthorized();
 
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
 
     $this->getJson('/api/v1/operations/money-movement')->assertForbidden();
     $this->getJson('/api/v1/operations/money-movement/events')->assertForbidden();
@@ -150,7 +150,7 @@ it('requires authentication and explicit permissions', function (): void {
 it('shows a bounded approval queue and materializes expired requests', function (): void {
     allowMoneyMovementControl();
     $requester = moneyMovementOperator();
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Incident review requires a temporary financial pause.',
     ])->assertOk();
@@ -159,7 +159,7 @@ it('shows a bounded approval queue and materializes expired requests', function 
         moneyMovementResumePayload('All reconciliation checks completed successfully.', 'INC-1001'),
     )->assertAccepted()->json('data.resume_request.id');
 
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
     $this->getJson('/api/v1/operations/money-movement/resume-requests?status=pending&per_page=1')
         ->assertOk()
         ->assertJsonCount(1, 'data.resume_requests')
@@ -192,7 +192,7 @@ it('shows a bounded approval queue and materializes expired requests', function 
 it('lists bounded control history with incident filters', function (): void {
     allowMoneyMovementControl();
     $requester = moneyMovementOperator();
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
 
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Investigating incident INC-4096 before settlement.',
@@ -202,7 +202,7 @@ it('lists bounded control history with incident filters', function (): void {
         moneyMovementResumePayload('Incident INC-4096 resolved after independent review.', 'INC-4096'),
     )->assertAccepted()->json('data.resume_request.id');
     $approver = moneyMovementOperator();
-    Sanctum::actingAs($approver);
+    Sanctum::actingAs($approver, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
         ->assertOk();
 
@@ -224,7 +224,7 @@ it('lists bounded control history with incident filters', function (): void {
 
 it('rejects unsafe control-history pagination and filters', function (): void {
     allowMoneyMovementControl();
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
 
     $this->getJson('/api/v1/operations/money-movement/events?per_page=101&action=deleted')
         ->assertUnprocessable()
@@ -233,7 +233,7 @@ it('rejects unsafe control-history pagination and filters', function (): void {
 
 it('shows the protected current state to an authorized operator', function (): void {
     allowMoneyMovementControl();
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
 
     $this->getJson('/api/v1/operations/money-movement')
         ->assertOk()
@@ -245,7 +245,7 @@ it('shows the protected current state to an authorized operator', function (): v
 it('requires a different authenticated operator to approve resumption', function (): void {
     allowMoneyMovementControl();
     $operator = moneyMovementOperator();
-    Sanctum::actingAs($operator);
+    Sanctum::actingAs($operator, ['privileged']);
     $suspensionReason = 'Investigating reconciliation incident INC-2048.';
 
     $this->postJson('/api/v1/operations/money-movement/suspend', [
@@ -277,7 +277,7 @@ it('requires a different authenticated operator to approve resumption', function
     $this->assertDatabaseHas('money_movement_controls', ['name' => 'global', 'enabled' => false]);
 
     $approver = moneyMovementOperator();
-    Sanctum::actingAs($approver);
+    Sanctum::actingAs($approver, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$resumeRequestId}/approve")
         ->assertOk()
         ->assertJsonPath('data.resume_request.status', 'approved')
@@ -296,7 +296,7 @@ it('requires a different authenticated operator to approve resumption', function
 
 it('validates the incident reason before changing state', function (): void {
     allowMoneyMovementControl();
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
 
     $this->postJson('/api/v1/operations/money-movement/suspend', ['reason' => 'short'])
         ->assertUnprocessable()
@@ -308,7 +308,7 @@ it('validates the incident reason before changing state', function (): void {
 
 it('requires structured incident evidence before creating a resume request', function (): void {
     allowMoneyMovementControl();
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Evidence validation requires a suspended safety switch.',
     ])->assertOk();
@@ -331,7 +331,7 @@ it('requires structured incident evidence before creating a resume request', fun
 it('rejects resume requests while enabled and expired approvals while suspended', function (): void {
     allowMoneyMovementControl();
     $requester = moneyMovementOperator();
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
 
     $this->postJson(
         '/api/v1/operations/money-movement/resume',
@@ -350,7 +350,7 @@ it('rejects resume requests while enabled and expired approvals while suspended'
         'expires_at' => now()->subMinute(),
     ]);
 
-    Sanctum::actingAs(moneyMovementOperator());
+    Sanctum::actingAs(moneyMovementOperator(), ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$requestId}/approve")
         ->assertConflict()
         ->assertJsonPath('message', 'The resume request has expired. Submit a new request.');
@@ -362,7 +362,7 @@ it('lets requesters cancel and independent approvers reject without resuming mon
     allowMoneyMovementControl();
     $requester = moneyMovementOperator();
     $reviewer = moneyMovementOperator();
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Incident investigation requires financial writes to stop.',
     ])->assertOk();
@@ -371,13 +371,13 @@ it('lets requesters cancel and independent approvers reject without resuming mon
         moneyMovementResumePayload('Initial evidence suggested the incident was resolved.', 'INC-3001'),
     )->assertAccepted()->json('data.resume_request.id');
 
-    Sanctum::actingAs($reviewer);
+    Sanctum::actingAs($reviewer, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$cancelRequestId}/cancel", [
         'reason' => 'Reviewer cannot cancel a request they did not create.',
     ])->assertConflict()
         ->assertJsonPath('message', 'Only the operator who created the resume request may cancel it.');
 
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$cancelRequestId}/cancel", [
         'reason' => 'New evidence requires continued investigation.',
     ])->assertOk()
@@ -397,7 +397,7 @@ it('lets requesters cancel and independent approvers reject without resuming mon
             'The requester must cancel their own request; a different operator may reject it.',
         );
 
-    Sanctum::actingAs($reviewer);
+    Sanctum::actingAs($reviewer, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$rejectRequestId}/reject", [
         'reason' => 'Reconciliation evidence is incomplete and needs review.',
     ])->assertOk()
@@ -421,7 +421,7 @@ it('lets requesters cancel and independent approvers reject without resuming mon
 it('prevents an old approval request from resuming a newer suspension', function (): void {
     allowMoneyMovementControl();
     $requester = moneyMovementOperator();
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Investigating the original settlement discrepancy.',
     ])->assertOk();
@@ -438,7 +438,7 @@ it('prevents an old approval request from resuming a newer suspension', function
     );
 
     $approver = moneyMovementOperator();
-    Sanctum::actingAs($approver);
+    Sanctum::actingAs($approver, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$requestId}/approve")
         ->assertConflict()
         ->assertJsonPath(
@@ -479,7 +479,7 @@ it('durably notifies only active verified independent approvers', function (): v
         ['user' => $inactiveReviewer, 'staff_status' => 'inactive'],
     ]);
 
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Settlement review requires financial writes to remain stopped.',
     ])->assertOk();
@@ -533,7 +533,7 @@ it('durably notifies only active verified independent approvers', function (): v
     expect(DB::table('money_movement_resume_requests')->where('id', $requestId)->value('reminded_at'))
         ->not->toBeNull();
 
-    Sanctum::actingAs($eligibleReviewer);
+    Sanctum::actingAs($eligibleReviewer, ['privileged']);
     $this->postJson("/api/v1/operations/money-movement/resume-requests/{$requestId}/reject", [
         'reason' => 'The attached recovery evidence requires another reconciliation pass.',
     ])->assertOk();
@@ -558,7 +558,7 @@ it('rolls back a request when no independent approver is eligible', function ():
     configureMoneyMovementApprovers([
         ['user' => $requester, 'staff_status' => 'active'],
     ]);
-    Sanctum::actingAs($requester);
+    Sanctum::actingAs($requester, ['privileged']);
     $this->postJson('/api/v1/operations/money-movement/suspend', [
         'reason' => 'Approval coverage behavior requires a suspended switch.',
     ])->assertOk();

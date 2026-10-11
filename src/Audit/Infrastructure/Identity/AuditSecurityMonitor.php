@@ -62,6 +62,24 @@ final readonly class AuditSecurityMonitor implements SecurityMonitor
         );
     }
 
+    public function privilegedAccessGranted(UserId $userId): void
+    {
+        $this->record(
+            SecurityEventType::PrivilegedAccessGranted,
+            SecuritySeverity::Information,
+            $userId->value(),
+        );
+    }
+
+    public function privilegedAccessDenied(UserId $userId): void
+    {
+        $this->record(
+            SecurityEventType::PrivilegedAccessDenied,
+            SecuritySeverity::Warning,
+            $userId->value(),
+        );
+    }
+
     /** @param array<string, bool|int|float|string|null> $details */
     private function record(
         SecurityEventType $type,

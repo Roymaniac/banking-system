@@ -70,6 +70,7 @@ it('generates a versioned OpenAPI contract with bearer authentication', function
         ->toHaveKeys([
             '/auth/login',
             '/auth/me',
+            '/auth/privileged-access',
             '/accounts',
             '/operations/health',
             '/reports/ledger',

@@ -26,7 +26,7 @@ function trustedOperationUser(): User
 /** @return array{account_id: string, ledger_id: string} */
 function createTrustedOperationAccount(string $number): array
 {
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     test()->postJson('/api/v1/customer/profile', [
         'first_name' => 'Operation',
         'last_name' => 'Customer',
@@ -77,7 +77,7 @@ it('requires authentication and the operation-specific permission', function ():
     $this->postJson("/api/v1/operations/accounts/{$accountId}/deposits")
         ->assertUnauthorized();
 
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     $this->postJson("/api/v1/operations/accounts/{$accountId}/deposits", [
         'minor_units' => 1000,
         'reference' => 'STAFF-DEPOSIT-001',
@@ -90,7 +90,7 @@ it('posts a configured trusted deposit and returns a safe receipt', function ():
     $settlement = createTrustedOperationAccount('2734567890');
     config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
 
     trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 5000,
@@ -120,7 +120,7 @@ it('posts a trusted withdrawal using the server-configured settlement ledger', f
     ]);
     config(['banking.settlement_ledgers.withdrawal.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
 
     trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/withdrawals", [
         'minor_units' => 3000,
@@ -140,7 +140,7 @@ it('reverses a posted operation and prevents a second reversal', function (): vo
     $settlement = createTrustedOperationAccount('6734567890');
     config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
 
     trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 5000,
@@ -167,7 +167,7 @@ it('reverses a posted operation and prevents a second reversal', function (): vo
 it('fails safely when a settlement ledger is not configured', function (): void {
     $target = createTrustedOperationAccount('7734567890');
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
 
     trustedOperationRequest()->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 1000,
@@ -181,7 +181,7 @@ it('blocks financial writes while leaving the API available for investigation', 
     $settlement = createTrustedOperationAccount('9734567890');
     config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     $this->artisan('banking:money-movement:suspend', [
         'reason' => 'Financial integrity investigation is in progress.',
     ])->assertSuccessful();
@@ -201,7 +201,7 @@ it('requires a safe idempotency key for an authorized money request', function (
     $settlement = createTrustedOperationAccount('2834567890');
     config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
 
     $this->postJson("/api/v1/operations/accounts/{$target['account_id']}/deposits", [
         'minor_units' => 5000,
@@ -220,7 +220,7 @@ it('replays the first successful response without posting money twice', function
     $settlement = createTrustedOperationAccount('2934567890');
     config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     $key = Uuid::generate()->value();
     $payload = ['minor_units' => 5000, 'reference' => 'RETRIED-DEPOSIT-001'];
     $url = "/api/v1/operations/accounts/{$target['account_id']}/deposits";
@@ -244,7 +244,7 @@ it('rejects an idempotency key reused for different money instructions', functio
     $settlement = createTrustedOperationAccount('2034567890');
     config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     $key = Uuid::generate()->value();
     $url = "/api/v1/operations/accounts/{$target['account_id']}/deposits";
 
@@ -273,7 +273,7 @@ it('allows the same key to retry after an unsuccessful response', function (): v
     $target = createTrustedOperationAccount('1134567890');
     $settlement = createTrustedOperationAccount('2134567890');
     allowTrustedOperations();
-    Sanctum::actingAs(trustedOperationUser());
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     $key = Uuid::generate()->value();
     $url = "/api/v1/operations/accounts/{$target['account_id']}/deposits";
     $payload = ['minor_units' => 5000, 'reference' => 'RECOVERED-DEPOSIT-001'];

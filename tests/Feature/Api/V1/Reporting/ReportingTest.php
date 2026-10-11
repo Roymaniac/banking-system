@@ -109,7 +109,7 @@ it('protects reporting endpoints with authentication and permissions', function 
     $this->getJson('/api/v1/reports/ledger?from=2026-09-01&to=2026-09-30')
         ->assertUnauthorized();
 
-    Sanctum::actingAs(reportingApiUser());
+    Sanctum::actingAs(reportingApiUser(), ['privileged']);
 
     $this->getJson('/api/v1/reports/ledger?from=2026-09-01&to=2026-09-30')
         ->assertForbidden()
@@ -118,7 +118,7 @@ it('protects reporting endpoints with authentication and permissions', function 
 
 it('returns a complete customer report', function (): void {
     allowReportingApi();
-    Sanctum::actingAs(reportingApiUser());
+    Sanctum::actingAs(reportingApiUser(), ['privileged']);
     $record = reportingAccount('1000000001');
     DB::table('customer_contacts')->insert([
         'id' => Uuid::generate()->value(),
@@ -149,7 +149,7 @@ it('returns a complete customer report', function (): void {
 
 it('returns balanced ledger controls and includes the full end date', function (): void {
     allowReportingApi();
-    Sanctum::actingAs(reportingApiUser());
+    Sanctum::actingAs(reportingApiUser(), ['privileged']);
     $debit = reportingAccount('1000000002');
     $credit = reportingAccount('1000000003');
     reportingEntry($debit['ledger'], $credit['ledger']);
@@ -165,7 +165,7 @@ it('returns balanced ledger controls and includes the full end date', function (
 
 it('returns a paginated transaction report with exact balances', function (): void {
     allowReportingApi();
-    Sanctum::actingAs(reportingApiUser());
+    Sanctum::actingAs(reportingApiUser(), ['privileged']);
     $debit = reportingAccount('1000000004');
     $credit = reportingAccount('1000000005');
     reportingEntry($debit['ledger'], $credit['ledger']);
@@ -181,7 +181,7 @@ it('returns a paginated transaction report with exact balances', function (): vo
 
 it('validates report periods and returns not found reports safely', function (): void {
     allowReportingApi();
-    Sanctum::actingAs(reportingApiUser());
+    Sanctum::actingAs(reportingApiUser(), ['privileged']);
     $missing = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
     $this->getJson('/api/v1/reports/ledger?from=2026-09-30&to=2026-09-01&per_page=501')

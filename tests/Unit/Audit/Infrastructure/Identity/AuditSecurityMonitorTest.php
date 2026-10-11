@@ -61,3 +61,18 @@ it('records denied permissions without storing request input', function (): void
         ->toBe(['permission' => 'transfers.approve'])
         ->and(json_encode($record, JSON_THROW_ON_ERROR))->not->toContain('never-store-this');
 });
+
+it('records privileged session grants and denials without storing credentials', function (): void {
+    $userId = UserId::generate();
+    $monitor = app(SecurityMonitor::class);
+
+    $monitor->privilegedAccessGranted($userId);
+    $monitor->privilegedAccessDenied($userId);
+
+    expect(DB::table('security_events')->pluck('type')->all())
+        ->toHaveCount(2)
+        ->toContain(
+            'identity.privileged_access_granted',
+            'identity.privileged_access_denied',
+        );
+});

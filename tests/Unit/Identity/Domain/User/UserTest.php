@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Identity\Domain\User\Event\UserEmailVerified;
+use Identity\Domain\User\Event\UserPasswordChanged;
 use Identity\Domain\User\Event\UserPasswordReset;
 use Identity\Domain\User\Event\UserRegistered;
 use Identity\Domain\User\User;
@@ -72,6 +73,32 @@ it('resets a password without placing secrets in the domain event', function ():
         ->and($user->version())->toBe(2)
         ->and($events)->toHaveCount(1)
         ->and($events[0])->toBeInstanceOf(UserPasswordReset::class)
+        ->and($events[0]->payload())->toBeEmpty();
+});
+
+it('changes a password without placing either password in the event', function (): void {
+    $oldHash = new PasswordHash(password_hash('old-secret-password', PASSWORD_BCRYPT));
+    $newHash = new PasswordHash(password_hash('new-secret-password', PASSWORD_BCRYPT));
+    $user = User::reconstitute(
+        UserId::generate(),
+        new EmailAddress('signed-in@example.com'),
+        $oldHash,
+        new DateTimeImmutable('2026-09-16T10:00:00+00:00'),
+        2,
+    );
+
+    $user->changePassword(
+        $newHash,
+        new DateTimeImmutable('2026-09-16T12:00:00+00:00'),
+        Uuid::generate(),
+    );
+
+    $events = $user->pullDomainEvents();
+
+    expect($user->passwordHash())->toBe($newHash)
+        ->and($user->version())->toBe(3)
+        ->and($events)->toHaveCount(1)
+        ->and($events[0])->toBeInstanceOf(UserPasswordChanged::class)
         ->and($events[0]->payload())->toBeEmpty();
 });
 

@@ -16,6 +16,16 @@ final readonly class DatabaseUserSessionRevoker implements UserSessionRevoker
 
     public function revokeAll(UserId $userId): void
     {
+        $this->deleteSessions($userId, null);
+    }
+
+    public function revokeAllExcept(UserId $userId, ?int $keptSessionId): void
+    {
+        $this->deleteSessions($userId, $keptSessionId);
+    }
+
+    private function deleteSessions(UserId $userId, ?int $keptSessionId): void
+    {
         $authenticationUserId = $this->connection->table('users')
             ->where('identity_user_id', $userId->value())
             ->value('id');
@@ -26,9 +36,14 @@ final readonly class DatabaseUserSessionRevoker implements UserSessionRevoker
 
         // A recovered password may mean an old session was stolen, so every
         // device must sign in again with the new password.
-        $this->connection->table('personal_access_tokens')
+        $sessions = $this->connection->table('personal_access_tokens')
             ->where('tokenable_type', User::class)
-            ->where('tokenable_id', $authenticationUserId)
-            ->delete();
+            ->where('tokenable_id', $authenticationUserId);
+
+        if ($keptSessionId !== null) {
+            $sessions->where('id', '!=', $keptSessionId);
+        }
+
+        $sessions->delete();
     }
 }

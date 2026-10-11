@@ -10,4 +10,7 @@ use Identity\Domain\User\ValueObject\UserId;
 interface UserSessionRevoker
 {
     public function revokeAll(UserId $userId): void;
+
+    /** Revokes every API session except the one completing a safe action. */
+    public function revokeAllExcept(UserId $userId, ?int $keptSessionId): void;
 }

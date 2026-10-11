@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Audit\ActivityController;
 use App\Http\Controllers\Api\V1\Audit\DomainEventController;
 use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
+use App\Http\Controllers\Api\V1\Authentication\PasswordChangeController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordRecoveryController;
 use App\Http\Controllers\Api\V1\Authentication\RegistrationController;
 use App\Http\Controllers\Api\V1\Compliance\DueDiligenceReviewController;
@@ -63,6 +64,9 @@ Route::prefix('v1/auth')->group(function (): void {
             ->name('api.v1.auth.me');
         Route::post('/logout', [AuthenticationController::class, 'logout'])
             ->name('api.v1.auth.logout');
+        Route::post('/password/change', PasswordChangeController::class)
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.password.change');
         Route::post('/privileged-access', [AuthenticationController::class, 'privilegedAccess'])
             ->middleware('throttle:privileged-auth')
             ->name('api.v1.auth.privileged-access');

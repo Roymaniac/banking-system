@@ -74,6 +74,7 @@ it('generates a versioned OpenAPI contract with bearer authentication', function
             '/auth/email/verification',
             '/auth/password/forgot',
             '/auth/password/reset',
+            '/auth/password/change',
             '/auth/me',
             '/auth/privileged-access',
             '/accounts',

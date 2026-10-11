@@ -6,6 +6,7 @@ namespace Identity\Domain\User;
 
 use DateTimeImmutable;
 use Identity\Domain\User\Event\UserEmailVerified;
+use Identity\Domain\User\Event\UserPasswordChanged;
 use Identity\Domain\User\Event\UserPasswordReset;
 use Identity\Domain\User\Event\UserRegistered;
 use Identity\Domain\User\ValueObject\EmailAddress;
@@ -144,6 +145,24 @@ final class User extends AggregateRoot
             userId: $this->id,
             aggregateVersion: $this->version() + 1,
             occurredOn: $resetAt,
+            correlationId: $correlationId,
+        ));
+    }
+
+    /** Replaces a password after the signed-in user proves the old one. */
+    public function changePassword(
+        PasswordHash $newPasswordHash,
+        DateTimeImmutable $changedAt,
+        Uuid $eventId,
+        ?CorrelationId $correlationId = null,
+    ): void {
+        $this->passwordHash = $newPasswordHash;
+
+        $this->record(new UserPasswordChanged(
+            eventId: $eventId,
+            userId: $this->id,
+            aggregateVersion: $this->version() + 1,
+            occurredOn: $changedAt,
             correlationId: $correlationId,
         ));
     }

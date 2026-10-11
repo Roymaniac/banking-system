@@ -210,6 +210,8 @@ Register a customer identity with `POST /api/v1/auth/register`. Registration sto
 
 Password recovery starts with `POST /api/v1/auth/password/forgot`, which always returns the same response so registered email addresses stay private. Complete recovery through `POST /api/v1/auth/password/reset` with the emailed one-time token, a new password, and `password_confirmation`. A successful reset consumes the token and revokes every existing Sanctum session, requiring each device to sign in again.
 
+A signed-in customer can use `POST /api/v1/auth/password/change` with `current_password`, `password`, and `password_confirmation`. The current password must be correct. After the change, the session making the request stays active while sessions on other devices are revoked.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

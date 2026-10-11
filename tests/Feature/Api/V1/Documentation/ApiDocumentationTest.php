@@ -69,6 +69,9 @@ it('generates a versioned OpenAPI contract with bearer authentication', function
     expect($document['paths'])
         ->toHaveKeys([
             '/auth/login',
+            '/auth/register',
+            '/auth/email/verify',
+            '/auth/email/verification',
             '/auth/me',
             '/auth/privileged-access',
             '/accounts',

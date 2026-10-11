@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Audit\ActivityController;
 use App\Http\Controllers\Api\V1\Audit\DomainEventController;
 use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
+use App\Http\Controllers\Api\V1\Authentication\RegistrationController;
 use App\Http\Controllers\Api\V1\Compliance\DueDiligenceReviewController;
 use App\Http\Controllers\Api\V1\Customer\CustomerAddressController;
 use App\Http\Controllers\Api\V1\Customer\CustomerContactController;
@@ -37,6 +38,15 @@ use App\Http\Controllers\Api\V1\Transaction\TransferController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
+    Route::post('/register', [RegistrationController::class, 'register'])
+        ->middleware('throttle:login')
+        ->name('api.v1.auth.register');
+    Route::post('/email/verify', [RegistrationController::class, 'verify'])
+        ->middleware('throttle:login')
+        ->name('api.v1.auth.email.verify');
+    Route::post('/email/verification', [RegistrationController::class, 'resend'])
+        ->middleware('throttle:login')
+        ->name('api.v1.auth.email.verification.resend');
     Route::post('/login', [AuthenticationController::class, 'login'])
         ->middleware('throttle:login')
         ->name('api.v1.auth.login');

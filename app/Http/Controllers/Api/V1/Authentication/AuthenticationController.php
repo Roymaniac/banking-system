@@ -77,21 +77,40 @@ final class AuthenticationController extends Controller
     public function privilegedAccess(
         PrivilegedAccessRequest $request,
         IssuePrivilegedAccessToken $issuer,
+        MultiFactorAuthentication $multiFactor,
     ): JsonResponse {
         /** @var LaravelUser $user */
         $user = $request->user();
 
         try {
-            $token = $issuer->issue(
+            $userId = $issuer->verify(
                 $user,
                 $request->string('password')->toString(),
-                $request->string('device_name')->toString(),
             );
         } catch (InvalidCredentials $exception) {
             return response()->json(['message' => $exception->getMessage()], 401);
         } catch (AccessDenied $exception) {
             return response()->json(['message' => $exception->getMessage()], 403);
         }
+
+        if ($multiFactor->isEnabled($userId)) {
+            $challenge = $multiFactor->beginPrivilegedAccess(
+                $userId,
+                $request->string('device_name')->toString(),
+            );
+
+            return response()->json(['data' => [
+                'mfa_required' => true,
+                'challenge_token' => $challenge['token'],
+                'expires_at' => $challenge['expires_at']->format(DATE_ATOM),
+            ]], 202);
+        }
+
+        $token = $issuer->issueVerified(
+            $user,
+            $userId,
+            $request->string('device_name')->toString(),
+        );
 
         return response()->json([
             'data' => [

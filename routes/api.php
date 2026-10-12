@@ -80,6 +80,9 @@ Route::prefix('v1/auth')->group(function (): void {
         Route::post('/mfa/confirm', [MultiFactorAuthenticationController::class, 'confirm'])
             ->middleware('throttle:privileged-auth')
             ->name('api.v1.auth.mfa.confirm');
+        Route::post('/mfa/recovery-codes', [MultiFactorAuthenticationController::class, 'regenerateRecoveryCodes'])
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.mfa.recovery-codes');
         Route::delete('/mfa', [MultiFactorAuthenticationController::class, 'disable'])
             ->middleware('throttle:privileged-auth')
             ->name('api.v1.auth.mfa.disable');

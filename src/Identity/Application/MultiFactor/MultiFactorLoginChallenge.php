@@ -13,6 +13,7 @@ final readonly class MultiFactorLoginChallenge
     public function __construct(
         public UserId $userId,
         public string $deviceName,
+        public MultiFactorChallengePurpose $purpose,
         public int $attempts,
         public DateTimeImmutable $expiresAt,
     ) {}

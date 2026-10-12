@@ -9,15 +9,19 @@ use App\Http\Requests\Api\V1\Authentication\BeginMultiFactorSetupRequest;
 use App\Http\Requests\Api\V1\Authentication\CompleteMultiFactorLoginRequest;
 use App\Http\Requests\Api\V1\Authentication\DisableMultiFactorRequest;
 use App\Http\Requests\Api\V1\Authentication\MultiFactorCodeRequest;
+use App\Http\Requests\Api\V1\Authentication\RegenerateRecoveryCodesRequest;
 use App\Http\Resources\Api\V1\Identity\UserResource;
 use App\Http\Support\Api\V1\CurrentIdentity;
 use App\Http\Support\Api\V1\IssueCustomerAccessToken;
+use App\Http\Support\Api\V1\IssuePrivilegedAccessToken;
 use App\Models\User;
 use Identity\Application\MultiFactor\MultiFactorAuthentication;
+use Identity\Application\MultiFactor\MultiFactorChallengePurpose;
 use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\Authentication\Exception\InvalidMultiFactorCode;
 use Identity\Domain\Authentication\Exception\MultiFactorAlreadyEnabled;
+use Identity\Domain\Authorization\Exception\AccessDenied;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -98,10 +102,32 @@ final class MultiFactorAuthenticationController extends Controller
         return response()->json(['message' => 'Multi-factor authentication disabled.']);
     }
 
+    public function regenerateRecoveryCodes(
+        RegenerateRecoveryCodesRequest $request,
+        CurrentIdentity $identity,
+        MultiFactorAuthentication $multiFactor,
+    ): JsonResponse {
+        try {
+            $recoveryCodes = $multiFactor->regenerateRecoveryCodes(
+                $identity->userId($request),
+                $request->string('current_password')->toString(),
+                $request->string('code')->toString(),
+            );
+        } catch (InvalidCredentials $exception) {
+            return response()->json(['message' => $exception->getMessage()], 401);
+        } catch (InvalidMultiFactorCode $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        // The previous set is now invalid, and this replacement is shown once.
+        return response()->json(['data' => ['recovery_codes' => $recoveryCodes]]);
+    }
+
     public function completeLogin(
         CompleteMultiFactorLoginRequest $request,
         MultiFactorAuthentication $multiFactor,
         IssueCustomerAccessToken $tokens,
+        IssuePrivilegedAccessToken $privilegedTokens,
         SecurityMonitor $security,
     ): JsonResponse {
         try {
@@ -114,6 +140,25 @@ final class MultiFactorAuthenticationController extends Controller
         }
 
         $user = User::query()->where('identity_user_id', $completed->userId->value())->firstOrFail();
+
+        if ($completed->purpose === MultiFactorChallengePurpose::PrivilegedAccess) {
+            try {
+                $token = $privilegedTokens->issueVerified(
+                    $user,
+                    $completed->userId,
+                    $completed->deviceName,
+                );
+            } catch (AccessDenied $exception) {
+                return response()->json(['message' => $exception->getMessage()], 403);
+            }
+
+            return response()->json(['data' => [
+                'token_type' => 'Bearer',
+                'access_token' => $token->plainTextToken,
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+            ]]);
+        }
+
         $token = $tokens->issue($user, $completed->deviceName);
         $security->loginSucceeded($completed->userId);
 

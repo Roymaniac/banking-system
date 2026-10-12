@@ -6,6 +6,7 @@ namespace Identity\Infrastructure\MultiFactor;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Identity\Application\MultiFactor\MultiFactorChallengePurpose;
 use Identity\Application\MultiFactor\MultiFactorGateway;
 use Identity\Application\MultiFactor\MultiFactorLoginChallenge;
 use Identity\Domain\User\ValueObject\UserId;
@@ -80,6 +81,20 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
             ->delete();
     }
 
+    public function replaceRecoveryCodes(
+        UserId $userId,
+        array $recoveryCodeHashes,
+        DateTimeImmutable $replacedAt,
+    ): void {
+        $this->connection->table('user_multi_factor_authentication')
+            ->where('user_id', $userId->value())
+            ->whereNotNull('confirmed_at')
+            ->update([
+                'recovery_code_hashes' => json_encode($recoveryCodeHashes, JSON_THROW_ON_ERROR),
+                'updated_at' => $replacedAt->setTimezone(new DateTimeZone('UTC')),
+            ]);
+    }
+
     public function consumeRecoveryCode(UserId $userId, string $code): bool
     {
         $record = $this->connection->table('user_multi_factor_authentication')
@@ -116,6 +131,7 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
         string $tokenHash,
         UserId $userId,
         string $deviceName,
+        MultiFactorChallengePurpose $purpose,
         DateTimeImmutable $expiresAt,
         DateTimeImmutable $createdAt,
     ): void {
@@ -123,6 +139,7 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
             'token_hash' => $tokenHash,
             'user_id' => $userId->value(),
             'device_name' => $deviceName,
+            'purpose' => $purpose->value,
             'attempts' => 0,
             'expires_at' => $expiresAt->setTimezone(new DateTimeZone('UTC')),
             'created_at' => $createdAt->setTimezone(new DateTimeZone('UTC')),
@@ -143,6 +160,7 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
         return new MultiFactorLoginChallenge(
             new UserId((string) $record->user_id),
             (string) $record->device_name,
+            MultiFactorChallengePurpose::from((string) $record->purpose),
             (int) $record->attempts,
             new DateTimeImmutable((string) $record->expires_at),
         );

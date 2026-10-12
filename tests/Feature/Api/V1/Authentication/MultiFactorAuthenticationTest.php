@@ -8,6 +8,8 @@ use Identity\Domain\User\ValueObject\EmailAddress;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
+use Shared\Domain\Identifier\Uuid;
 use Tests\TestCase;
 
 uses(RefreshDatabase::class);
@@ -41,6 +43,31 @@ function usePredictableTotp(): void
             return $secret === 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP' && $code === '123456';
         }
     });
+}
+
+function makeMultiFactorStaff(User $user): void
+{
+    $departmentId = Uuid::generate()->value();
+
+    DB::table('departments')->insert([
+        'id' => $departmentId,
+        'code' => 'MFA-'.substr($departmentId, 0, 6),
+        'name' => 'MFA Operations',
+        'status' => 'active',
+        'created_at' => now(),
+        'version' => 1,
+    ]);
+    DB::table('staff')->insert([
+        'id' => Uuid::generate()->value(),
+        'user_id' => $user->identity_user_id,
+        'employee_number' => 'MFA-'.substr($departmentId, 0, 8),
+        'department_id' => $departmentId,
+        'job_title' => 'MFA Operator',
+        'status' => 'active',
+        'hired_at' => now(),
+        'deactivated_at' => null,
+        'version' => 1,
+    ]);
 }
 
 /** @return array{user: User, token: string, recovery_codes: list<string>} */
@@ -187,4 +214,68 @@ it('requires password and authenticator proof before disabling MFA', function ()
         'device_name' => 'ordinary-login',
     ])->assertOk()
         ->assertJsonMissingPath('data.mfa_required');
+});
+
+it('replaces every old recovery code after password and authenticator proof', function (): void {
+    $enabled = enableMultiFactor($this);
+    $oldCode = $enabled['recovery_codes'][0];
+
+    $response = $this->withToken($enabled['token'])
+        ->postJson('/api/v1/auth/mfa/recovery-codes', [
+            'current_password' => 'CorrectPassword1!',
+            'code' => '123456',
+        ])->assertOk()
+        ->assertJsonCount(10, 'data.recovery_codes');
+
+    $newCodes = collect($response->json('data.recovery_codes'))
+        ->filter(static fn (mixed $value): bool => is_string($value))
+        ->values()
+        ->all();
+    $storedHashes = (string) DB::table('user_multi_factor_authentication')
+        ->value('recovery_code_hashes');
+
+    expect($newCodes)->not->toContain($oldCode)
+        ->and($storedHashes)->not->toContain($newCodes[0])
+        ->and($storedHashes)->not->toContain(hash('sha256', $oldCode))
+        ->and($storedHashes)->toContain(hash('sha256', $newCodes[0]));
+});
+
+it('requires a fresh MFA challenge before issuing privileged staff access', function (): void {
+    $enabled = enableMultiFactor($this);
+    makeMultiFactorStaff($enabled['user']);
+
+    Route::middleware(['auth:sanctum', 'privileged-token'])
+        ->get('/api/testing/mfa-privileged-access', static fn () => response()->json(['allowed' => true]));
+
+    $response = $this->withToken($enabled['token'])
+        ->postJson('/api/v1/auth/privileged-access', [
+            'password' => 'CorrectPassword1!',
+            'device_name' => 'secure-operations-device',
+        ])->assertAccepted()
+        ->assertJsonPath('data.mfa_required', true)
+        ->assertJsonMissingPath('data.access_token');
+
+    $challengeToken = (string) $response->json('data.challenge_token');
+    $this->assertDatabaseHas('multi_factor_login_challenges', [
+        'token_hash' => hash('sha256', $challengeToken),
+        'purpose' => 'privileged_access',
+    ]);
+
+    $completed = $this->postJson('/api/v1/auth/mfa/challenge', [
+        'challenge_token' => $challengeToken,
+        'code' => '123456',
+    ])->assertOk()
+        ->assertJsonStructure(['data' => ['access_token', 'expires_at']])
+        ->assertJsonMissingPath('data.user');
+
+    $privilegedToken = (string) $completed->json('data.access_token');
+    $this->app['auth']->forgetGuards();
+    $this->withToken($privilegedToken)
+        ->getJson('/api/testing/mfa-privileged-access')
+        ->assertOk()
+        ->assertJsonPath('allowed', true);
+
+    $storedToken = DB::table('personal_access_tokens')->latest('id')->first();
+    expect(json_decode((string) $storedToken->abilities, true, flags: JSON_THROW_ON_ERROR))
+        ->toBe(['customer', 'privileged']);
 });

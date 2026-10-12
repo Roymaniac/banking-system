@@ -19,6 +19,13 @@ interface MultiFactorGateway
     /** @param list<string> $recoveryCodeHashes */
     public function confirm(UserId $userId, array $recoveryCodeHashes, DateTimeImmutable $confirmedAt): void;
 
+    /** @param list<string> $recoveryCodeHashes */
+    public function replaceRecoveryCodes(
+        UserId $userId,
+        array $recoveryCodeHashes,
+        DateTimeImmutable $replacedAt,
+    ): void;
+
     public function disable(UserId $userId): void;
 
     public function consumeRecoveryCode(UserId $userId, string $code): bool;
@@ -27,6 +34,7 @@ interface MultiFactorGateway
         string $tokenHash,
         UserId $userId,
         string $deviceName,
+        MultiFactorChallengePurpose $purpose,
         DateTimeImmutable $expiresAt,
         DateTimeImmutable $createdAt,
     ): void;

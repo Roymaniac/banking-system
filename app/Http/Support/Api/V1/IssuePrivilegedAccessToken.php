@@ -27,9 +27,31 @@ final readonly class IssuePrivilegedAccessToken
 
     public function issue(User $user, string $password, string $deviceName): NewAccessToken
     {
+        $userId = $this->verify($user, $password);
+
+        return $this->issueVerified($user, $userId, $deviceName);
+    }
+
+    /** Checks the password and current staff status before an MFA step-up. */
+    public function verify(User $user, string $password): UserId
+    {
         $identity = $this->authenticate->handle(new AuthenticateUserCommand($user->email, $password));
         $userId = new UserId($identity->id()->value());
 
+        if (! $this->staff->isActive($userId)) {
+            $this->security->privilegedAccessDenied($userId);
+
+            throw AccessDenied::create();
+        }
+
+        return $userId;
+    }
+
+    /** Issues the privileged token after every required factor has passed. */
+    public function issueVerified(User $user, UserId $userId, string $deviceName): NewAccessToken
+    {
+        // Staff status is checked again because it may change while an MFA
+        // challenge is waiting to be completed.
         if (! $this->staff->isActive($userId)) {
             $this->security->privilegedAccessDenied($userId);
 

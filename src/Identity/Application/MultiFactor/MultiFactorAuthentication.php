@@ -74,10 +74,7 @@ final readonly class MultiFactorAuthentication
         }
 
         $recoveryCodes = $this->recoveryCodes();
-        $hashes = array_map(
-            static fn(string $recoveryCode): string => hash('sha256', $recoveryCode),
-            $recoveryCodes,
-        );
+        $hashes = $this->hashRecoveryCodes($recoveryCodes);
 
         $this->transactions->run(function () use ($userId, $hashes, $currentSessionId): void {
             $this->gateway->confirm($userId, $hashes, $this->clock->now());
@@ -106,17 +103,64 @@ final readonly class MultiFactorAuthentication
         $this->gateway->disable($userId);
     }
 
+    /** @return list<string> */
+    public function regenerateRecoveryCodes(
+        UserId $userId,
+        string $currentPassword,
+        string $code,
+    ): array {
+        $user = $this->users->findById($userId);
+        $secret = $this->gateway->secret($userId);
+
+        if ($user === null || ! $this->passwordHasher->verify($currentPassword, $user->passwordHash())) {
+            throw InvalidCredentials::create();
+        }
+
+        if ($secret === null || ! $this->totp->verify($secret, $code, $this->clock->now())) {
+            throw InvalidMultiFactorCode::create();
+        }
+
+        $recoveryCodes = $this->recoveryCodes();
+        $this->gateway->replaceRecoveryCodes(
+            $userId,
+            $this->hashRecoveryCodes($recoveryCodes),
+            $this->clock->now(),
+        );
+
+        return $recoveryCodes;
+    }
+
     /** @return array{token: string, expires_at: \DateTimeImmutable} */
     public function beginLogin(UserId $userId, string $deviceName): array
     {
+        return $this->beginChallenge($userId, $deviceName, MultiFactorChallengePurpose::Login);
+    }
+
+    /** @return array{token: string, expires_at: \DateTimeImmutable} */
+    public function beginPrivilegedAccess(UserId $userId, string $deviceName): array
+    {
+        return $this->beginChallenge(
+            $userId,
+            $deviceName,
+            MultiFactorChallengePurpose::PrivilegedAccess,
+        );
+    }
+
+    /** @return array{token: string, expires_at: \DateTimeImmutable} */
+    private function beginChallenge(
+        UserId $userId,
+        string $deviceName,
+        MultiFactorChallengePurpose $purpose,
+    ): array {
         $token = bin2hex(random_bytes(32));
         $now = $this->clock->now();
-        $expiresAt = $now->add(new DateInterval('PT' . self::CHALLENGE_MINUTES . 'M'));
+        $expiresAt = $now->add(new DateInterval('PT'.self::CHALLENGE_MINUTES.'M'));
 
         $this->gateway->storeChallenge(
             hash('sha256', $token),
             $userId,
             $deviceName,
+            $purpose,
             $expiresAt,
             $now,
         );
@@ -156,7 +200,11 @@ final readonly class MultiFactorAuthentication
 
             $this->gateway->consumeChallenge($tokenHash);
 
-            return new CompletedMultiFactorLogin($challenge->userId, $challenge->deviceName);
+            return new CompletedMultiFactorLogin(
+                $challenge->userId,
+                $challenge->deviceName,
+                $challenge->purpose,
+            );
         });
 
         if ($completed === null) {
@@ -173,9 +221,21 @@ final readonly class MultiFactorAuthentication
 
         for ($index = 0; $index < 10; $index++) {
             $value = strtoupper(bin2hex(random_bytes(6)));
-            $codes[] = substr($value, 0, 4) . '-' . substr($value, 4, 4) . '-' . substr($value, 8, 4);
+            $codes[] = substr($value, 0, 4).'-'.substr($value, 4, 4).'-'.substr($value, 8, 4);
         }
 
         return $codes;
+    }
+
+    /**
+     * @param  list<string>  $recoveryCodes
+     * @return list<string>
+     */
+    private function hashRecoveryCodes(array $recoveryCodes): array
+    {
+        return array_map(
+            static fn (string $recoveryCode): string => hash('sha256', $recoveryCode),
+            $recoveryCodes,
+        );
     }
 }

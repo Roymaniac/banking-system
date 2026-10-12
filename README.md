@@ -216,6 +216,8 @@ Customers can inspect their active devices with `GET /api/v1/auth/sessions`, rev
 
 Authenticator-based multi-factor authentication is available under `/api/v1/auth/mfa`. Setup requires the current password, secrets are encrypted at rest, and activation requires a valid six-digit authenticator code. Recovery codes are displayed once and stored only as hashes. After MFA is enabled, password login returns a short-lived challenge instead of an API token; `POST /api/v1/auth/mfa/challenge` must succeed before a new session is issued.
 
+Customers can replace all recovery codes with `POST /api/v1/auth/mfa/recovery-codes` after proving both their password and current authenticator code. When MFA-enabled staff request privileged access, password confirmation creates a purpose-bound challenge instead of a privileged token; the short-lived privileged token is issued only after the fresh second factor succeeds.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

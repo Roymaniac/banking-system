@@ -81,6 +81,7 @@ it('generates a versioned OpenAPI contract with bearer authentication', function
             '/auth/mfa/setup',
             '/auth/mfa/confirm',
             '/auth/mfa/challenge',
+            '/auth/mfa/recovery-codes',
             '/auth/me',
             '/auth/privileged-access',
             '/accounts',

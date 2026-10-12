@@ -11,5 +11,6 @@ final readonly class CompletedMultiFactorLogin
     public function __construct(
         public UserId $userId,
         public string $deviceName,
+        public MultiFactorChallengePurpose $purpose,
     ) {}
 }

@@ -15,5 +15,6 @@ enum SecurityEventType: string
     case PrivilegedAccessDenied = 'identity.privileged_access_denied';
     case SessionRevoked = 'identity.session_revoked';
     case AllSessionsRevoked = 'identity.all_sessions_revoked';
+    case MultiFactorChallengeFailed = 'identity.mfa_challenge_failed';
     case MoneyMovementBreakGlassResumed = 'operations.money_movement_break_glass_resumed';
 }

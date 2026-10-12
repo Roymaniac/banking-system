@@ -45,8 +45,6 @@ final readonly class AuthenticateUser
             throw EmailNotVerified::create();
         }
 
-        $this->securityMonitor->loginSucceeded($user->id());
-
         return $user;
     }
 }

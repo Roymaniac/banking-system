@@ -98,6 +98,15 @@ final readonly class AuditSecurityMonitor implements SecurityMonitor
         );
     }
 
+    public function multiFactorChallengeFailed(?UserId $userId): void
+    {
+        $this->record(
+            SecurityEventType::MultiFactorChallengeFailed,
+            SecuritySeverity::Warning,
+            $userId?->value(),
+        );
+    }
+
     /** @param array<string, bool|int|float|string|null> $details */
     private function record(
         SecurityEventType $type,

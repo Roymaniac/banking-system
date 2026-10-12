@@ -76,7 +76,6 @@ function authenticationTestUser(): User
 it('returns the user when the credentials are correct', function (): void {
     $user = authenticationTestUser();
     $securityMonitor = Mockery::mock(SecurityMonitor::class);
-    $securityMonitor->shouldReceive('loginSucceeded')->once()->with($user->id());
     $service = new AuthenticateUser(
         new AuthenticationTestUserRepository($user),
         new AuthenticationTestPasswordHasher,

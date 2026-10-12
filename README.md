@@ -214,6 +214,8 @@ A signed-in customer can use `POST /api/v1/auth/password/change` with `current_p
 
 Customers can inspect their active devices with `GET /api/v1/auth/sessions`, revoke one owned session with `DELETE /api/v1/auth/sessions/{session}`, or sign out every device with `DELETE /api/v1/auth/sessions`. Session responses contain device names and timestamps but never stored token hashes.
 
+Authenticator-based multi-factor authentication is available under `/api/v1/auth/mfa`. Setup requires the current password, secrets are encrypted at rest, and activation requires a valid six-digit authenticator code. Recovery codes are displayed once and stored only as hashes. After MFA is enabled, password login returns a short-lived challenge instead of an API token; `POST /api/v1/auth/mfa/challenge` must succeed before a new session is issued.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

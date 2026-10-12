@@ -25,4 +25,6 @@ interface SecurityMonitor
     public function sessionRevoked(UserId $userId): void;
 
     public function allSessionsRevoked(UserId $userId): void;
+
+    public function multiFactorChallengeFailed(?UserId $userId): void;
 }

@@ -8,17 +8,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Authentication\LoginRequest;
 use App\Http\Requests\Api\V1\Authentication\PrivilegedAccessRequest;
 use App\Http\Resources\Api\V1\Identity\UserResource;
+use App\Http\Support\Api\V1\IssueCustomerAccessToken;
 use App\Http\Support\Api\V1\IssuePrivilegedAccessToken;
 use App\Models\User as LaravelUser;
-use DateInterval;
 use Identity\Application\Authentication\AuthenticateUser;
 use Identity\Application\Authentication\AuthenticateUserCommand;
+use Identity\Application\MultiFactor\MultiFactorAuthentication;
+use Identity\Application\Security\SecurityMonitor;
 use Identity\Domain\Authentication\Exception\EmailNotVerified;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\Authorization\Exception\AccessDenied;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Shared\Contracts\Clock;
 
 /** Translates API authentication requests into Identity use-case calls. */
 final class AuthenticationController extends Controller
@@ -26,7 +27,9 @@ final class AuthenticationController extends Controller
     public function login(
         LoginRequest $request,
         AuthenticateUser $authenticate,
-        Clock $clock,
+        MultiFactorAuthentication $multiFactor,
+        IssueCustomerAccessToken $tokens,
+        SecurityMonitor $security,
     ): JsonResponse {
         try {
             $identity = $authenticate->handle(
@@ -45,21 +48,27 @@ final class AuthenticationController extends Controller
             ->where('identity_user_id', $identity->id()->value())
             ->firstOrFail();
 
-        $expiresAt = $clock->now()->add(new DateInterval(sprintf(
-            'PT%dM',
-            max(1, (int) config('sanctum.expiration', 1440)),
-        )));
-        $token = $user->createToken(
-            $request->string('device_name')->toString(),
-            ['customer'],
-            $expiresAt,
-        );
+        if ($multiFactor->isEnabled($identity->id())) {
+            $challenge = $multiFactor->beginLogin(
+                $identity->id(),
+                $request->string('device_name')->toString(),
+            );
+
+            return response()->json(['data' => [
+                'mfa_required' => true,
+                'challenge_token' => $challenge['token'],
+                'expires_at' => $challenge['expires_at']->format(DATE_ATOM),
+            ]], 202);
+        }
+
+        $token = $tokens->issue($user, $request->string('device_name')->toString());
+        $security->loginSucceeded($identity->id());
 
         return response()->json([
             'data' => [
                 'token_type' => 'Bearer',
                 'access_token' => $token->plainTextToken,
-                'expires_at' => $expiresAt->format(DATE_ATOM),
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
                 'user' => new UserResource($user),
             ],
         ]);

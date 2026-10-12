@@ -91,3 +91,16 @@ it('records customer session revocations without storing token identifiers', fun
         ->and($records->pluck('subject_id')->unique()->all())->toBe([$userId->value()])
         ->and($records->pluck('details')->all())->each->toBe('[]');
 });
+
+it('records a failed MFA challenge without storing the submitted code', function (): void {
+    $userId = UserId::generate();
+
+    app(SecurityMonitor::class)->multiFactorChallengeFailed($userId);
+
+    $this->assertDatabaseHas('security_events', [
+        'type' => 'identity.mfa_challenge_failed',
+        'severity' => 'warning',
+        'subject_id' => $userId->value(),
+        'details' => '[]',
+    ]);
+});

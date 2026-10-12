@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Audit\ActivityController;
 use App\Http\Controllers\Api\V1\Audit\DomainEventController;
 use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
+use App\Http\Controllers\Api\V1\Authentication\MultiFactorAuthenticationController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordChangeController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordRecoveryController;
 use App\Http\Controllers\Api\V1\Authentication\RegistrationController;
@@ -59,6 +60,9 @@ Route::prefix('v1/auth')->group(function (): void {
     Route::post('/password/reset', [PasswordRecoveryController::class, 'reset'])
         ->middleware('throttle:login')
         ->name('api.v1.auth.password.reset');
+    Route::post('/mfa/challenge', [MultiFactorAuthenticationController::class, 'completeLogin'])
+        ->middleware('throttle:login')
+        ->name('api.v1.auth.mfa.challenge');
 
     Route::middleware(['auth:sanctum', 'throttle:customer-api'])->group(function (): void {
         Route::get('/me', [AuthenticationController::class, 'current'])
@@ -68,6 +72,17 @@ Route::prefix('v1/auth')->group(function (): void {
         Route::post('/password/change', PasswordChangeController::class)
             ->middleware('throttle:privileged-auth')
             ->name('api.v1.auth.password.change');
+        Route::get('/mfa', [MultiFactorAuthenticationController::class, 'show'])
+            ->name('api.v1.auth.mfa.show');
+        Route::post('/mfa/setup', [MultiFactorAuthenticationController::class, 'setup'])
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.mfa.setup');
+        Route::post('/mfa/confirm', [MultiFactorAuthenticationController::class, 'confirm'])
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.mfa.confirm');
+        Route::delete('/mfa', [MultiFactorAuthenticationController::class, 'disable'])
+            ->middleware('throttle:privileged-auth')
+            ->name('api.v1.auth.mfa.disable');
         Route::get('/sessions', [SessionController::class, 'index'])
             ->name('api.v1.auth.sessions.index');
         Route::delete('/sessions', [SessionController::class, 'destroyAll'])

@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\Operation\AccountLifecycleController;
 use App\Http\Controllers\Api\V1\Operation\AccountProvisioningController;
 use App\Http\Controllers\Api\V1\Operation\MoneyMovementControlController;
 use App\Http\Controllers\Api\V1\Operation\SystemHealthController;
+use App\Http\Controllers\Api\V1\Operation\TransferRiskCaseController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
 use App\Http\Controllers\Api\V1\Reporting\CustomerReportController;
 use App\Http\Controllers\Api\V1\Reporting\LedgerReportController;
@@ -123,6 +124,17 @@ Route::prefix('v1/operations')
         Route::get('/health', [SystemHealthController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.health.show');
+        Route::get('/transfer-risk-cases', [TransferRiskCaseController::class, 'index'])
+            ->middleware('permission:risk_cases.view')
+            ->name('api.v1.operations.transfer-risk-cases.index');
+        Route::post('/transfer-risk-cases/{riskCase}/claim', [TransferRiskCaseController::class, 'claim'])
+            ->whereUuid('riskCase')
+            ->middleware('permission:risk_cases.review')
+            ->name('api.v1.operations.transfer-risk-cases.claim');
+        Route::post('/transfer-risk-cases/{riskCase}/resolve', [TransferRiskCaseController::class, 'resolve'])
+            ->whereUuid('riskCase')
+            ->middleware('permission:risk_cases.review')
+            ->name('api.v1.operations.transfer-risk-cases.resolve');
         Route::get('/money-movement', [MoneyMovementControlController::class, 'show'])
             ->middleware('permission:operations.view')
             ->name('api.v1.operations.money-movement.show');

@@ -297,6 +297,7 @@ it('blocks an unusual burst of outgoing transfers and records a safe risk event'
         );
 
     $this->assertDatabaseCount('transfers', 2)
+        ->assertDatabaseCount('transfer_risk_cases', 1)
         ->assertDatabaseHas('ledger_balances', [
             'ledger_id' => $sender['ledger_id'],
             'balance_minor_units' => 3000,

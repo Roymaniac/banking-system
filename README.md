@@ -449,6 +449,9 @@ The command requires an explicit confirmation (or `--yes` in a controlled non-in
 - A configurable rolling-window risk rule blocks unusually frequent outgoing
   transfers across both single and batch endpoints. The blocked attempt creates
   a privacy-safe security event without storing the amount or recipient details.
+- Authorized risk staff can list, claim, and resolve the resulting investigation
+  cases through the protected operations API. Only the account's last four digits
+  are returned, and resolving a case does not bypass the transfer safeguards.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.
 

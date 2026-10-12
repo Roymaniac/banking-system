@@ -54,3 +54,22 @@ it('renders a security alert without including secret account data', function ()
         ->and($email->body()->value())->not->toContain('password:')
         ->and($email->body()->value())->not->toContain('recovery code:');
 });
+
+it('renders a transaction alert with only the masked account identifier', function (): void {
+    $email = app(EmailTemplateRenderer::class)->render(
+        EmailTemplate::TransactionAlert,
+        new RecipientEmail('customer@example.com'),
+        [
+            'activity' => 'Transfer sent',
+            'amount' => 'NGN 25.00',
+            'maskedAccount' => 'account ending 7890',
+            'occurredAt' => '2026-10-12 14:00 WAT',
+        ],
+    );
+
+    expect($email->subject()->value())->toBe('Transaction update for your account')
+        ->and($email->body()->value())->toContain('Transfer sent')
+        ->and($email->body()->value())->toContain('NGN 25.00')
+        ->and($email->body()->value())->toContain('account ending 7890')
+        ->and($email->body()->value())->not->toContain('1234567890');
+});

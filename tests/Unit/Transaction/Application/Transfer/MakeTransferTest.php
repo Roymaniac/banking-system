@@ -24,6 +24,7 @@ use Shared\Contracts\TransactionManager;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\Identifier\Uuid;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Transfer\MakeTransferCommand;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
@@ -143,7 +144,8 @@ it('atomically debits the sender and credits the recipient', function (): void {
         new MakeTransferTestClock,
         $ids,
         new MakeTransferTestTransactions,
-        $publisher
+        $publisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeTransferCommand(
         $sender->id(),
         $recipient->id(),
@@ -188,7 +190,8 @@ it('rejects a transfer when the locked sender balance is too low', function (): 
         new MakeTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeTransferTestTransactions,
-        new MakeTransferTestPublisher
+        new MakeTransferTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeTransferCommand(
         $sender->id(),
         $recipient->id(),
@@ -211,7 +214,8 @@ it('rejects sending money back to the same account', function (): void {
         new MakeTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeTransferTestTransactions,
-        new MakeTransferTestPublisher
+        new MakeTransferTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeTransferCommand(
         $accountId,
         $accountId,

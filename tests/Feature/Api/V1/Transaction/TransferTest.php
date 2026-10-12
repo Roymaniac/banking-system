@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Ledger\Application\Creation\CreateLedger;
 use Ledger\Application\Creation\CreateLedgerCommand;
+use Notification\Domain\Outbox\Repository\EmailOutboxRepository;
 use Shared\Domain\Identifier\Uuid;
 
 uses(RefreshDatabase::class);
@@ -143,7 +144,14 @@ it('moves money between active accounts and returns a safe receipt', function ()
     ])->assertDatabaseHas('ledger_balances', [
         'ledger_id' => $recipient['ledger_id'],
         'balance_minor_units' => 2500,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 2);
+
+    $messages = app(EmailOutboxRepository::class)->pending(10);
+    expect($messages)->toHaveCount(2)
+        ->and($messages[0]->email()->body()->value())->toContain('account ending 7890')
+        ->and($messages[0]->email()->body()->value())->toContain('NGN 25.00')
+        ->and($messages[0]->email()->body()->value())->not->toContain($sender['number'])
+        ->and($messages[1]->email()->body()->value())->not->toContain($recipient['number']);
 });
 
 it('moves a high-value transfer only after MFA approves those exact instructions', function (): void {

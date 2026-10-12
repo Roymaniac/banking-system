@@ -20,6 +20,8 @@ use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionActivity;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
@@ -46,6 +48,7 @@ final readonly class MakeWithdrawal
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
         private EventPublisher $events,
+        private CustomerTransactionNotifier $notifications,
     ) {}
 
     public function handle(MakeWithdrawalCommand $command): Withdrawal
@@ -156,6 +159,12 @@ final readonly class MakeWithdrawal
             $this->withdrawals->save($withdrawal);
             // Update the locked balance before committing. Event replay is safely ignored.
             $this->balances->apply($entry, $now);
+            $this->notifications->sendToAccount(
+                $withdrawal->accountId(),
+                CustomerTransactionActivity::WithdrawalCompleted,
+                $withdrawal->amount(),
+                $now,
+            );
 
             return [$withdrawal, [...$entry->pullDomainEvents(), ...$withdrawal->pullDomainEvents()]];
         });

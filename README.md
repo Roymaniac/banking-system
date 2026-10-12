@@ -229,6 +229,8 @@ The scheduler removes expired MFA challenges and expired access tokens every hou
 
 Security-sensitive changes queue an encrypted customer alert through the durable email outbox. Alerts cover password changes and resets, MFA enablement or removal, recovery-code replacement, and high-value transfer approval. They include the action and time, but never passwords, authenticator secrets, recovery codes, amounts, or account details.
 
+Completed deposits, withdrawals, transfers, multiple transfers, and reversals also queue encrypted customer transaction alerts. These messages show the activity, amount, time, and only the final four account digits. Notification intent is stored in the same database transaction as the ledger change, so financial completion cannot be reported without its durable alert.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

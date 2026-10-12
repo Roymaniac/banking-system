@@ -20,6 +20,7 @@ use Shared\Contracts\TransactionManager;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\Identifier\Uuid;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Application\Reversal\ReverseTransaction;
 use Transaction\Application\Reversal\ReverseTransactionCommand;
 use Transaction\Domain\Reversal\Event\TransactionReversed;
@@ -126,7 +127,8 @@ it('creates an opposite entry while preserving the original entry', function ():
         new ReversalTestClock,
         $ids,
         new ReversalTestTransactions,
-        $publisher
+        $publisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new ReverseTransactionCommand(
         $original->id(),
         'reversal-1001',
@@ -153,7 +155,8 @@ it('refuses to reverse the same entry twice', function (): void {
         new ReversalTestClock,
         Mockery::mock(UuidGenerator::class),
         new ReversalTestTransactions,
-        new ReversalTestPublisher
+        new ReversalTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new ReverseTransactionCommand(
         $original->id(),
         'reversal-1002',
@@ -182,7 +185,8 @@ it('protects a credited ledger that no longer holds the reversed amount', functi
         new ReversalTestClock,
         Mockery::mock(UuidGenerator::class),
         new ReversalTestTransactions,
-        new ReversalTestPublisher
+        new ReversalTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new ReverseTransactionCommand(
         $original->id(),
         'reversal-1003',

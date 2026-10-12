@@ -26,6 +26,7 @@ use Shared\Domain\Identifier\Uuid;
 use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\Deposit\MakeDepositCommand;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
 use Transaction\Domain\Deposit\Deposit;
 use Transaction\Domain\Deposit\Event\DepositCompleted;
@@ -122,6 +123,7 @@ it('atomically posts balanced lines and completes the deposit', function (): voi
         $ids,
         new MakeDepositTestTransactions,
         $publisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeDepositCommand(
         $account->id(),
         $fundingLedger->id(),
@@ -156,6 +158,7 @@ it('rejects a frozen account before creating financial records', function (): vo
         Mockery::mock(UuidGenerator::class),
         new MakeDepositTestTransactions,
         new MakeDepositTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeDepositCommand(
         $account->id(),
         LedgerId::generate(),
@@ -187,6 +190,7 @@ it('rejects a repeated deposit reference', function (): void {
         Mockery::mock(UuidGenerator::class),
         new MakeDepositTestTransactions,
         new MakeDepositTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeDepositCommand(
         $account->id(),
         $fundingLedger->id(),

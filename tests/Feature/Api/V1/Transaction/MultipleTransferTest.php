@@ -140,7 +140,8 @@ it('pays every recipient atomically and returns a safe batch receipt', function 
     ])->assertDatabaseHas('ledger_balances', [
         'ledger_id' => $second['ledger_id'],
         'balance_minor_units' => 4500,
-    ])->assertDatabaseCount('multiple_transfer_items', 2);
+    ])->assertDatabaseCount('multiple_transfer_items', 2)
+        ->assertDatabaseCount('email_outbox', 3);
 });
 
 it('requires one exact MFA approval when a batch total is high value', function (): void {

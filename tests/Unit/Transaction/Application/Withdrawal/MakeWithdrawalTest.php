@@ -23,6 +23,7 @@ use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\Uuid;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Application\Withdrawal\MakeWithdrawal;
 use Transaction\Application\Withdrawal\MakeWithdrawalCommand;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
@@ -120,7 +121,8 @@ it('locks the balance and atomically completes a withdrawal', function (): void 
         new MakeWithdrawalTestClock,
         $ids,
         new MakeWithdrawalTestTransactions,
-        $publisher
+        $publisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeWithdrawalCommand(
         $account->id(),
         $disbursementLedger->id(),
@@ -159,7 +161,8 @@ it('rejects a withdrawal when the locked balance is too low', function (): void 
         new MakeWithdrawalTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeWithdrawalTestTransactions,
-        new MakeWithdrawalTestPublisher
+        new MakeWithdrawalTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeWithdrawalCommand(
         $account->id(),
         $disbursementLedger->id(),

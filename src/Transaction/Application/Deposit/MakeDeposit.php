@@ -19,6 +19,8 @@ use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionActivity;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
@@ -42,6 +44,7 @@ final readonly class MakeDeposit
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
         private EventPublisher $events,
+        private CustomerTransactionNotifier $notifications,
     ) {}
 
     public function handle(MakeDepositCommand $command): Deposit
@@ -128,6 +131,12 @@ final readonly class MakeDeposit
                 // Project before commit so a completed deposit can never exist
                 // without its spendable balance, even if event delivery later fails.
                 $this->balances->apply($entry, $now);
+                $this->notifications->sendToAccount(
+                    $deposit->accountId(),
+                    CustomerTransactionActivity::DepositReceived,
+                    $deposit->amount(),
+                    $now,
+                );
 
                 return [...$entry->pullDomainEvents(), ...$deposit->pullDomainEvents()];
             }

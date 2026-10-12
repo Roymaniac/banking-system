@@ -98,6 +98,7 @@ use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRepository;
 use Notification\Infrastructure\Outbox\DatabaseEmailOutboxRetryGateway;
 use Notification\Infrastructure\Outbox\OutboxEmailSender;
 use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
+use Notification\Infrastructure\Transaction\EmailCustomerTransactionNotifier;
 use Notification\Infrastructure\Transaction\EmailMoneyMovementResumeNotifier;
 use Reporting\Application\Customer\CustomerReportQuery;
 use Reporting\Application\Ledger\LedgerReportQuery;
@@ -126,6 +127,7 @@ use Transaction\Application\Control\MoneyMovementResumeRequestQuery;
 use Transaction\Application\Control\MoneyMovementSecurityMonitor;
 use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Application\Reversal\ReverseTransaction;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Withdrawal\MakeWithdrawal;
@@ -168,6 +170,7 @@ class AppServiceProvider extends ServiceProvider
         );
         $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
         $this->app->singleton(MoneyMovementResumeNotifier::class, EmailMoneyMovementResumeNotifier::class);
+        $this->app->singleton(CustomerTransactionNotifier::class, EmailCustomerTransactionNotifier::class);
         $this->app->singleton(MoneyMovementResumeReminder::class, DatabaseMoneyMovementResumeReminder::class);
         $this->app->singleton(MoneyMovementSecurityMonitor::class, AuditMoneyMovementSecurityMonitor::class);
         $this->app->singleton(

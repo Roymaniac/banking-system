@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Shared\Domain\Identifier\Uuid;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 
 uses(RefreshDatabase::class);
 
@@ -104,7 +105,35 @@ it('posts a configured trusted deposit and returns a safe receipt', function ():
     $this->assertDatabaseHas('ledger_balances', [
         'ledger_id' => $target['ledger_id'],
         'balance_minor_units' => 5000,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 1);
+});
+
+it('rolls back a deposit when its durable customer alert cannot be recorded', function (): void {
+    $target = createTrustedOperationAccount('1834567891');
+    $settlement = createTrustedOperationAccount('2834567891');
+    config(['banking.settlement_ledgers.deposit.NGN' => $settlement['ledger_id']]);
+    allowTrustedOperations();
+    Sanctum::actingAs(trustedOperationUser(), ['privileged']);
+
+    $notifications = Mockery::mock(CustomerTransactionNotifier::class);
+    $notifications->shouldReceive('sendToAccount')
+        ->once()
+        ->andThrow(new RuntimeException('Simulated transaction alert storage failure.'));
+    app()->instance(CustomerTransactionNotifier::class, $notifications);
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => trustedOperationRequest()->postJson(
+        "/api/v1/operations/accounts/{$target['account_id']}/deposits",
+        [
+            'minor_units' => 5000,
+            'reference' => 'FAILED-ALERT-DEPOSIT-001',
+        ],
+    ))->toThrow(RuntimeException::class, 'Simulated transaction alert storage failure.');
+
+    $this->assertDatabaseMissing('deposits', ['reference' => 'FAILED-ALERT-DEPOSIT-001'])
+        ->assertDatabaseMissing('ledger_balances', ['ledger_id' => $target['ledger_id']])
+        ->assertDatabaseCount('email_outbox', 0);
 });
 
 it('posts a trusted withdrawal using the server-configured settlement ledger', function (): void {
@@ -132,7 +161,7 @@ it('posts a trusted withdrawal using the server-configured settlement ledger', f
     $this->assertDatabaseHas('ledger_balances', [
         'ledger_id' => $target['ledger_id'],
         'balance_minor_units' => 5000,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 1);
 });
 
 it('reverses a posted operation and prevents a second reversal', function (): void {
@@ -161,7 +190,7 @@ it('reverses a posted operation and prevents a second reversal', function (): vo
     $this->assertDatabaseHas('ledger_balances', [
         'ledger_id' => $target['ledger_id'],
         'balance_minor_units' => 0,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 2);
 });
 
 it('fails safely when a settlement ledger is not configured', function (): void {

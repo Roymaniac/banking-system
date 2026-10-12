@@ -20,6 +20,8 @@ use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionActivity;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
@@ -47,6 +49,7 @@ final readonly class MakeTransfer
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
         private EventPublisher $events,
+        private CustomerTransactionNotifier $notifications,
     ) {}
 
     public function handle(MakeTransferCommand $command): Transfer
@@ -171,6 +174,18 @@ final readonly class MakeTransfer
             $this->transfers->save($transfer);
             // Both account balances become visible together before the transaction commits.
             $this->balances->apply($entry, $now);
+            $this->notifications->sendToAccount(
+                $sender->id(),
+                CustomerTransactionActivity::TransferSent,
+                $transfer->amount(),
+                $now,
+            );
+            $this->notifications->sendToAccount(
+                $recipient->id(),
+                CustomerTransactionActivity::TransferReceived,
+                $transfer->amount(),
+                $now,
+            );
 
             return [$transfer, [...$entry->pullDomainEvents(), ...$transfer->pullDomainEvents()]];
         });

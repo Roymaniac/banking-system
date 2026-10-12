@@ -19,6 +19,7 @@ use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\UuidGenerator;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
 use Transaction\Domain\Reversal\Exception\DuplicateReversalReference;
@@ -40,6 +41,7 @@ final readonly class ReverseTransaction
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
         private EventPublisher $events,
+        private CustomerTransactionNotifier $notifications,
     ) {}
 
     public function handle(ReverseTransactionCommand $command): Reversal
@@ -113,6 +115,8 @@ final readonly class ReverseTransaction
             $this->reversals->save($reversal);
             // Applying inside this transaction keeps every affected balance consistent.
             $this->balances->apply($reversalEntry, $now);
+
+            $this->notifications->sendReversal($originalEntry->id(), $now);
 
             return [$reversal, [...$reversalEntry->pullDomainEvents(), ...$reversal->pullDomainEvents()]];
         });

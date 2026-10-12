@@ -27,6 +27,7 @@ use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransferCommand;
 use Transaction\Application\MultipleTransfer\TransferRecipient;
+use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\MultipleTransfer\Event\MultipleTransferCompleted;
 use Transaction\Domain\MultipleTransfer\Exception\InsufficientMultipleTransferFunds;
@@ -147,7 +148,8 @@ it('pays every recipient through one atomic balanced entry', function (): void {
         new MultipleTransferTestClock,
         $ids,
         new MultipleTransferTestTransactions,
-        $publisher
+        $publisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeMultipleTransferCommand(
         $sender->id(),
         [
@@ -199,7 +201,8 @@ it('rejects the whole batch when the sender cannot cover its total', function ()
         new MultipleTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MultipleTransferTestTransactions,
-        new MultipleTransferTestPublisher
+        new MultipleTransferTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeMultipleTransferCommand(
         $sender->id(),
         [new TransferRecipient($recipient->id(), 1000)],
@@ -219,7 +222,8 @@ it('rejects an empty recipient list', function (): void {
         new MultipleTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MultipleTransferTestTransactions,
-        new MultipleTransferTestPublisher
+        new MultipleTransferTestPublisher,
+        Mockery::mock(CustomerTransactionNotifier::class)->shouldIgnoreMissing(),
     ))->handle(new MakeMultipleTransferCommand(
         AccountId::generate(),
         [],

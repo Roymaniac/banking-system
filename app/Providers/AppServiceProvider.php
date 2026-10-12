@@ -10,6 +10,7 @@ use Account\Domain\Account\Repository\AccountRepository;
 use Account\Infrastructure\Number\SecureAccountNumberGenerator;
 use Account\Infrastructure\Persistence\DatabaseAccountRepository;
 use Administration\Application\Directory\AdministrationDirectoryQuery;
+use Administration\Application\Security\OperatorContextQuery;
 use Administration\Application\Security\StaffAccessChecker;
 use Administration\Domain\Department\Repository\DepartmentRepository;
 use Administration\Domain\Permission\Repository\PermissionRepository;
@@ -18,6 +19,7 @@ use Administration\Domain\Role\Repository\RoleAssignmentRepository;
 use Administration\Domain\Role\Repository\RoleRepository;
 use Administration\Domain\Staff\Repository\StaffRepository;
 use Administration\Infrastructure\Authorization\DatabaseAuthorizationChecker;
+use Administration\Infrastructure\Authorization\DatabaseOperatorContextQuery;
 use Administration\Infrastructure\Authorization\DatabaseStaffAccessChecker;
 use Administration\Infrastructure\Persistence\DatabaseAdministrationDirectoryQuery;
 use Administration\Infrastructure\Persistence\DatabaseDepartmentRepository;
@@ -137,6 +139,7 @@ use Transaction\Application\Risk\TransferRiskCaseReview;
 use Transaction\Application\Risk\TransferRiskCaseSla;
 use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Application\Transfer\MakeTransfer;
+use Transaction\Application\Transfer\RecipientAccountLookup;
 use Transaction\Application\Withdrawal\MakeWithdrawal;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\Deposit\Repository\DepositRepository;
@@ -161,6 +164,7 @@ use Transaction\Infrastructure\Risk\DatabaseTransferRiskAssessor;
 use Transaction\Infrastructure\Risk\DatabaseTransferRiskCaseSla;
 use Transaction\Infrastructure\Risk\DatabaseTransferRiskCaseWorkflow;
 use Transaction\Infrastructure\Risk\DatabaseTransferRiskMonitor;
+use Transaction\Infrastructure\Transfer\DatabaseRecipientAccountLookup;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -209,6 +213,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ReconciliationStatusStore::class, DatabaseReconciliationStatusStore::class);
         $this->app->singleton(SystemHealthCheck::class, DatabaseSystemHealthCheck::class);
         $this->app->singleton(AdministrationDirectoryQuery::class, DatabaseAdministrationDirectoryQuery::class);
+        $this->app->singleton(OperatorContextQuery::class, DatabaseOperatorContextQuery::class);
         $this->app->singleton(StaffAccessChecker::class, DatabaseStaffAccessChecker::class);
         $this->app->singleton(DepartmentRepository::class, DatabaseDepartmentRepository::class);
         $this->app->singleton(StaffRepository::class, DatabaseStaffRepository::class);
@@ -242,6 +247,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MultipleTransferRepository::class, DatabaseMultipleTransferRepository::class);
         $this->app->singleton(ReversalRepository::class, DatabaseReversalRepository::class);
         $this->app->singleton(TransferRepository::class, DatabaseTransferRepository::class);
+        $this->app->singleton(RecipientAccountLookup::class, DatabaseRecipientAccountLookup::class);
         $this->app->singleton(WithdrawalRepository::class, DatabaseWithdrawalRepository::class);
         $this->app->singleton(AccountClosureBalanceChecker::class, ProjectedAccountClosureBalanceChecker::class);
         $this->app->singleton(BalanceProjectionRepository::class, DatabaseBalanceProjectionRepository::class);

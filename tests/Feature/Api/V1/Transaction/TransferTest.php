@@ -121,6 +121,45 @@ function enableTransferMultiFactor(User $user): void
     ]);
 }
 
+it('confirms a compatible recipient without exposing their full profile', function (): void {
+    $senderUser = transferApiUser();
+    $sender = createTransferApiAccount($senderUser, '1134567890');
+    $recipient = createTransferApiAccount(transferApiUser(), '2134567890');
+    Sanctum::actingAs($senderUser);
+
+    $this->postJson("/api/v1/accounts/{$sender['account_id']}/recipient-confirmation", [
+        'recipient_account_number' => $recipient['number'],
+    ])->assertOk()
+        ->assertJsonPath('data.recipient.display_name', 'Test C.')
+        ->assertJsonPath('data.recipient.account_last_four', '7890')
+        ->assertJsonPath('data.recipient.currency', 'NGN')
+        ->assertJsonMissingPath('data.recipient.account_id')
+        ->assertJsonMissingPath('data.recipient.first_name')
+        ->assertJsonMissingPath('data.recipient.last_name');
+});
+
+it('does not confirm an unusable incompatible or unowned transfer recipient', function (): void {
+    $senderUser = transferApiUser();
+    $sender = createTransferApiAccount($senderUser, '3134567890');
+    $foreignCurrency = createTransferApiAccount(transferApiUser(), '4134567890', 'USD');
+    Sanctum::actingAs($senderUser);
+    $url = "/api/v1/accounts/{$sender['account_id']}/recipient-confirmation";
+
+    $this->postJson($url, ['recipient_account_number' => $sender['number']])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'The recipient account is unavailable.');
+    $this->postJson($url, ['recipient_account_number' => $foreignCurrency['number']])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'The recipient account is unavailable.');
+    $this->postJson($url, ['recipient_account_number' => 'not-an-account'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['recipient_account_number']);
+
+    Sanctum::actingAs(transferApiUser());
+    $this->postJson($url, ['recipient_account_number' => $foreignCurrency['number']])
+        ->assertNotFound();
+});
+
 it('moves money between active accounts and returns a safe receipt', function (): void {
     $senderUser = transferApiUser();
     $sender = createTransferApiAccount($senderUser, '1234567890');

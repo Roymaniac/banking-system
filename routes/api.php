@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Audit\DomainEventController;
 use App\Http\Controllers\Api\V1\Audit\SecurityEventController;
 use App\Http\Controllers\Api\V1\Authentication\AuthenticationController;
 use App\Http\Controllers\Api\V1\Authentication\MultiFactorAuthenticationController;
+use App\Http\Controllers\Api\V1\Authentication\OperatorContextController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordChangeController;
 use App\Http\Controllers\Api\V1\Authentication\PasswordRecoveryController;
 use App\Http\Controllers\Api\V1\Authentication\RegistrationController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\Api\V1\Transaction\DailyTransactionLimitController;
 use App\Http\Controllers\Api\V1\Transaction\MultipleTransferController;
 use App\Http\Controllers\Api\V1\Transaction\TransactionHistoryController;
 use App\Http\Controllers\Api\V1\Transaction\TransferController;
+use App\Http\Controllers\Api\V1\Transaction\TransferRecipientController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
@@ -68,6 +70,8 @@ Route::prefix('v1/auth')->group(function (): void {
     Route::middleware(['auth:sanctum', 'throttle:customer-api'])->group(function (): void {
         Route::get('/me', [AuthenticationController::class, 'current'])
             ->name('api.v1.auth.me');
+        Route::get('/operator-context', OperatorContextController::class)
+            ->name('api.v1.auth.operator-context.show');
         Route::post('/logout', [AuthenticationController::class, 'logout'])
             ->name('api.v1.auth.logout');
         Route::post('/password/change', PasswordChangeController::class)
@@ -320,6 +324,10 @@ Route::prefix('v1/accounts')
         Route::get('/{account}/balance', [AccountBalanceController::class, 'show'])
             ->whereUuid('account')
             ->name('api.v1.accounts.balance.show');
+        Route::post('/{account}/recipient-confirmation', TransferRecipientController::class)
+            ->whereUuid('account')
+            ->middleware('throttle:money-movement')
+            ->name('api.v1.accounts.recipient-confirmation.show');
         Route::post('/{account}/transfers', [TransferController::class, 'store'])
             ->whereUuid('account')
             ->middleware(['throttle:money-movement', 'idempotent-money'])

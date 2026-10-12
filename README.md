@@ -72,13 +72,31 @@ Create the database tables:
 php artisan migrate
 ```
 
-For disposable local data, the optional development seeder creates a verified user with the email `test@example.com` and password `password`:
+For disposable local data, the development seeder creates funded customer accounts and a fully authorized operations administrator:
 
 ```bash
 php artisan db:seed
 ```
 
 Never run the development seeder in production.
+
+The local demo sign-ins are:
+
+| Portal | Email | Password | Starting account |
+| --- | --- | --- | --- |
+| Customer | `customer@example.com` | `DemoPassword123!` | `1000000001`, NGN 250,000.00 |
+| Transfer recipient | `recipient@example.com` | `DemoPassword123!` | `1000000002`, NGN 50,000.00 |
+| Operations | `admin@example.com` | `DemoPassword123!` | All demo staff permissions |
+
+The seeder refuses to run outside the `local` and `testing` environments. It may be rerun safely: identity and catalogue records are updated in place, while existing financial activity and balances are preserved.
+
+The production-like Docker environment needs an explicit, temporary override. After rebuilding the application image with the latest source and running its migrations, seed it with:
+
+```bash
+docker compose --env-file=.env.docker run --rm -e DEMO_SEEDING_ENABLED=true app php artisan db:seed --force
+```
+
+The override exists only for that one container invocation. Never enable demo seeding in a real deployment.
 
 Start the API:
 

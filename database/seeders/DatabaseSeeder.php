@@ -1,25 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
-use App\Models\User;
-use Identity\Domain\User\ValueObject\UserId;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
-class DatabaseSeeder extends Seeder
+final class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
+    /** Loads a complete but clearly non-production banking demo. */
     public function run(): void
     {
-        // User::factory(10)->create();
+        if (
+            ! in_array(app()->environment(), ['local', 'testing'], true)
+            && ! config('demo.seeding_enabled')
+        ) {
+            throw new RuntimeException('Demo banking data may only be seeded locally or during tests.');
+        }
 
-        User::factory()->create([
-            'identity_user_id' => UserId::generate()->value(),
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->call(DemoBankingSeeder::class);
     }
 }

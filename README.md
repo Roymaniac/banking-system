@@ -225,6 +225,8 @@ HIGH_VALUE_TRANSFER_THRESHOLD_MINOR_UNITS=1000000
 HIGH_VALUE_TRANSFER_APPROVAL_MINUTES=5
 ```
 
+The scheduler removes expired MFA challenges and expired access tokens every hour. Active sessions and tokens without an expiry time are not removed.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

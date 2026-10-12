@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\Idempotency\PruneExpiredIdempotencyRecords;
+use App\Support\Security\PruneExpiredAuthenticationRecords;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -48,5 +49,12 @@ Schedule::call(fn () => app(MoneyMovementResumeReminder::class)->sendDue())
 // Retry responses expire automatically so the safety table stays bounded.
 Schedule::call(fn () => app(PruneExpiredIdempotencyRecords::class)->prune())
     ->name('prune-api-idempotency-records')
+    ->hourly()
+    ->withoutOverlapping();
+
+// Expired MFA challenges and access tokens are deleted after their expiry
+// window has passed, while active and non-expiring sessions remain untouched.
+Schedule::call(fn () => app(PruneExpiredAuthenticationRecords::class)->prune())
+    ->name('prune-expired-authentication-records')
     ->hourly()
     ->withoutOverlapping();

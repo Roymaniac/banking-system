@@ -8,6 +8,13 @@ return [
         'minutes' => (int) env('PRIVILEGED_ACCESS_MINUTES', 15),
     ],
 
+    'high_value_transfer' => [
+        // Transfers at or above this amount require a fresh MFA approval.
+        'threshold_minor_units' => (int) env('HIGH_VALUE_TRANSFER_THRESHOLD_MINOR_UNITS', 1000000),
+        // Approval tokens are intentionally brief and work for one exact request.
+        'approval_minutes' => (int) env('HIGH_VALUE_TRANSFER_APPROVAL_MINUTES', 5),
+    ],
+
     'rate_limits' => [
         // Login is intentionally strict because password hashing is expensive
         // and repeated attempts may indicate credential guessing.

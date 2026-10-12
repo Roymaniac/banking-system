@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Account\Domain\Account\ValueObject\AccountId;
 use App\Models\User;
+use Identity\Application\MultiFactor\TotpAuthenticator;
+use Identity\Domain\User\ValueObject\EmailAddress;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +79,37 @@ function multipleTransferRequest(): mixed
     return test()->withHeader('Idempotency-Key', Uuid::generate()->value());
 }
 
+/** Enables deterministic MFA for the protected batch-transfer test. */
+function enableMultipleTransferMultiFactor(User $user): void
+{
+    app()->instance(TotpAuthenticator::class, new class implements TotpAuthenticator
+    {
+        public function generateSecret(): string
+        {
+            return 'BATCHTRANSFERSECRET';
+        }
+
+        public function provisioningUri(EmailAddress $email, string $issuer, string $secret): string
+        {
+            return 'otpauth://totp/batch-transfer-test';
+        }
+
+        public function verify(string $secret, string $code, DateTimeImmutable $at): bool
+        {
+            return $secret === 'BATCHTRANSFERSECRET' && $code === '123456';
+        }
+    });
+
+    DB::table('user_multi_factor_authentication')->insert([
+        'user_id' => $user->identity_user_id,
+        'encrypted_secret' => app('encrypter')->encrypt('BATCHTRANSFERSECRET', false),
+        'recovery_code_hashes' => json_encode([], JSON_THROW_ON_ERROR),
+        'confirmed_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
 it('pays every recipient atomically and returns a safe batch receipt', function (): void {
     $senderUser = multipleTransferApiUser();
     $sender = createMultipleTransferApiAccount($senderUser, '1534567890');
@@ -108,6 +141,48 @@ it('pays every recipient atomically and returns a safe batch receipt', function 
         'ledger_id' => $second['ledger_id'],
         'balance_minor_units' => 4500,
     ])->assertDatabaseCount('multiple_transfer_items', 2);
+});
+
+it('requires one exact MFA approval when a batch total is high value', function (): void {
+    config()->set('security.high_value_transfer.threshold_minor_units', 7000);
+    $senderUser = multipleTransferApiUser();
+    $sender = createMultipleTransferApiAccount($senderUser, '6734567890');
+    $first = createMultipleTransferApiAccount(multipleTransferApiUser(), '7734567890');
+    $second = createMultipleTransferApiAccount(multipleTransferApiUser(), '8734567890');
+    fundMultipleTransferApiLedger($sender['ledger_id'], 20000);
+    enableMultipleTransferMultiFactor($senderUser);
+
+    $customerToken = $senderUser->createToken('batch-customer', ['customer'])->plainTextToken;
+    $this->app['auth']->forgetGuards();
+    $idempotencyKey = Uuid::generate()->value();
+    $url = "/api/v1/accounts/{$sender['account_id']}/multiple-transfers";
+    $payload = multipleTransferPayload([
+        ['account_number' => $first['number'], 'minor_units' => 3000],
+        ['account_number' => $second['number'], 'minor_units' => 4500],
+    ]);
+
+    $challengeToken = $this->withToken($customerToken)
+        ->withHeader('Idempotency-Key', $idempotencyKey)
+        ->postJson($url, $payload)
+        ->assertAccepted()
+        ->assertJsonPath('data.mfa_required', true)
+        ->json('data.challenge_token');
+
+    $this->assertDatabaseCount('multiple_transfers', 0)
+        ->assertDatabaseCount('api_idempotency_records', 0);
+
+    $approvalToken = $this->postJson('/api/v1/auth/mfa/challenge', [
+        'challenge_token' => $challengeToken,
+        'code' => '123456',
+    ])->assertOk()->json('data.access_token');
+
+    $this->app['auth']->forgetGuards();
+    $this->withToken((string) $approvalToken)
+        ->withHeader('Idempotency-Key', $idempotencyKey)
+        ->postJson($url, $payload)
+        ->assertCreated();
+
+    $this->assertDatabaseCount('multiple_transfers', 1);
 });
 
 it('rolls back the complete batch when funds are insufficient', function (): void {

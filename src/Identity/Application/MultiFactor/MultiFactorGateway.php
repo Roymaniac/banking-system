@@ -7,7 +7,7 @@ namespace Identity\Application\MultiFactor;
 use DateTimeImmutable;
 use Identity\Domain\User\ValueObject\UserId;
 
-/** Persists MFA secrets, recovery codes, and short-lived login challenges. */
+/** Persists MFA secrets, recovery codes, and short-lived action challenges. */
 interface MultiFactorGateway
 {
     public function isEnabled(UserId $userId): bool;
@@ -35,6 +35,7 @@ interface MultiFactorGateway
         UserId $userId,
         string $deviceName,
         MultiFactorChallengePurpose $purpose,
+        ?string $contextHash,
         DateTimeImmutable $expiresAt,
         DateTimeImmutable $createdAt,
     ): void;

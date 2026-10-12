@@ -6,6 +6,8 @@ use Account\Domain\Account\Repository\AccountRepository;
 use Account\Domain\Account\ValueObject\AccountId;
 use Account\Domain\Account\ValueObject\AccountNumber;
 use App\Models\User;
+use Identity\Application\MultiFactor\TotpAuthenticator;
+use Identity\Domain\User\ValueObject\EmailAddress;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -87,6 +89,37 @@ function transferRequest(): mixed
     return test()->withHeader('Idempotency-Key', Uuid::generate()->value());
 }
 
+/** Enables a predictable authenticator so the step-up flow can be tested safely. */
+function enableTransferMultiFactor(User $user): void
+{
+    app()->instance(TotpAuthenticator::class, new class implements TotpAuthenticator
+    {
+        public function generateSecret(): string
+        {
+            return 'TRANSFERTESTSECRET';
+        }
+
+        public function provisioningUri(EmailAddress $email, string $issuer, string $secret): string
+        {
+            return 'otpauth://totp/transfer-test';
+        }
+
+        public function verify(string $secret, string $code, DateTimeImmutable $at): bool
+        {
+            return $secret === 'TRANSFERTESTSECRET' && $code === '123456';
+        }
+    });
+
+    DB::table('user_multi_factor_authentication')->insert([
+        'user_id' => $user->identity_user_id,
+        'encrypted_secret' => app('encrypter')->encrypt('TRANSFERTESTSECRET', false),
+        'recovery_code_hashes' => json_encode([], JSON_THROW_ON_ERROR),
+        'confirmed_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
 it('moves money between active accounts and returns a safe receipt', function (): void {
     $senderUser = transferApiUser();
     $sender = createTransferApiAccount($senderUser, '1234567890');
@@ -111,6 +144,87 @@ it('moves money between active accounts and returns a safe receipt', function ()
         'ledger_id' => $recipient['ledger_id'],
         'balance_minor_units' => 2500,
     ]);
+});
+
+it('moves a high-value transfer only after MFA approves those exact instructions', function (): void {
+    config()->set('security.high_value_transfer.threshold_minor_units', 5000);
+    $senderUser = transferApiUser();
+    $sender = createTransferApiAccount($senderUser, '1034567890');
+    $recipient = createTransferApiAccount(transferApiUser(), '2034567890');
+    $otherRecipient = createTransferApiAccount(transferApiUser(), '3034567890');
+    fundTransferApiLedger($sender['ledger_id'], 20000);
+    enableTransferMultiFactor($senderUser);
+
+    $customerToken = $senderUser->createToken('customer-phone', ['customer'])->plainTextToken;
+    $this->app['auth']->forgetGuards();
+    $idempotencyKey = Uuid::generate()->value();
+    $payload = transferPayload($recipient['number'], ['minor_units' => 5000]);
+    $url = "/api/v1/accounts/{$sender['account_id']}/transfers";
+
+    $challengeResponse = $this->withToken($customerToken)
+        ->withHeader('Idempotency-Key', $idempotencyKey)
+        ->postJson($url, $payload)
+        ->assertAccepted()
+        ->assertJsonPath('data.mfa_required', true)
+        ->assertJsonPath('data.purpose', 'high_value_transfer')
+        ->assertJsonMissingPath('data.access_token');
+
+    $challengeToken = (string) $challengeResponse->json('data.challenge_token');
+    $this->assertDatabaseCount('transfers', 0)
+        ->assertDatabaseCount('api_idempotency_records', 0)
+        ->assertDatabaseHas('multi_factor_login_challenges', [
+            'token_hash' => hash('sha256', $challengeToken),
+            'purpose' => 'high_value_transfer',
+        ]);
+
+    $approvalResponse = $this->postJson('/api/v1/auth/mfa/challenge', [
+        'challenge_token' => $challengeToken,
+        'code' => '123456',
+    ])->assertOk()
+        ->assertJsonPath('data.authorization', 'high_value_transfer');
+
+    $approvalToken = (string) $approvalResponse->json('data.access_token');
+    $this->app['auth']->forgetGuards();
+    $this->withToken($approvalToken)
+        ->withHeader('Idempotency-Key', $idempotencyKey)
+        ->postJson($url, $payload)
+        ->assertCreated();
+
+    $this->assertDatabaseCount('transfers', 1);
+
+    // Changing the recipient makes this a different instruction, so the old
+    // approval token cannot authorize it.
+    $this->app['auth']->forgetGuards();
+    $this->withToken($approvalToken)
+        ->withHeader('Idempotency-Key', Uuid::generate()->value())
+        ->postJson($url, transferPayload($otherRecipient['number'], [
+            'minor_units' => 5000,
+            'reference' => 'mobile-20261001-002',
+        ]))
+        ->assertAccepted()
+        ->assertJsonPath('data.mfa_required', true);
+
+    $this->assertDatabaseCount('transfers', 1);
+});
+
+it('requires MFA enrollment before a customer can make a high-value transfer', function (): void {
+    config()->set('security.high_value_transfer.threshold_minor_units', 5000);
+    $senderUser = transferApiUser();
+    $sender = createTransferApiAccount($senderUser, '4034567890');
+    $recipient = createTransferApiAccount(transferApiUser(), '5034567890');
+    fundTransferApiLedger($sender['ledger_id'], 10000);
+    Sanctum::actingAs($senderUser);
+
+    transferRequest()->postJson(
+        "/api/v1/accounts/{$sender['account_id']}/transfers",
+        transferPayload($recipient['number'], ['minor_units' => 5000]),
+    )->assertForbidden()
+        ->assertJsonPath(
+            'message',
+            'Enable multi-factor authentication before making a high-value transfer.',
+        );
+
+    $this->assertDatabaseCount('transfers', 0);
 });
 
 it('prevents a customer from transferring from another customer account', function (): void {

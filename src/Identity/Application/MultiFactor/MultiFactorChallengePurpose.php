@@ -9,4 +9,5 @@ enum MultiFactorChallengePurpose: string
 {
     case Login = 'login';
     case PrivilegedAccess = 'privileged_access';
+    case HighValueTransfer = 'high_value_transfer';
 }

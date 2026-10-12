@@ -11,7 +11,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Transaction\MakeMultipleTransferRequest;
 use App\Http\Resources\Api\V1\Transaction\MultipleTransferResource;
 use App\Http\Support\Api\V1\CurrentAccount;
+use App\Http\Support\Api\V1\CurrentIdentity;
+use App\Http\Support\Api\V1\HighValueTransferApproval;
+use App\Models\User;
 use Dedoc\Scramble\Attributes\Parameter;
+use Identity\Application\MultiFactor\MultiFactorAuthentication;
 use Illuminate\Http\JsonResponse;
 use Shared\Contracts\Clock;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
@@ -33,8 +37,11 @@ final class MultipleTransferController extends Controller
         MakeMultipleTransferRequest $request,
         string $account,
         CurrentAccount $currentAccount,
+        CurrentIdentity $identity,
         AccountRepository $accounts,
         MakeMultipleTransfer $makeTransfer,
+        MultiFactorAuthentication $multiFactor,
+        HighValueTransferApproval $approval,
         Clock $clock,
     ): JsonResponse {
         $sender = $currentAccount->find($request, new AccountId($account));
@@ -44,6 +51,8 @@ final class MultipleTransferController extends Controller
         }
 
         $recipients = [];
+        $approvalRecipients = [];
+        $totalMinorUnits = 0;
 
         foreach ($request->array('recipients') as $recipientInput) {
             $recipient = $accounts->findByNumber(
@@ -60,6 +69,41 @@ final class MultipleTransferController extends Controller
                 $recipient->id(),
                 (int) $recipientInput['minor_units'],
             );
+            $approvalRecipients[] = [
+                'account_id' => $recipient->id()->value(),
+                'minor_units' => (int) $recipientInput['minor_units'],
+            ];
+            $totalMinorUnits += (int) $recipientInput['minor_units'];
+        }
+
+        if ($approval->isRequired($totalMinorUnits)) {
+            $userId = $identity->userId($request);
+            $fingerprint = $approval->batchFingerprint(
+                $userId,
+                $sender->id(),
+                $approvalRecipients,
+                $request->string('reference')->toString(),
+                (string) $request->header('Idempotency-Key'),
+            );
+            /** @var User $authenticatedUser */
+            $authenticatedUser = $request->user();
+
+            if (! $authenticatedUser->tokenCan($approval->ability($fingerprint))) {
+                if (! $multiFactor->isEnabled($userId)) {
+                    return response()->json([
+                        'message' => 'Enable multi-factor authentication before making a high-value transfer.',
+                    ], 403);
+                }
+
+                $challenge = $multiFactor->beginHighValueTransfer($userId, $fingerprint);
+
+                return response()->json(['data' => [
+                    'mfa_required' => true,
+                    'purpose' => 'high_value_transfer',
+                    'challenge_token' => $challenge['token'],
+                    'expires_at' => $challenge['expires_at']->format(DATE_ATOM),
+                ]], 202);
+            }
         }
 
         try {

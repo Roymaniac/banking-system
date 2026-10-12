@@ -147,10 +147,22 @@ final readonly class MultiFactorAuthentication
     }
 
     /** @return array{token: string, expires_at: \DateTimeImmutable} */
+    public function beginHighValueTransfer(UserId $userId, string $contextHash): array
+    {
+        return $this->beginChallenge(
+            $userId,
+            'High-value transfer approval',
+            MultiFactorChallengePurpose::HighValueTransfer,
+            $contextHash,
+        );
+    }
+
+    /** @return array{token: string, expires_at: \DateTimeImmutable} */
     private function beginChallenge(
         UserId $userId,
         string $deviceName,
         MultiFactorChallengePurpose $purpose,
+        ?string $contextHash = null,
     ): array {
         $token = bin2hex(random_bytes(32));
         $now = $this->clock->now();
@@ -161,6 +173,7 @@ final readonly class MultiFactorAuthentication
             $userId,
             $deviceName,
             $purpose,
+            $contextHash,
             $expiresAt,
             $now,
         );
@@ -204,6 +217,7 @@ final readonly class MultiFactorAuthentication
                 $challenge->userId,
                 $challenge->deviceName,
                 $challenge->purpose,
+                $challenge->contextHash,
             );
         });
 

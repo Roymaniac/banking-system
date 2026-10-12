@@ -132,6 +132,7 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
         UserId $userId,
         string $deviceName,
         MultiFactorChallengePurpose $purpose,
+        ?string $contextHash,
         DateTimeImmutable $expiresAt,
         DateTimeImmutable $createdAt,
     ): void {
@@ -140,6 +141,7 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
             'user_id' => $userId->value(),
             'device_name' => $deviceName,
             'purpose' => $purpose->value,
+            'context_hash' => $contextHash,
             'attempts' => 0,
             'expires_at' => $expiresAt->setTimezone(new DateTimeZone('UTC')),
             'created_at' => $createdAt->setTimezone(new DateTimeZone('UTC')),
@@ -161,6 +163,7 @@ final readonly class DatabaseMultiFactorGateway implements MultiFactorGateway
             new UserId((string) $record->user_id),
             (string) $record->device_name,
             MultiFactorChallengePurpose::from((string) $record->purpose),
+            is_string($record->context_hash) ? $record->context_hash : null,
             (int) $record->attempts,
             new DateTimeImmutable((string) $record->expires_at),
         );

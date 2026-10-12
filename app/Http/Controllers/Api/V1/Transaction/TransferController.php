@@ -11,7 +11,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Transaction\MakeTransferRequest;
 use App\Http\Resources\Api\V1\Transaction\TransferResource;
 use App\Http\Support\Api\V1\CurrentAccount;
+use App\Http\Support\Api\V1\CurrentIdentity;
+use App\Http\Support\Api\V1\HighValueTransferApproval;
+use App\Models\User;
 use Dedoc\Scramble\Attributes\Parameter;
+use Identity\Application\MultiFactor\MultiFactorAuthentication;
 use Illuminate\Http\JsonResponse;
 use Shared\Contracts\Clock;
 use Transaction\Application\Transfer\MakeTransfer;
@@ -32,8 +36,11 @@ final class TransferController extends Controller
         MakeTransferRequest $request,
         string $account,
         CurrentAccount $currentAccount,
+        CurrentIdentity $identity,
         AccountRepository $accounts,
         MakeTransfer $makeTransfer,
+        MultiFactorAuthentication $multiFactor,
+        HighValueTransferApproval $approval,
         Clock $clock,
     ): JsonResponse {
 
@@ -51,12 +58,47 @@ final class TransferController extends Controller
             return response()->json(['message' => 'The recipient account is unavailable.'], 422);
         }
 
+        $minorUnits = $request->integer('minor_units');
+
+        if ($approval->isRequired($minorUnits)) {
+            $userId = $identity->userId($request);
+            $fingerprint = $approval->fingerprint(
+                $userId,
+                $sender->id(),
+                $recipient->id(),
+                $minorUnits,
+                $request->string('reference')->toString(),
+                (string) $request->header('Idempotency-Key'),
+            );
+            /** @var User $authenticatedUser */
+            $authenticatedUser = $request->user();
+
+            if (! $authenticatedUser->tokenCan($approval->ability($fingerprint))) {
+                if (! $multiFactor->isEnabled($userId)) {
+                    return response()->json([
+                        'message' => 'Enable multi-factor authentication before making a high-value transfer.',
+                    ], 403);
+                }
+
+                $challenge = $multiFactor->beginHighValueTransfer($userId, $fingerprint);
+
+                // No money moves yet. The client completes this challenge and
+                // retries the same request with the returned approval token.
+                return response()->json(['data' => [
+                    'mfa_required' => true,
+                    'purpose' => 'high_value_transfer',
+                    'challenge_token' => $challenge['token'],
+                    'expires_at' => $challenge['expires_at']->format(DATE_ATOM),
+                ]], 202);
+            }
+        }
+
         try {
             $transfer = $makeTransfer->handle(
                 new MakeTransferCommand(
                     senderAccountId: $sender->id(),
                     recipientAccountId: $recipient->id(),
-                    minorUnits: $request->integer('minor_units'),
+                    minorUnits: $minorUnits,
                     reference: $request->string('reference')->toString(),
                     occurredAt: $clock->now(),
                 )

@@ -110,7 +110,13 @@ final readonly class EnsureIdempotentMoneyRequest
 
             $response = $next($request);
 
-            if ($response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
+            // A 202 response means another security step is still required. It
+            // must not become the final replay result for this money request.
+            if (
+                $response->getStatusCode() < 200
+                || $response->getStatusCode() >= 300
+                || $response->getStatusCode() === Response::HTTP_ACCEPTED
+            ) {
                 $this->connection->table('api_idempotency_records')
                     ->where('id', $record->id)
                     ->delete();

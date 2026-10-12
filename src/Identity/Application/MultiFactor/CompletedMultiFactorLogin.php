@@ -12,5 +12,6 @@ final readonly class CompletedMultiFactorLogin
         public UserId $userId,
         public string $deviceName,
         public MultiFactorChallengePurpose $purpose,
+        public ?string $contextHash = null,
     ) {}
 }

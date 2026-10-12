@@ -13,6 +13,7 @@ use App\Http\Requests\Api\V1\Authentication\RegenerateRecoveryCodesRequest;
 use App\Http\Resources\Api\V1\Identity\UserResource;
 use App\Http\Support\Api\V1\CurrentIdentity;
 use App\Http\Support\Api\V1\IssueCustomerAccessToken;
+use App\Http\Support\Api\V1\IssueHighValueTransferToken;
 use App\Http\Support\Api\V1\IssuePrivilegedAccessToken;
 use App\Models\User;
 use Identity\Application\MultiFactor\MultiFactorAuthentication;
@@ -127,6 +128,7 @@ final class MultiFactorAuthenticationController extends Controller
         CompleteMultiFactorLoginRequest $request,
         MultiFactorAuthentication $multiFactor,
         IssueCustomerAccessToken $tokens,
+        IssueHighValueTransferToken $transferTokens,
         IssuePrivilegedAccessToken $privilegedTokens,
         SecurityMonitor $security,
     ): JsonResponse {
@@ -140,6 +142,21 @@ final class MultiFactorAuthenticationController extends Controller
         }
 
         $user = User::query()->where('identity_user_id', $completed->userId->value())->firstOrFail();
+
+        if ($completed->purpose === MultiFactorChallengePurpose::HighValueTransfer) {
+            if ($completed->contextHash === null) {
+                return response()->json(['message' => 'The transfer approval is invalid.'], 422);
+            }
+
+            $token = $transferTokens->issue($user, $completed->contextHash);
+
+            return response()->json(['data' => [
+                'token_type' => 'Bearer',
+                'access_token' => $token->plainTextToken,
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+                'authorization' => 'high_value_transfer',
+            ]]);
+        }
 
         if ($completed->purpose === MultiFactorChallengePurpose::PrivilegedAccess) {
             try {

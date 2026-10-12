@@ -218,6 +218,13 @@ Authenticator-based multi-factor authentication is available under `/api/v1/auth
 
 Customers can replace all recovery codes with `POST /api/v1/auth/mfa/recovery-codes` after proving both their password and current authenticator code. When MFA-enabled staff request privileged access, password confirmation creates a purpose-bound challenge instead of a privileged token; the short-lived privileged token is issued only after the fresh second factor succeeds.
 
+Single and multiple transfers at or above the configured high-value threshold also require a fresh MFA challenge. The first transfer request returns HTTP `202` without moving money. After the customer completes `POST /api/v1/auth/mfa/challenge`, the returned short-lived approval token can authorize only the same sender, recipient instructions, amount, reference, and idempotency key. Customers must enroll in MFA before using this protected transfer path.
+
+```dotenv
+HIGH_VALUE_TRANSFER_THRESHOLD_MINOR_UNITS=1000000
+HIGH_VALUE_TRANSFER_APPROVAL_MINUTES=5
+```
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

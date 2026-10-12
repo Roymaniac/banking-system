@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Shared\Domain\Identifier\Uuid;
+use Transaction\Application\Risk\TransferRiskCaseSla;
 use Transaction\Application\Risk\TransferRiskMonitor;
 
 uses(RefreshDatabase::class);
@@ -32,6 +33,58 @@ function allowTransferRiskReview(): void
             return true;
         }
     });
+}
+
+function configureTransferRiskReviewer(User $reviewer): void
+{
+    $departmentId = Uuid::generate()->value();
+    $roleId = Uuid::generate()->value();
+    $permissionId = Uuid::generate()->value();
+
+    DB::table('departments')->insert([
+        'id' => $departmentId,
+        'code' => 'RISK',
+        'name' => 'Risk Operations',
+        'status' => 'active',
+        'created_at' => now(),
+        'version' => 1,
+    ]);
+    DB::table('administration_roles')->insert([
+        'id' => $roleId,
+        'name' => 'risk-case-reviewer',
+        'label' => 'Risk Case Reviewer',
+        'status' => 'active',
+        'created_at' => now(),
+        'version' => 1,
+    ]);
+    DB::table('administration_permissions')->insert([
+        'id' => $permissionId,
+        'name' => 'risk_cases.review',
+        'label' => 'Review transfer risk cases',
+        'created_at' => now(),
+        'version' => 1,
+    ]);
+    DB::table('role_permission_assignments')->insert([
+        'role_id' => $roleId,
+        'permission_id' => $permissionId,
+        'granted_at' => now(),
+    ]);
+    $staffId = Uuid::generate()->value();
+    DB::table('staff')->insert([
+        'id' => $staffId,
+        'user_id' => $reviewer->identity_user_id,
+        'employee_number' => 'RISK-0001',
+        'department_id' => $departmentId,
+        'job_title' => 'Risk Reviewer',
+        'status' => 'active',
+        'hired_at' => now(),
+        'version' => 1,
+    ]);
+    DB::table('staff_role_assignments')->insert([
+        'role_id' => $roleId,
+        'staff_id' => $staffId,
+        'assigned_at' => now(),
+    ]);
 }
 
 /** @return array{account_id: string, case_id: string} */
@@ -70,6 +123,7 @@ function createTransferRiskCase(string $number = '1234567890'): array
         'window_minutes' => 60,
         'maximum_transfers' => 10,
         'detected_at' => now(),
+        'due_at' => now()->addMinutes(30),
         'open_key' => hash('sha256', $accountId.'|outgoing_transfer_velocity'),
         'version' => 1,
     ]);
@@ -148,6 +202,7 @@ it('allows only the claiming reviewer to resolve a case', function (): void {
 it('keeps repeated blocks in one open case while auditing every attempt', function (): void {
     $case = createTransferRiskCase();
     DB::table('transfer_risk_cases')->delete();
+    configureTransferRiskReviewer(transferRiskOperator());
     $monitor = app(TransferRiskMonitor::class);
     $accountId = new AccountId($case['account_id']);
 
@@ -155,5 +210,33 @@ it('keeps repeated blocks in one open case while auditing every attempt', functi
     $monitor->velocityBlocked($accountId, 60, 10);
 
     $this->assertDatabaseCount('transfer_risk_cases', 1)
-        ->assertDatabaseCount('security_events', 2);
+        ->assertDatabaseCount('security_events', 2)
+        ->assertDatabaseCount('email_outbox', 1);
+
+    expect(DB::table('transfer_risk_cases')->value('due_at'))->not->toBeNull();
+});
+
+it('sends one reminder and one overdue escalation without flooding reviewers', function (): void {
+    $case = createTransferRiskCase();
+    configureTransferRiskReviewer(transferRiskOperator());
+    DB::table('transfer_risk_cases')->where('id', $case['case_id'])->update([
+        'due_at' => now()->addMinutes(5),
+        'reminded_at' => null,
+        'escalated_at' => null,
+    ]);
+    $sla = app(TransferRiskCaseSla::class);
+
+    expect($sla->processDue())->toBe(['reminded' => 1, 'escalated' => 0])
+        ->and($sla->processDue())->toBe(['reminded' => 0, 'escalated' => 0]);
+    $this->assertDatabaseCount('email_outbox', 1);
+
+    DB::table('transfer_risk_cases')->where('id', $case['case_id'])->update([
+        'due_at' => now()->subMinute(),
+    ]);
+
+    expect($sla->processDue())->toBe(['reminded' => 0, 'escalated' => 1])
+        ->and($sla->processDue())->toBe(['reminded' => 0, 'escalated' => 0]);
+    $this->assertDatabaseCount('email_outbox', 2);
+    expect(DB::table('transfer_risk_cases')->value('reminded_at'))->not->toBeNull()
+        ->and(DB::table('transfer_risk_cases')->value('escalated_at'))->not->toBeNull();
 });

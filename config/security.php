@@ -19,6 +19,9 @@ return [
         // A burst of individually valid transfers can still signal account takeover.
         'velocity_window_minutes' => (int) env('TRANSFER_RISK_WINDOW_MINUTES', 60),
         'maximum_transfers' => (int) env('TRANSFER_RISK_MAXIMUM_TRANSFERS', 10),
+        // Risk cases become operationally overdue after this review window.
+        'review_minutes' => (int) env('TRANSFER_RISK_REVIEW_MINUTES', 30),
+        'reminder_minutes_before_due' => (int) env('TRANSFER_RISK_REMINDER_MINUTES', 10),
     ],
 
     'rate_limits' => [

@@ -136,6 +136,7 @@ it('registers the scheduler heartbeat to run every minute', function (): void {
         ->toContain('ledger-reconciliation')
         ->toContain('expire-money-movement-resume-requests')
         ->toContain('remind-money-movement-resume-requests')
+        ->toContain('process-transfer-risk-case-sla')
         ->toContain('prune-expired-authentication-records');
 });
 

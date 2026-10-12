@@ -37,6 +37,7 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
                 'scheduler' => $this->schedulerHealth(),
                 'ledger_reconciliation' => $this->reconciliationHealth(),
                 'money_movement' => $this->moneyMovementHealth(),
+                'risk_review' => $this->riskReviewHealth(),
                 'queue' => $this->queueHealth(),
                 'notifications' => $this->notificationHealth(),
             ];
@@ -148,6 +149,26 @@ final readonly class DatabaseSystemHealthCheck implements SystemHealthCheck
             'status' => $age <= self::SCHEDULER_MAX_AGE_SECONDS ? 'healthy' : 'unhealthy',
             'last_seen_at' => $lastSeen->format(DATE_ATOM),
             'age_seconds' => $age,
+        ];
+    }
+
+    /** @return array<string, int|string|null> */
+    private function riskReviewHealth(): array
+    {
+        $now = $this->clock->now();
+        $open = $this->connection->table('transfer_risk_cases')
+            ->whereIn('status', ['pending', 'in_review']);
+        $pending = (clone $open)->count();
+        $overdue = (clone $open)->whereNotNull('due_at')->where('due_at', '<=', $now)->count();
+        $oldestDueAt = (clone $open)->whereNotNull('due_at')->min('due_at');
+
+        return [
+            'status' => $overdue > 0 ? 'degraded' : 'healthy',
+            'open_cases' => $pending,
+            'overdue_cases' => $overdue,
+            'oldest_due_at' => $oldestDueAt === null
+                ? null
+                : (new DateTimeImmutable((string) $oldestDueAt))->format(DATE_ATOM),
         ];
     }
 

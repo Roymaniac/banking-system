@@ -14,6 +14,9 @@ enum EmailTemplate: string
     case MoneyMovementResumeApproval = 'money_movement_resume_approval';
     case MoneyMovementResumeReminder = 'money_movement_resume_reminder';
     case MoneyMovementResumeOutcome = 'money_movement_resume_outcome';
+    case TransferRiskCaseOpened = 'transfer_risk_case_opened';
+    case TransferRiskCaseReminder = 'transfer_risk_case_reminder';
+    case TransferRiskCaseEscalated = 'transfer_risk_case_escalated';
 
     public function subject(): string
     {
@@ -25,12 +28,20 @@ enum EmailTemplate: string
             self::MoneyMovementResumeApproval => 'Money movement resume approval required',
             self::MoneyMovementResumeReminder => 'Urgent: money movement resume approval expires soon',
             self::MoneyMovementResumeOutcome => 'Money movement resume request updated',
+            self::TransferRiskCaseOpened => 'Transfer risk case requires review',
+            self::TransferRiskCaseReminder => 'Urgent: transfer risk case deadline approaching',
+            self::TransferRiskCaseEscalated => 'Escalation: transfer risk case is overdue',
         };
     }
 
     public function view(): string
     {
-        return 'emails.'.$this->value;
+        return match ($this) {
+            self::TransferRiskCaseOpened,
+            self::TransferRiskCaseReminder,
+            self::TransferRiskCaseEscalated => 'emails.transfer_risk_case',
+            default => 'emails.'.$this->value,
+        };
     }
 
     /** @return list<string> */
@@ -44,6 +55,9 @@ enum EmailTemplate: string
             self::MoneyMovementResumeApproval => ['requestId', 'expiresAt', 'reviewUrl'],
             self::MoneyMovementResumeReminder => ['requestId', 'expiresAt', 'reviewUrl'],
             self::MoneyMovementResumeOutcome => ['requestId', 'status', 'reviewUrl'],
+            self::TransferRiskCaseOpened,
+            self::TransferRiskCaseReminder,
+            self::TransferRiskCaseEscalated => ['caseId', 'accountLastFour', 'dueAt', 'notice', 'reviewUrl'],
         };
     }
 }

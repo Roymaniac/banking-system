@@ -225,6 +225,9 @@ HIGH_VALUE_TRANSFER_THRESHOLD_MINOR_UNITS=1000000
 HIGH_VALUE_TRANSFER_APPROVAL_MINUTES=5
 TRANSFER_RISK_WINDOW_MINUTES=60
 TRANSFER_RISK_MAXIMUM_TRANSFERS=10
+TRANSFER_RISK_REVIEW_MINUTES=30
+TRANSFER_RISK_REMINDER_MINUTES=10
+RISK_CASES_PORTAL_URL=https://operations.example.com/transfer-risk-cases
 ```
 
 The scheduler removes expired MFA challenges and expired access tokens every hour. Active sessions and tokens without an expiry time are not removed.
@@ -452,6 +455,9 @@ The command requires an explicit confirmation (or `--yes` in a controlled non-in
 - Authorized risk staff can list, claim, and resolve the resulting investigation
   cases through the protected operations API. Only the account's last four digits
   are returned, and resolving a case does not bypass the transfer safeguards.
+- New cases notify active staff with `risk_cases.review`; a scheduled SLA job
+  sends one reminder before the deadline and one escalation after it. Overdue
+  case counts also appear in protected readiness without exposing case details.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.
 

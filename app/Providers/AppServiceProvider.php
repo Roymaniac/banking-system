@@ -100,6 +100,7 @@ use Notification\Infrastructure\Outbox\OutboxEmailSender;
 use Notification\Infrastructure\Template\BladeEmailTemplateRenderer;
 use Notification\Infrastructure\Transaction\EmailCustomerTransactionNotifier;
 use Notification\Infrastructure\Transaction\EmailMoneyMovementResumeNotifier;
+use Notification\Infrastructure\Transaction\EmailTransferRiskCaseNotifier;
 use Reporting\Application\Customer\CustomerReportQuery;
 use Reporting\Application\Ledger\LedgerReportQuery;
 use Reporting\Application\Transaction\TransactionReportQuery;
@@ -130,8 +131,10 @@ use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Application\Reversal\ReverseTransaction;
 use Transaction\Application\Risk\TransferRiskAssessor;
+use Transaction\Application\Risk\TransferRiskCaseNotifier;
 use Transaction\Application\Risk\TransferRiskCaseQuery;
 use Transaction\Application\Risk\TransferRiskCaseReview;
+use Transaction\Application\Risk\TransferRiskCaseSla;
 use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Withdrawal\MakeWithdrawal;
@@ -155,6 +158,7 @@ use Transaction\Infrastructure\Persistence\DatabaseReversalRepository;
 use Transaction\Infrastructure\Persistence\DatabaseTransferRepository;
 use Transaction\Infrastructure\Persistence\DatabaseWithdrawalRepository;
 use Transaction\Infrastructure\Risk\DatabaseTransferRiskAssessor;
+use Transaction\Infrastructure\Risk\DatabaseTransferRiskCaseSla;
 use Transaction\Infrastructure\Risk\DatabaseTransferRiskCaseWorkflow;
 use Transaction\Infrastructure\Risk\DatabaseTransferRiskMonitor;
 
@@ -182,6 +186,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TransferRiskMonitor::class, DatabaseTransferRiskMonitor::class);
         $this->app->singleton(TransferRiskCaseQuery::class, DatabaseTransferRiskCaseWorkflow::class);
         $this->app->singleton(TransferRiskCaseReview::class, DatabaseTransferRiskCaseWorkflow::class);
+        $this->app->singleton(TransferRiskCaseNotifier::class, EmailTransferRiskCaseNotifier::class);
+        $this->app->singleton(TransferRiskCaseSla::class, DatabaseTransferRiskCaseSla::class);
         $this->app->singleton(MoneyMovementResumeReminder::class, DatabaseMoneyMovementResumeReminder::class);
         $this->app->singleton(MoneyMovementSecurityMonitor::class, AuditMoneyMovementSecurityMonitor::class);
         $this->app->singleton(

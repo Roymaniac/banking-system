@@ -9,6 +9,7 @@ use Notification\Infrastructure\Outbox\ProcessEmailOutboxJob;
 use Shared\Infrastructure\Health\RecordSchedulerHeartbeat;
 use Transaction\Application\Control\MoneyMovementResumeReminder;
 use Transaction\Application\Control\MoneyMovementResumeRequestExpiry;
+use Transaction\Application\Risk\TransferRiskCaseSla;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -43,6 +44,13 @@ Schedule::call(fn () => app(MoneyMovementResumeRequestExpiry::class)->expire())
 // A single reminder gives reviewers time to act without flooding inboxes.
 Schedule::call(fn () => app(MoneyMovementResumeReminder::class)->sendDue())
     ->name('remind-money-movement-resume-requests')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+// Risk cases receive one warning before their deadline and one escalation
+// after it, with checkpoints preventing duplicate email floods.
+Schedule::call(fn () => app(TransferRiskCaseSla::class)->processDue())
+    ->name('process-transfer-risk-case-sla')
     ->everyMinute()
     ->withoutOverlapping();
 

@@ -22,6 +22,8 @@ use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Notification\CustomerTransactionActivity;
 use Transaction\Application\Notification\CustomerTransactionNotifier;
+use Transaction\Application\Risk\TransferRiskAssessor;
+use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
@@ -35,6 +37,7 @@ use Transaction\Domain\MultipleTransfer\Exception\MultipleTransferLedgerUnavaila
 use Transaction\Domain\MultipleTransfer\MultipleTransfer;
 use Transaction\Domain\MultipleTransfer\MultipleTransferItem;
 use Transaction\Domain\MultipleTransfer\Repository\MultipleTransferRepository;
+use Transaction\Domain\Risk\Exception\SuspiciousTransferVelocity;
 
 /** Pays several recipients through one balanced, all-or-nothing ledger entry. */
 final readonly class MakeMultipleTransfer
@@ -46,6 +49,8 @@ final readonly class MakeMultipleTransfer
         private MultipleTransferRepository $multipleTransfers,
         private BalanceProjectionRepository $balances,
         private DailyTransactionLimitRepository $dailyLimits,
+        private TransferRiskAssessor $riskAssessor,
+        private TransferRiskMonitor $riskMonitor,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -124,114 +129,127 @@ final readonly class MakeMultipleTransfer
             throw DuplicateMultipleTransferReference::create();
         }
 
-        [$transfer, $domainEvents] = $this->transactions->run(function () use (
-            $command,
-            $sender,
-            $senderLedger,
-            $recipientLedgers,
-            $items,
-            $totalMinorUnits,
-            $reference
-        ): array {
-            $accountIds = [$sender->id(), ...array_map(fn ($item) => $item->recipientAccountId(), $items)];
-            usort($accountIds, fn ($left, $right): int => $left->value() <=> $right->value());
-
-            // Every account uses the same stable lock order, preventing closure
-            // races and deadlocks between overlapping batch transfers.
-            foreach ($accountIds as $accountId) {
-                $lockedAccount = $this->accounts->findByIdForUpdate($accountId);
-
-                if ($lockedAccount === null || ! $lockedAccount->isActive()) {
-                    throw AccountNotEligibleForMultipleTransfer::create();
-                }
-            }
-
-            // One balance lock reserves the whole batch total before any recipient is paid.
-            $balance = $this->balances->findForUpdate($senderLedger->id())
-                ?? LedgerBalance::zero($senderLedger->id(), $senderLedger->currency());
-
-            if ($balance->balanceMinorUnits() < $totalMinorUnits) {
-                throw InsufficientMultipleTransferFunds::create();
-            }
-
-            $now = $this->clock->now();
-            // The batch consumes its complete total once, not once per recipient.
-            $this->dailyLimits->consume(
-                $sender->id(),
-                $senderLedger->currency(),
+        try {
+            [$transfer, $domainEvents] = $this->transactions->run(function () use (
+                $command,
+                $sender,
+                $senderLedger,
+                $recipientLedgers,
+                $items,
                 $totalMinorUnits,
-                $now
-            );
+                $reference
+            ): array {
+                $accountIds = [$sender->id(), ...array_map(fn ($item) => $item->recipientAccountId(), $items)];
+                usort($accountIds, fn ($left, $right): int => $left->value() <=> $right->value());
 
-            $entry = LedgerEntry::draft(
-                new LedgerEntryId($this->uuidGenerator->generate()->value()),
-                $senderLedger->id(),
-                new EntryReference($reference->value()),
-                new EntryDescription('Multiple transfer '.$reference->value()),
-                $command->occurredAt,
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId
-            );
+                // Every account uses the same stable lock order, preventing closure
+                // races and deadlocks between overlapping batch transfers.
+                foreach ($accountIds as $accountId) {
+                    $lockedAccount = $this->accounts->findByIdForUpdate($accountId);
 
-            $entry->addPosting(
-                new PostingId($this->uuidGenerator->generate()->value()),
-                $senderLedger->id(),
-                PostingSide::Debit,
-                new PostingAmount($totalMinorUnits, $senderLedger->currency()),
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId
-            );
+                    if ($lockedAccount === null || ! $lockedAccount->isActive()) {
+                        throw AccountNotEligibleForMultipleTransfer::create();
+                    }
+                }
 
-            foreach ($recipientLedgers as [$recipientLedger, $amount]) {
-                $entry->addPosting(
-                    new PostingId($this->uuidGenerator->generate()->value()),
-                    $recipientLedger->id(),
-                    PostingSide::Credit,
-                    new PostingAmount($amount->minorUnits(), $amount->currency()),
+                // One balance lock reserves the whole batch total before any recipient is paid.
+                $balance = $this->balances->findForUpdate($senderLedger->id())
+                    ?? LedgerBalance::zero($senderLedger->id(), $senderLedger->currency());
+
+                if ($balance->balanceMinorUnits() < $totalMinorUnits) {
+                    throw InsufficientMultipleTransferFunds::create();
+                }
+
+                $now = $this->clock->now();
+                // A batch is one outgoing instruction for velocity purposes,
+                // regardless of how many recipients it contains.
+                $this->riskAssessor->assertAllowed($sender->id(), $now);
+                // The batch consumes its complete total once, not once per recipient.
+                $this->dailyLimits->consume(
+                    $sender->id(),
+                    $senderLedger->currency(),
+                    $totalMinorUnits,
+                    $now
+                );
+
+                $entry = LedgerEntry::draft(
+                    new LedgerEntryId($this->uuidGenerator->generate()->value()),
+                    $senderLedger->id(),
+                    new EntryReference($reference->value()),
+                    new EntryDescription('Multiple transfer '.$reference->value()),
+                    $command->occurredAt,
                     $now,
                     $this->uuidGenerator->generate(),
                     $command->correlationId
                 );
-            }
 
-            $entry->post($now, $this->uuidGenerator->generate(), $command->correlationId);
+                $entry->addPosting(
+                    new PostingId($this->uuidGenerator->generate()->value()),
+                    $senderLedger->id(),
+                    PostingSide::Debit,
+                    new PostingAmount($totalMinorUnits, $senderLedger->currency()),
+                    $now,
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId
+                );
 
-            $transfer = MultipleTransfer::complete(
-                new TransactionId($this->uuidGenerator->generate()->value()),
-                $sender->id(),
-                $entry->id(),
-                $reference,
-                new TransactionAmount($totalMinorUnits, $senderLedger->currency()),
-                $items,
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId
-            );
+                foreach ($recipientLedgers as [$recipientLedger, $amount]) {
+                    $entry->addPosting(
+                        new PostingId($this->uuidGenerator->generate()->value()),
+                        $recipientLedger->id(),
+                        PostingSide::Credit,
+                        new PostingAmount($amount->minorUnits(), $amount->currency()),
+                        $now,
+                        $this->uuidGenerator->generate(),
+                        $command->correlationId
+                    );
+                }
 
-            $this->entries->save($entry);
-            $this->multipleTransfers->save($transfer);
-            // The sender debit and all recipient credits become visible together.
-            $this->balances->apply($entry, $now);
-            $this->notifications->sendToAccount(
-                $sender->id(),
-                CustomerTransactionActivity::MultipleTransferSent,
-                $transfer->totalAmount(),
-                $now,
-            );
+                $entry->post($now, $this->uuidGenerator->generate(), $command->correlationId);
 
-            foreach ($transfer->items() as $item) {
+                $transfer = MultipleTransfer::complete(
+                    new TransactionId($this->uuidGenerator->generate()->value()),
+                    $sender->id(),
+                    $entry->id(),
+                    $reference,
+                    new TransactionAmount($totalMinorUnits, $senderLedger->currency()),
+                    $items,
+                    $now,
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId
+                );
+
+                $this->entries->save($entry);
+                $this->multipleTransfers->save($transfer);
+                // The sender debit and all recipient credits become visible together.
+                $this->balances->apply($entry, $now);
                 $this->notifications->sendToAccount(
-                    $item->recipientAccountId(),
-                    CustomerTransactionActivity::TransferReceived,
-                    $item->amount(),
+                    $sender->id(),
+                    CustomerTransactionActivity::MultipleTransferSent,
+                    $transfer->totalAmount(),
                     $now,
                 );
-            }
 
-            return [$transfer, [...$entry->pullDomainEvents(), ...$transfer->pullDomainEvents()]];
-        });
+                foreach ($transfer->items() as $item) {
+                    $this->notifications->sendToAccount(
+                        $item->recipientAccountId(),
+                        CustomerTransactionActivity::TransferReceived,
+                        $item->amount(),
+                        $now,
+                    );
+                }
+
+                return [$transfer, [...$entry->pullDomainEvents(), ...$transfer->pullDomainEvents()]];
+            });
+        } catch (SuspiciousTransferVelocity $exception) {
+            $this->riskMonitor->velocityBlocked(
+                $sender->id(),
+                $exception->windowMinutes,
+                $exception->maximumTransfers,
+            );
+
+            throw $exception;
+        }
 
         $this->events->publish($domainEvents);
 

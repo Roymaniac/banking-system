@@ -15,6 +15,12 @@ return [
         'approval_minutes' => (int) env('HIGH_VALUE_TRANSFER_APPROVAL_MINUTES', 5),
     ],
 
+    'transfer_risk' => [
+        // A burst of individually valid transfers can still signal account takeover.
+        'velocity_window_minutes' => (int) env('TRANSFER_RISK_WINDOW_MINUTES', 60),
+        'maximum_transfers' => (int) env('TRANSFER_RISK_MAXIMUM_TRANSFERS', 10),
+    ],
+
     'rate_limits' => [
         // Login is intentionally strict because password hashing is expensive
         // and repeated attempts may indicate credential guessing.

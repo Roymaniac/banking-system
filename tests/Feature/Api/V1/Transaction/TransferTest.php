@@ -270,6 +270,50 @@ it('rejects transfers when funds are insufficient', function (): void {
     $this->assertDatabaseCount('transfers', 0);
 });
 
+it('blocks an unusual burst of outgoing transfers and records a safe risk event', function (): void {
+    config()->set('security.transfer_risk.maximum_transfers', 2);
+    config()->set('security.transfer_risk.velocity_window_minutes', 60);
+    $senderUser = transferApiUser();
+    $sender = createTransferApiAccount($senderUser, '5434567890');
+    $recipient = createTransferApiAccount(transferApiUser(), '6434567890');
+    fundTransferApiLedger($sender['ledger_id'], 5000);
+    Sanctum::actingAs($senderUser);
+    $url = "/api/v1/accounts/{$sender['account_id']}/transfers";
+
+    foreach ([1, 2] as $position) {
+        transferRequest()->postJson($url, transferPayload($recipient['number'], [
+            'minor_units' => 1000,
+            'reference' => "RISK-TRANSFER-00{$position}",
+        ]))->assertCreated();
+    }
+
+    transferRequest()->postJson($url, transferPayload($recipient['number'], [
+        'minor_units' => 1000,
+        'reference' => 'RISK-TRANSFER-003',
+    ]))->assertTooManyRequests()
+        ->assertJsonPath(
+            'message',
+            'This transfer was blocked because the account has made too many recent transfers.',
+        );
+
+    $this->assertDatabaseCount('transfers', 2)
+        ->assertDatabaseHas('ledger_balances', [
+            'ledger_id' => $sender['ledger_id'],
+            'balance_minor_units' => 3000,
+        ])->assertDatabaseHas('security_events', [
+            'type' => 'transaction.transfer_velocity_blocked',
+            'severity' => 'warning',
+            'subject_id' => $sender['account_id'],
+        ]);
+
+    $details = json_decode((string) DB::table('security_events')->sole()->details, true);
+    expect($details)->toMatchArray([
+        'rule' => 'outgoing_transfer_velocity',
+        'window_minutes' => 60,
+        'maximum_transfers' => 2,
+    ])->not->toHaveKey('minor_units');
+});
+
 it('prevents duplicate references and transfers to the same account', function (): void {
     $senderUser = transferApiUser();
     $sender = createTransferApiAccount($senderUser, '7234567890');

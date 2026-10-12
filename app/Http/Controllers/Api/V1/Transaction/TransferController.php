@@ -21,6 +21,7 @@ use Shared\Contracts\Clock;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Transfer\MakeTransferCommand;
 use Transaction\Domain\DailyLimit\Exception\DailyTransactionLimitExceeded;
+use Transaction\Domain\Risk\Exception\SuspiciousTransferVelocity;
 use Transaction\Domain\Transfer\Exception\AccountNotEligibleForTransfer;
 use Transaction\Domain\Transfer\Exception\DuplicateTransferReference;
 use Transaction\Domain\Transfer\Exception\InsufficientTransferFunds;
@@ -107,6 +108,8 @@ final class TransferController extends Controller
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (AccountNotEligibleForTransfer|TransferLedgerUnavailable $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
+        } catch (SuspiciousTransferVelocity $exception) {
+            return response()->json(['message' => $exception->getMessage()], 429);
         } catch (
             DailyTransactionLimitExceeded|
             InsufficientTransferFunds|

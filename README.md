@@ -223,6 +223,8 @@ Single and multiple transfers at or above the configured high-value threshold al
 ```dotenv
 HIGH_VALUE_TRANSFER_THRESHOLD_MINOR_UNITS=1000000
 HIGH_VALUE_TRANSFER_APPROVAL_MINUTES=5
+TRANSFER_RISK_WINDOW_MINUTES=60
+TRANSFER_RISK_MAXIMUM_TRANSFERS=10
 ```
 
 The scheduler removes expired MFA challenges and expired access tokens every hour. Active sessions and tokens without an expiry time are not removed.
@@ -444,6 +446,9 @@ php artisan banking:money-movement:resume "Primary approval tooling is unavailab
 The command requires an explicit confirmation (or `--yes` in a controlled non-interactive run), records the operator and incident on the switch event, and creates a critical security event. Infrastructure access logs must independently identify the person using the production shell; the UUID supplied to the command is validated for permission but is audit attribution, not shell authentication.
 
 - Duplicate transaction references are rejected.
+- A configurable rolling-window risk rule blocks unusually frequent outgoing
+  transfers across both single and batch endpoints. The blocked attempt creates
+  a privacy-safe security event without storing the amount or recipient details.
 - Reversals create opposite entries and preserve the original audit trail.
 - Domain events and HTTP activity avoid exposing passwords, tokens, full account numbers, or transaction amounts unnecessarily.
 

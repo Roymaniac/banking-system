@@ -213,6 +213,37 @@ it('rolls back the complete batch when funds are insufficient', function (): voi
         ->assertDatabaseMissing('ledger_balances', ['ledger_id' => $second['ledger_id']]);
 });
 
+it('counts a completed batch in the shared outgoing transfer velocity rule', function (): void {
+    config()->set('security.transfer_risk.maximum_transfers', 1);
+    config()->set('security.transfer_risk.velocity_window_minutes', 60);
+    $senderUser = multipleTransferApiUser();
+    $sender = createMultipleTransferApiAccount($senderUser, '5634567890');
+    $recipient = createMultipleTransferApiAccount(multipleTransferApiUser(), '6634567890');
+    fundMultipleTransferApiLedger($sender['ledger_id'], 5000);
+    Sanctum::actingAs($senderUser);
+    $url = "/api/v1/accounts/{$sender['account_id']}/multiple-transfers";
+    $recipients = [['account_number' => $recipient['number'], 'minor_units' => 1000]];
+
+    multipleTransferRequest()->postJson(
+        $url,
+        multipleTransferPayload($recipients, 'RISK-BATCH-001'),
+    )->assertCreated();
+
+    multipleTransferRequest()->postJson(
+        $url,
+        multipleTransferPayload($recipients, 'RISK-BATCH-002'),
+    )->assertTooManyRequests();
+
+    $this->assertDatabaseCount('multiple_transfers', 1)
+        ->assertDatabaseHas('ledger_balances', [
+            'ledger_id' => $sender['ledger_id'],
+            'balance_minor_units' => 4000,
+        ])->assertDatabaseHas('security_events', [
+            'type' => 'transaction.transfer_velocity_blocked',
+            'subject_id' => $sender['account_id'],
+        ]);
+});
+
 it('rejects duplicate recipients and a sender included as a recipient', function (): void {
     $senderUser = multipleTransferApiUser();
     $sender = createMultipleTransferApiAccount($senderUser, '7534567890');

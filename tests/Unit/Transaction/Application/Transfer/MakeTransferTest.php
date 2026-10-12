@@ -25,6 +25,8 @@ use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\Identifier\Uuid;
 use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Notification\CustomerTransactionNotifier;
+use Transaction\Application\Risk\TransferRiskAssessor;
+use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Transfer\MakeTransferCommand;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
@@ -141,6 +143,8 @@ it('atomically debits the sender and credits the recipient', function (): void {
         $transfers,
         $balances,
         $limits,
+        Mockery::mock(TransferRiskAssessor::class)->shouldIgnoreMissing(),
+        Mockery::mock(TransferRiskMonitor::class)->shouldIgnoreMissing(),
         new MakeTransferTestClock,
         $ids,
         new MakeTransferTestTransactions,
@@ -187,6 +191,8 @@ it('rejects a transfer when the locked sender balance is too low', function (): 
         $transfers,
         $balances,
         Mockery::mock(DailyTransactionLimitRepository::class),
+        Mockery::mock(TransferRiskAssessor::class)->shouldIgnoreMissing(),
+        Mockery::mock(TransferRiskMonitor::class)->shouldIgnoreMissing(),
         new MakeTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeTransferTestTransactions,
@@ -211,6 +217,8 @@ it('rejects sending money back to the same account', function (): void {
         Mockery::mock(TransferRepository::class),
         Mockery::mock(BalanceProjectionRepository::class),
         Mockery::mock(DailyTransactionLimitRepository::class),
+        Mockery::mock(TransferRiskAssessor::class)->shouldIgnoreMissing(),
+        Mockery::mock(TransferRiskMonitor::class)->shouldIgnoreMissing(),
         new MakeTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MakeTransferTestTransactions,

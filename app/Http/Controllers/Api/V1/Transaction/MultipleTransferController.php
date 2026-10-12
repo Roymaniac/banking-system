@@ -28,6 +28,7 @@ use Transaction\Domain\MultipleTransfer\Exception\InsufficientMultipleTransferFu
 use Transaction\Domain\MultipleTransfer\Exception\InvalidMultipleTransfer;
 use Transaction\Domain\MultipleTransfer\Exception\MultipleTransferCurrencyMismatch;
 use Transaction\Domain\MultipleTransfer\Exception\MultipleTransferLedgerUnavailable;
+use Transaction\Domain\Risk\Exception\SuspiciousTransferVelocity;
 
 /** Completes one atomic transfer to several public account numbers. */
 final class MultipleTransferController extends Controller
@@ -117,6 +118,8 @@ final class MultipleTransferController extends Controller
             return response()->json(['message' => $exception->getMessage()], 409);
         } catch (AccountNotEligibleForMultipleTransfer|MultipleTransferLedgerUnavailable $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
+        } catch (SuspiciousTransferVelocity $exception) {
+            return response()->json(['message' => $exception->getMessage()], 429);
         } catch (
             DailyTransactionLimitExceeded|
             InsufficientMultipleTransferFunds|

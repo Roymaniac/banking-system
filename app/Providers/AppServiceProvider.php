@@ -37,6 +37,7 @@ use Audit\Infrastructure\Persistence\DatabaseAuditLogRepository;
 use Audit\Infrastructure\Persistence\DatabaseAuditTrailQuery;
 use Audit\Infrastructure\Persistence\DatabaseSecurityEventRepository;
 use Audit\Infrastructure\Transaction\AuditMoneyMovementSecurityMonitor;
+use Audit\Infrastructure\Transaction\AuditTransferRiskMonitor;
 use Compliance\Application\DueDiligence\CustomerDueDiligenceChecker;
 use Compliance\Application\DueDiligence\DueDiligenceGateway;
 use Compliance\Infrastructure\Persistence\DatabaseCustomerDueDiligenceChecker;
@@ -129,6 +130,8 @@ use Transaction\Application\Deposit\MakeDeposit;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\Notification\CustomerTransactionNotifier;
 use Transaction\Application\Reversal\ReverseTransaction;
+use Transaction\Application\Risk\TransferRiskAssessor;
+use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Application\Transfer\MakeTransfer;
 use Transaction\Application\Withdrawal\MakeWithdrawal;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
@@ -150,6 +153,7 @@ use Transaction\Infrastructure\Persistence\DatabaseMultipleTransferRepository;
 use Transaction\Infrastructure\Persistence\DatabaseReversalRepository;
 use Transaction\Infrastructure\Persistence\DatabaseTransferRepository;
 use Transaction\Infrastructure\Persistence\DatabaseWithdrawalRepository;
+use Transaction\Infrastructure\Risk\DatabaseTransferRiskAssessor;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -171,6 +175,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MoneyMovementResumeApproval::class, DatabaseMoneyMovementResumeApproval::class);
         $this->app->singleton(MoneyMovementResumeNotifier::class, EmailMoneyMovementResumeNotifier::class);
         $this->app->singleton(CustomerTransactionNotifier::class, EmailCustomerTransactionNotifier::class);
+        $this->app->singleton(TransferRiskAssessor::class, DatabaseTransferRiskAssessor::class);
+        $this->app->singleton(TransferRiskMonitor::class, AuditTransferRiskMonitor::class);
         $this->app->singleton(MoneyMovementResumeReminder::class, DatabaseMoneyMovementResumeReminder::class);
         $this->app->singleton(MoneyMovementSecurityMonitor::class, AuditMoneyMovementSecurityMonitor::class);
         $this->app->singleton(

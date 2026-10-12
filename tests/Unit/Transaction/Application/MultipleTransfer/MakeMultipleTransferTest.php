@@ -28,6 +28,8 @@ use Transaction\Application\MultipleTransfer\MakeMultipleTransfer;
 use Transaction\Application\MultipleTransfer\MakeMultipleTransferCommand;
 use Transaction\Application\MultipleTransfer\TransferRecipient;
 use Transaction\Application\Notification\CustomerTransactionNotifier;
+use Transaction\Application\Risk\TransferRiskAssessor;
+use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
 use Transaction\Domain\MultipleTransfer\Event\MultipleTransferCompleted;
 use Transaction\Domain\MultipleTransfer\Exception\InsufficientMultipleTransferFunds;
@@ -145,6 +147,8 @@ it('pays every recipient through one atomic balanced entry', function (): void {
         $repository,
         $balances,
         $limits,
+        Mockery::mock(TransferRiskAssessor::class)->shouldIgnoreMissing(),
+        Mockery::mock(TransferRiskMonitor::class)->shouldIgnoreMissing(),
         new MultipleTransferTestClock,
         $ids,
         new MultipleTransferTestTransactions,
@@ -198,6 +202,8 @@ it('rejects the whole batch when the sender cannot cover its total', function ()
         $repository,
         $balances,
         Mockery::mock(DailyTransactionLimitRepository::class),
+        Mockery::mock(TransferRiskAssessor::class)->shouldIgnoreMissing(),
+        Mockery::mock(TransferRiskMonitor::class)->shouldIgnoreMissing(),
         new MultipleTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MultipleTransferTestTransactions,
@@ -219,6 +225,8 @@ it('rejects an empty recipient list', function (): void {
         Mockery::mock(MultipleTransferRepository::class),
         Mockery::mock(BalanceProjectionRepository::class),
         Mockery::mock(DailyTransactionLimitRepository::class),
+        Mockery::mock(TransferRiskAssessor::class)->shouldIgnoreMissing(),
+        Mockery::mock(TransferRiskMonitor::class)->shouldIgnoreMissing(),
         new MultipleTransferTestClock,
         Mockery::mock(UuidGenerator::class),
         new MultipleTransferTestTransactions,

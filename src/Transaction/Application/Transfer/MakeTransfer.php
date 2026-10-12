@@ -22,10 +22,13 @@ use Shared\Contracts\TransactionManager;
 use Shared\Domain\Identifier\UuidGenerator;
 use Transaction\Application\Notification\CustomerTransactionActivity;
 use Transaction\Application\Notification\CustomerTransactionNotifier;
+use Transaction\Application\Risk\TransferRiskAssessor;
+use Transaction\Application\Risk\TransferRiskMonitor;
 use Transaction\Domain\Common\ValueObject\TransactionAmount;
 use Transaction\Domain\Common\ValueObject\TransactionId;
 use Transaction\Domain\Common\ValueObject\TransactionReference;
 use Transaction\Domain\DailyLimit\Repository\DailyTransactionLimitRepository;
+use Transaction\Domain\Risk\Exception\SuspiciousTransferVelocity;
 use Transaction\Domain\Transfer\Exception\AccountNotEligibleForTransfer;
 use Transaction\Domain\Transfer\Exception\DuplicateTransferReference;
 use Transaction\Domain\Transfer\Exception\InsufficientTransferFunds;
@@ -45,6 +48,8 @@ final readonly class MakeTransfer
         private TransferRepository $transfers,
         private BalanceProjectionRepository $balances,
         private DailyTransactionLimitRepository $dailyLimits,
+        private TransferRiskAssessor $riskAssessor,
+        private TransferRiskMonitor $riskMonitor,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -86,109 +91,124 @@ final readonly class MakeTransfer
             throw DuplicateTransferReference::create();
         }
 
-        [$transfer, $domainEvents] = $this->transactions->run(function () use (
-            $command,
-            $sender,
-            $recipient,
-            $senderLedger,
-            $recipientLedger,
-            $reference
-        ): array {
-            // Lock both accounts in UUID order so closure, freezing, and opposite
-            // transfers cannot race or deadlock with this eligibility check.
-            $accountIds = [$sender->id(), $recipient->id()];
-            usort($accountIds, fn ($left, $right): int => $left->value() <=> $right->value());
+        try {
+            [$transfer, $domainEvents] = $this->transactions->run(function () use (
+                $command,
+                $sender,
+                $recipient,
+                $senderLedger,
+                $recipientLedger,
+                $reference
+            ): array {
+                // Lock both accounts in UUID order so closure, freezing, and opposite
+                // transfers cannot race or deadlock with this eligibility check.
+                $accountIds = [$sender->id(), $recipient->id()];
+                usort($accountIds, fn ($left, $right): int => $left->value() <=> $right->value());
 
-            foreach ($accountIds as $accountId) {
-                $lockedAccount = $this->accounts->findByIdForUpdate($accountId);
+                foreach ($accountIds as $accountId) {
+                    $lockedAccount = $this->accounts->findByIdForUpdate($accountId);
 
-                if ($lockedAccount === null || ! $lockedAccount->isActive()) {
-                    throw AccountNotEligibleForTransfer::create();
+                    if ($lockedAccount === null || ! $lockedAccount->isActive()) {
+                        throw AccountNotEligibleForTransfer::create();
+                    }
                 }
-            }
 
-            // Lock the sender's balance so two requests cannot spend the same money.
-            $balance = $this->balances->findForUpdate($senderLedger->id())
-                ?? LedgerBalance::zero($senderLedger->id(), $senderLedger->currency());
+                // Lock the sender's balance so two requests cannot spend the same money.
+                $balance = $this->balances->findForUpdate($senderLedger->id())
+                    ?? LedgerBalance::zero($senderLedger->id(), $senderLedger->currency());
 
-            if ($balance->balanceMinorUnits() < $command->minorUnits) {
-                throw InsufficientTransferFunds::create();
-            }
+                if ($balance->balanceMinorUnits() < $command->minorUnits) {
+                    throw InsufficientTransferFunds::create();
+                }
 
-            $now = $this->clock->now();
-            // A transfer consumes the sender's shared outgoing allowance for today.
-            $this->dailyLimits->consume(
+                $now = $this->clock->now();
+                // The sender account is already locked, so concurrent requests
+                // cannot both slip past this rolling velocity decision.
+                $this->riskAssessor->assertAllowed($sender->id(), $now);
+                // A transfer consumes the sender's shared outgoing allowance for today.
+                $this->dailyLimits->consume(
+                    $sender->id(),
+                    $senderLedger->currency(),
+                    $command->minorUnits,
+                    $now
+                );
+
+                $entry = LedgerEntry::draft(
+                    new LedgerEntryId($this->uuidGenerator->generate()->value()),
+                    $senderLedger->id(),
+                    new EntryReference($reference->value()),
+                    new EntryDescription('Transfer '.$reference->value()),
+                    $command->occurredAt,
+                    $now,
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId,
+                );
+                $amount = new PostingAmount($command->minorUnits, $senderLedger->currency());
+
+                $entry->addPosting(
+                    new PostingId($this->uuidGenerator->generate()->value()),
+                    $senderLedger->id(),
+                    PostingSide::Debit,
+                    $amount,
+                    $now,
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId
+                );
+
+                $entry->addPosting(
+                    new PostingId($this->uuidGenerator->generate()->value()),
+                    $recipientLedger->id(),
+                    PostingSide::Credit,
+                    $amount,
+                    $now,
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId
+                );
+
+                $entry->post($now, $this->uuidGenerator->generate(), $command->correlationId);
+
+                $transfer = Transfer::complete(
+                    new TransactionId($this->uuidGenerator->generate()->value()),
+                    $sender->id(),
+                    $recipient->id(),
+                    $entry->id(),
+                    $reference,
+                    new TransactionAmount($command->minorUnits, $senderLedger->currency()),
+                    $now,
+                    $this->uuidGenerator->generate(),
+                    $command->correlationId
+                );
+
+                $this->entries->save($entry);
+                $this->transfers->save($transfer);
+                // Both account balances become visible together before the transaction commits.
+                $this->balances->apply($entry, $now);
+                $this->notifications->sendToAccount(
+                    $sender->id(),
+                    CustomerTransactionActivity::TransferSent,
+                    $transfer->amount(),
+                    $now,
+                );
+                $this->notifications->sendToAccount(
+                    $recipient->id(),
+                    CustomerTransactionActivity::TransferReceived,
+                    $transfer->amount(),
+                    $now,
+                );
+
+                return [$transfer, [...$entry->pullDomainEvents(), ...$transfer->pullDomainEvents()]];
+            });
+        } catch (SuspiciousTransferVelocity $exception) {
+            // The financial transaction has rolled back. Record the blocked
+            // attempt separately so investigators do not lose the evidence.
+            $this->riskMonitor->velocityBlocked(
                 $sender->id(),
-                $senderLedger->currency(),
-                $command->minorUnits,
-                $now
+                $exception->windowMinutes,
+                $exception->maximumTransfers,
             );
 
-            $entry = LedgerEntry::draft(
-                new LedgerEntryId($this->uuidGenerator->generate()->value()),
-                $senderLedger->id(),
-                new EntryReference($reference->value()),
-                new EntryDescription('Transfer '.$reference->value()),
-                $command->occurredAt,
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId,
-            );
-            $amount = new PostingAmount($command->minorUnits, $senderLedger->currency());
-
-            $entry->addPosting(
-                new PostingId($this->uuidGenerator->generate()->value()),
-                $senderLedger->id(),
-                PostingSide::Debit,
-                $amount,
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId
-            );
-
-            $entry->addPosting(
-                new PostingId($this->uuidGenerator->generate()->value()),
-                $recipientLedger->id(),
-                PostingSide::Credit,
-                $amount,
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId
-            );
-
-            $entry->post($now, $this->uuidGenerator->generate(), $command->correlationId);
-
-            $transfer = Transfer::complete(
-                new TransactionId($this->uuidGenerator->generate()->value()),
-                $sender->id(),
-                $recipient->id(),
-                $entry->id(),
-                $reference,
-                new TransactionAmount($command->minorUnits, $senderLedger->currency()),
-                $now,
-                $this->uuidGenerator->generate(),
-                $command->correlationId
-            );
-
-            $this->entries->save($entry);
-            $this->transfers->save($transfer);
-            // Both account balances become visible together before the transaction commits.
-            $this->balances->apply($entry, $now);
-            $this->notifications->sendToAccount(
-                $sender->id(),
-                CustomerTransactionActivity::TransferSent,
-                $transfer->amount(),
-                $now,
-            );
-            $this->notifications->sendToAccount(
-                $recipient->id(),
-                CustomerTransactionActivity::TransferReceived,
-                $transfer->amount(),
-                $now,
-            );
-
-            return [$transfer, [...$entry->pullDomainEvents(), ...$transfer->pullDomainEvents()]];
-        });
+            throw $exception;
+        }
 
         $this->events->publish($domainEvents);
 

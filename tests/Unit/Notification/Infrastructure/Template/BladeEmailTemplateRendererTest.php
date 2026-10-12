@@ -37,3 +37,20 @@ it('rejects a template when required data is missing', function (): void {
         ['expiresAt' => '2026-09-25 12:00 WAT'],
     );
 })->throws(InvalidTemplateData::class, 'resetUrl');
+
+it('renders a security alert without including secret account data', function (): void {
+    $email = app(EmailTemplateRenderer::class)->render(
+        EmailTemplate::SecurityAlert,
+        new RecipientEmail('customer@example.com'),
+        [
+            'action' => 'Your MFA recovery codes were replaced.',
+            'occurredAt' => '2026-10-12 14:00 WAT',
+        ],
+    );
+
+    expect($email->subject()->value())->toBe('Security alert for your account')
+        ->and($email->body()->value())->toContain('Your MFA recovery codes were replaced.')
+        ->and($email->body()->value())->toContain('2026-10-12 14:00 WAT')
+        ->and($email->body()->value())->not->toContain('password:')
+        ->and($email->body()->value())->not->toContain('recovery code:');
+});

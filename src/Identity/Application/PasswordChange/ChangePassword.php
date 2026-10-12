@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Identity\Application\PasswordChange;
 
 use Identity\Application\Authentication\PasswordHasher;
+use Identity\Application\Security\SecurityAlert;
+use Identity\Application\Security\SecurityAlertNotifier;
 use Identity\Application\Security\UserSessionRevoker;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
 use Identity\Domain\Authentication\ValueObject\PlainPassword;
@@ -21,6 +23,7 @@ final readonly class ChangePassword
         private UserRepository $users,
         private PasswordHasher $passwordHasher,
         private UserSessionRevoker $sessions,
+        private SecurityAlertNotifier $alerts,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
         private TransactionManager $transactions,
@@ -59,6 +62,7 @@ final readonly class ChangePassword
 
             $this->users->save($user);
             $this->sessions->revokeAllExcept($user->id(), $command->currentSessionId);
+            $this->alerts->send($user->email(), SecurityAlert::PasswordChanged, $changedAt);
 
             return $user->pullDomainEvents();
         });

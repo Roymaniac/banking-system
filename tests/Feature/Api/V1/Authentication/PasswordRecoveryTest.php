@@ -115,7 +115,7 @@ it('resets the password, consumes the token, and signs out every device', functi
     $this->assertDatabaseHas('audit_log', [
         'event_name' => 'identity.user.password-reset',
         'correlation_id' => $requestId,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 2);
 
     $this->postJson('/api/v1/auth/login', [
         'email' => $user->email,

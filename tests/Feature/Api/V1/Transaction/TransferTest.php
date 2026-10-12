@@ -184,6 +184,7 @@ it('moves a high-value transfer only after MFA approves those exact instructions
         ->assertJsonPath('data.authorization', 'high_value_transfer');
 
     $approvalToken = (string) $approvalResponse->json('data.access_token');
+    $this->assertDatabaseCount('email_outbox', 1);
     $this->app['auth']->forgetGuards();
     $this->withToken($approvalToken)
         ->withHeader('Idempotency-Key', $idempotencyKey)

@@ -6,6 +6,8 @@ namespace Identity\Application\MultiFactor;
 
 use DateInterval;
 use Identity\Application\Authentication\PasswordHasher;
+use Identity\Application\Security\SecurityAlert;
+use Identity\Application\Security\SecurityAlertNotifier;
 use Identity\Application\Security\SecurityMonitor;
 use Identity\Application\Security\UserSessionRevoker;
 use Identity\Domain\Authentication\Exception\InvalidCredentials;
@@ -30,6 +32,7 @@ final readonly class MultiFactorAuthentication
         private PasswordHasher $passwordHasher,
         private UserSessionRevoker $sessions,
         private SecurityMonitor $security,
+        private SecurityAlertNotifier $alerts,
         private Clock $clock,
         private TransactionManager $transactions,
     ) {}
@@ -82,6 +85,15 @@ final readonly class MultiFactorAuthentication
             // Sessions created before MFA was enabled never passed a second
             // factor, so only the device completing enrollment may remain.
             $this->sessions->revokeAllExcept($userId, $currentSessionId);
+            $user = $this->users->findById($userId);
+
+            if ($user !== null) {
+                $this->alerts->send(
+                    $user->email(),
+                    SecurityAlert::MultiFactorEnabled,
+                    $this->clock->now(),
+                );
+            }
         });
 
         return $recoveryCodes;
@@ -100,7 +112,14 @@ final readonly class MultiFactorAuthentication
             throw InvalidMultiFactorCode::create();
         }
 
-        $this->gateway->disable($userId);
+        $this->transactions->run(function () use ($userId, $user): void {
+            $this->gateway->disable($userId);
+            $this->alerts->send(
+                $user->email(),
+                SecurityAlert::MultiFactorDisabled,
+                $this->clock->now(),
+            );
+        });
     }
 
     /** @return list<string> */
@@ -121,11 +140,19 @@ final readonly class MultiFactorAuthentication
         }
 
         $recoveryCodes = $this->recoveryCodes();
-        $this->gateway->replaceRecoveryCodes(
-            $userId,
-            $this->hashRecoveryCodes($recoveryCodes),
-            $this->clock->now(),
-        );
+        $this->transactions->run(function () use ($userId, $user, $recoveryCodes): void {
+            $now = $this->clock->now();
+            $this->gateway->replaceRecoveryCodes(
+                $userId,
+                $this->hashRecoveryCodes($recoveryCodes),
+                $now,
+            );
+            $this->alerts->send(
+                $user->email(),
+                SecurityAlert::RecoveryCodesRegenerated,
+                $now,
+            );
+        });
 
         return $recoveryCodes;
     }

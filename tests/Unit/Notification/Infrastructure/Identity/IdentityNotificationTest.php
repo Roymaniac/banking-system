@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Identity\Application\EmailVerification\EmailVerificationNotifier;
 use Identity\Application\PasswordReset\PasswordResetNotifier;
+use Identity\Application\Security\SecurityAlert;
+use Identity\Application\Security\SecurityAlertNotifier;
 use Identity\Domain\EmailVerification\ValueObject\EmailVerificationToken;
 use Identity\Domain\PasswordReset\ValueObject\PasswordResetToken;
 use Identity\Domain\User\ValueObject\EmailAddress;
@@ -15,6 +17,7 @@ use Notification\Domain\Email\EmailMessage;
 use Notification\Domain\Email\ValueObject\EmailBody;
 use Notification\Domain\Email\ValueObject\EmailSubject;
 use Notification\Domain\Email\ValueObject\RecipientEmail;
+use Notification\Infrastructure\Identity\EmailSecurityAlertNotification;
 use Notification\Infrastructure\Identity\EmailVerificationNotification;
 use Notification\Infrastructure\Identity\PasswordResetNotification;
 use Tests\TestCase;
@@ -32,7 +35,26 @@ function renderedIdentityTestEmail(string $recipient): EmailMessage
 
 it('binds both Identity notifier contracts to email template adapters', function (): void {
     expect(app(EmailVerificationNotifier::class))->toBeInstanceOf(EmailVerificationNotification::class)
-        ->and(app(PasswordResetNotifier::class))->toBeInstanceOf(PasswordResetNotification::class);
+        ->and(app(PasswordResetNotifier::class))->toBeInstanceOf(PasswordResetNotification::class)
+        ->and(app(SecurityAlertNotifier::class))->toBeInstanceOf(EmailSecurityAlertNotification::class);
+});
+
+it('renders and queues a privacy-safe account security alert', function (): void {
+    $rendered = renderedIdentityTestEmail('security@example.com');
+    $templates = Mockery::mock(EmailTemplateRenderer::class);
+    $templates->shouldReceive('render')->once()->with(
+        EmailTemplate::SecurityAlert,
+        Mockery::on(fn (RecipientEmail $email): bool => $email->value() === 'security@example.com'),
+        Mockery::on(fn (array $variables): bool => $variables['action'] === 'Multi-factor authentication was enabled.' && isset($variables['occurredAt'])),
+    )->andReturn($rendered);
+    $emails = Mockery::mock(EmailSender::class);
+    $emails->shouldReceive('send')->once()->with($rendered);
+
+    (new EmailSecurityAlertNotification($templates, $emails))->send(
+        new EmailAddress('security@example.com'),
+        SecurityAlert::MultiFactorEnabled,
+        new DateTimeImmutable('2026-10-12T14:00:00+01:00'),
+    );
 });
 
 it('renders and queues an email-verification link', function (): void {

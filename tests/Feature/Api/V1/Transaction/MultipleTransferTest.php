@@ -176,6 +176,8 @@ it('requires one exact MFA approval when a batch total is high value', function 
         'code' => '123456',
     ])->assertOk()->json('data.access_token');
 
+    $this->assertDatabaseCount('email_outbox', 1);
+
     $this->app['auth']->forgetGuards();
     $this->withToken((string) $approvalToken)
         ->withHeader('Idempotency-Key', $idempotencyKey)

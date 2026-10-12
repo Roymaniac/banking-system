@@ -108,6 +108,7 @@ it('encrypts enrollment secrets, hashes recovery codes, and removes older sessio
         ->assertJsonPath('data.enabled', true);
 
     expect(DB::table('personal_access_tokens')->count())->toBe(1);
+    $this->assertDatabaseCount('email_outbox', 1);
     $storedHashes = (string) DB::table('user_multi_factor_authentication')
         ->value('recovery_code_hashes');
     expect($storedHashes)
@@ -206,7 +207,7 @@ it('requires password and authenticator proof before disabling MFA', function ()
 
     $this->assertDatabaseMissing('user_multi_factor_authentication', [
         'user_id' => $enabled['user']->identity_user_id,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 2);
 
     $this->postJson('/api/v1/auth/login', [
         'email' => $enabled['user']->email,
@@ -238,6 +239,7 @@ it('replaces every old recovery code after password and authenticator proof', fu
         ->and($storedHashes)->not->toContain($newCodes[0])
         ->and($storedHashes)->not->toContain(hash('sha256', $oldCode))
         ->and($storedHashes)->toContain(hash('sha256', $newCodes[0]));
+    $this->assertDatabaseCount('email_outbox', 2);
 });
 
 it('requires a fresh MFA challenge before issuing privileged staff access', function (): void {

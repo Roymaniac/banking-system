@@ -227,6 +227,8 @@ HIGH_VALUE_TRANSFER_APPROVAL_MINUTES=5
 
 The scheduler removes expired MFA challenges and expired access tokens every hour. Active sessions and tokens without an expiry time are not removed.
 
+Security-sensitive changes queue an encrypted customer alert through the durable email outbox. Alerts cover password changes and resets, MFA enablement or removal, recovery-code replacement, and high-value transfer approval. They include the action and time, but never passwords, authenticator secrets, recovery codes, amounts, or account details.
+
 Obtain a Sanctum token through the login endpoint:
 
 ```http

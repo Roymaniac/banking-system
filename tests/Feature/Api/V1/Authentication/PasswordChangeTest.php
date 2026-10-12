@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Identity\Application\PasswordChange\ChangePassword;
 use Identity\Application\PasswordChange\ChangePasswordCommand;
+use Identity\Application\Security\SecurityAlertNotifier;
 use Identity\Application\Security\UserSessionRevoker;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,7 +59,7 @@ it('changes the password while keeping only the current device signed in', funct
     $this->assertDatabaseHas('audit_log', [
         'event_name' => 'identity.user.password-changed',
         'correlation_id' => $requestId,
-    ]);
+    ])->assertDatabaseCount('email_outbox', 1);
 
     // The caller can continue safely, but the removed device token cannot.
     $this->withToken($currentSession->plainTextToken)
@@ -138,4 +139,29 @@ it('rolls back the password when old-session removal fails', function (): void {
 
     expect(DB::table('users')->where('id', $user->id)->value('password'))
         ->toBe($originalPasswordHash);
+});
+
+it('rolls back the security change when its durable alert cannot be recorded', function (): void {
+    $user = passwordChangeUser();
+    $originalPasswordHash = $user->password;
+    $session = $user->createToken('current-device');
+    $otherSession = $user->createToken('other-device');
+
+    $alerts = Mockery::mock(SecurityAlertNotifier::class);
+    $alerts->shouldReceive('send')
+        ->once()
+        ->andThrow(new RuntimeException('Simulated security alert storage failure.'));
+    app()->instance(SecurityAlertNotifier::class, $alerts);
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->withToken($session->plainTextToken)
+        ->postJson('/api/v1/auth/password/change', passwordChangePayload()))
+        ->toThrow(RuntimeException::class, 'Simulated security alert storage failure.');
+
+    expect(DB::table('users')->where('id', $user->id)->value('password'))
+        ->toBe($originalPasswordHash);
+    $this->assertDatabaseHas('personal_access_tokens', [
+        'id' => $otherSession->accessToken->getKey(),
+    ])->assertDatabaseCount('email_outbox', 0);
 });

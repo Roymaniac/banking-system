@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Identity\Application\PasswordReset;
 
 use Identity\Application\Authentication\PasswordHasher;
+use Identity\Application\Security\SecurityAlert;
+use Identity\Application\Security\SecurityAlertNotifier;
 use Identity\Application\Security\UserSessionRevoker;
 use Identity\Domain\Authentication\ValueObject\PlainPassword;
 use Identity\Domain\PasswordReset\Exception\InvalidPasswordResetToken;
@@ -27,6 +29,7 @@ final readonly class ResetPassword
         private PasswordResetRequestRepository $requests,
         private UserRepository $users,
         private UserSessionRevoker $sessions,
+        private SecurityAlertNotifier $alerts,
         private PasswordHasher $passwordHasher,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
@@ -78,6 +81,7 @@ final readonly class ResetPassword
             $this->users->save($user);
             $this->sessions->revokeAll($user->id());
             $this->requests->consume($tokenHash);
+            $this->alerts->send($user->email(), SecurityAlert::PasswordReset, $now);
 
             return $user->pullDomainEvents();
         });

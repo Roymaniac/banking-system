@@ -113,7 +113,7 @@ The application needs both a queue worker and Laravel's scheduler. They perform 
 The queue worker processes asynchronous work:
 
 ```bash
-php artisan queue:work --tries=3
+php artisan queue:work --queue=notifications,default --tries=3
 ```
 
 The scheduler dispatches pending email-outbox work and records a heartbeat every minute:

@@ -15,8 +15,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// The scheduler only queues a lightweight worker; encrypted email contents
-// remain in the outbox until that worker confirms successful delivery.
+// The scheduler only queues one unique processor at a time. Encrypted email
+// contents remain in the outbox until that processor confirms delivery.
 Schedule::job(new ProcessEmailOutboxJob)
     ->everyMinute()
     ->withoutOverlapping();

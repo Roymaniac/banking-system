@@ -21,9 +21,6 @@ final class ProcessEmailOutboxJob implements ShouldBeUnique, ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
-    /** Prevent overlapping workers from sending the same pending email. */
-    public int $uniqueFor = 55;
-
     public function __construct()
     {
         $this->onQueue('notifications');

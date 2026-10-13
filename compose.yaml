@@ -54,6 +54,9 @@ services:
       - php
       - artisan
       - queue:work
+      # Email-outbox processors use the notifications queue. Keep default in
+      # the list so this worker also handles ordinary application jobs.
+      - --queue=notifications,default
       - --sleep=1
       - --tries=3
       - --timeout=60

@@ -245,7 +245,7 @@ TRANSFER_RISK_WINDOW_MINUTES=60
 TRANSFER_RISK_MAXIMUM_TRANSFERS=10
 TRANSFER_RISK_REVIEW_MINUTES=30
 TRANSFER_RISK_REMINDER_MINUTES=10
-RISK_CASES_PORTAL_URL=https://operations.example.com/transfer-risk-cases
+OPERATIONS_PORTAL_URL=https://operations.example.com
 ```
 
 The scheduler removes expired MFA challenges and expired access tokens every hour. Active sessions and tokens without an expiry time are not removed.
@@ -360,13 +360,17 @@ An unconfigured currency fails safely instead of creating an incomplete financia
 
 ## Email configuration
 
-Email-verification and password-reset links can target a separately hosted frontend:
+Customer and operations links can target separately hosted frontend portals. The
+backend adds the appropriate page path to each base URL:
 
 ```dotenv
-FRONTEND_VERIFICATION_URL=https://example.com/verify-email
-FRONTEND_PASSWORD_RESET_URL=https://example.com/reset-password
-OPERATIONS_PORTAL_URL=https://operations.example.com/money-movement/resume-requests
+CUSTOMER_PORTAL_URL=https://bank.example.com
+OPERATIONS_PORTAL_URL=https://operations.example.com
 ```
+
+For example, verification emails use `${CUSTOMER_PORTAL_URL}/verify-email`,
+while risk-review emails use
+`${OPERATIONS_PORTAL_URL}/operations/transfer-risk-cases`.
 
 Email contents and recipients are encrypted while waiting in the outbox. The scheduler finds pending messages, and the queue worker performs delivery. Operators with `notifications.view` can inspect delivery health; `notifications.retry` is required to retry an exhausted message.
 

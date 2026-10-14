@@ -102,6 +102,10 @@ final class DemoBankingSeeder extends Seeder
             $this->seedStartingBalances($now);
         });
 
+        // A second operator is required because requesters may never approve
+        // their own money movement resumption request.
+        $this->call(MoneyMovementApproverSeeder::class);
+
         $this->command?->info('Demo customer: customer@example.com / '.self::PASSWORD);
         $this->command?->info('Demo recipient: recipient@example.com / '.self::PASSWORD);
         $this->command?->info('Demo administrator: admin@example.com / '.self::PASSWORD);

@@ -86,9 +86,17 @@ The local demo sign-ins are:
 | --- | --- | --- | --- |
 | Customer | `customer@example.com` | `DemoPassword123!` | `1000000001`, NGN 250,000.00 |
 | Transfer recipient | `recipient@example.com` | `DemoPassword123!` | `1000000002`, NGN 50,000.00 |
-| Operations | `admin@example.com` | `DemoPassword123!` | All demo staff permissions |
+| Operations administrator | `admin@example.com` | `DemoPassword123!` | All demo staff permissions |
+| Resumption approver | `approver@example.com` | `DemoPassword123!` | Approve or reject money movement resumption requests |
 
 The seeder refuses to run outside the `local` and `testing` environments. It may be rerun safely: identity and catalogue records are updated in place, while existing financial activity and balances are preserved.
+
+The resumption approver can also be added independently when the other demo
+records already exist:
+
+```bash
+php artisan db:seed --class=Database\\Seeders\\MoneyMovementApproverSeeder
+```
 
 The production-like Docker environment needs an explicit, temporary override. After rebuilding the application image with the latest source and running its migrations, seed it with:
 

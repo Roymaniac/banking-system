@@ -33,11 +33,23 @@ it('creates repeatable funded customer and authorized administrator demo data', 
         ->and(DB::table('ledger_entries')->count())->toBe(2)
         ->and(DB::table('ledger_postings')->count())->toBe(4)
         ->and(DB::table('administration_permissions')->count())->toBe(29)
-        ->and(DB::table('role_permission_assignments')->count())->toBe(30)
+        ->and(DB::table('role_permission_assignments')->count())->toBe(32)
         ->and(app(AuthorizationChecker::class)->allows(
             new UserId($approver->identity_user_id),
             new Permission('money_movement.approve'),
         ))->toBeTrue()
+        ->and(app(AuthorizationChecker::class)->allows(
+            new UserId($approver->identity_user_id),
+            new Permission('money_movement.audit'),
+        ))->toBeTrue()
+        ->and(app(AuthorizationChecker::class)->allows(
+            new UserId($approver->identity_user_id),
+            new Permission('operations.view'),
+        ))->toBeTrue()
+        ->and(app(AuthorizationChecker::class)->allows(
+            new UserId($approver->identity_user_id),
+            new Permission('money_movement.manage'),
+        ))->toBeFalse()
         ->and(app(LedgerReconciliation::class)->inspect()->isReconciled())->toBeTrue();
 
     $this->assertDatabaseHas('accounts', [
@@ -63,7 +75,19 @@ it('can seed the independent money movement approver on its own', function (): v
         ->and(app(AuthorizationChecker::class)->allows(
             new UserId($approver->identity_user_id),
             new Permission('money_movement.approve'),
-        ))->toBeTrue();
+        ))->toBeTrue()
+        ->and(app(AuthorizationChecker::class)->allows(
+            new UserId($approver->identity_user_id),
+            new Permission('money_movement.audit'),
+        ))->toBeTrue()
+        ->and(app(AuthorizationChecker::class)->allows(
+            new UserId($approver->identity_user_id),
+            new Permission('operations.view'),
+        ))->toBeTrue()
+        ->and(app(AuthorizationChecker::class)->allows(
+            new UserId($approver->identity_user_id),
+            new Permission('money_movement.manage'),
+        ))->toBeFalse();
 
     $this->assertDatabaseHas('staff', [
         'user_id' => $approver->identity_user_id,

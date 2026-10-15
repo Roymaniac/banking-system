@@ -364,6 +364,11 @@ BANKING_USD_WITHDRAWAL_LEDGER_ID=
 BANKING_GBP_WITHDRAWAL_LEDGER_ID=
 ```
 
+For local development, `DemoBankingSeeder` creates separate NGN settlement
+ledgers and the example environment files already reference them. USD and GBP
+remain empty until matching internal ledgers are created. Never reuse one
+ledger for both deposits and withdrawals.
+
 An unconfigured currency fails safely instead of creating an incomplete financial entry.
 
 ## Email configuration

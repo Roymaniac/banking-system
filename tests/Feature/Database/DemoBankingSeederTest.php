@@ -29,7 +29,8 @@ it('creates repeatable funded customer and authorized administrator demo data', 
         ->and($approver->email_verified_at)->not->toBeNull()
         ->and(DB::table('users')->count())->toBe(5)
         ->and(DB::table('customers')->count())->toBe(3)
-        ->and(DB::table('accounts')->count())->toBe(3)
+        ->and(DB::table('accounts')->count())->toBe(4)
+        ->and(DB::table('ledgers')->count())->toBe(4)
         ->and(DB::table('ledger_entries')->count())->toBe(2)
         ->and(DB::table('ledger_postings')->count())->toBe(4)
         ->and(DB::table('administration_permissions')->count())->toBe(29)
@@ -55,6 +56,12 @@ it('creates repeatable funded customer and authorized administrator demo data', 
     $this->assertDatabaseHas('accounts', [
         'number' => '1000000001',
         'status' => 'active',
+    ])->assertDatabaseHas('ledgers', [
+        'id' => '40000000-0000-4000-8000-000000000003',
+        'currency' => 'NGN',
+    ])->assertDatabaseHas('ledgers', [
+        'id' => '40000000-0000-4000-8000-000000000004',
+        'currency' => 'NGN',
     ])->assertDatabaseHas('ledger_balances', [
         'ledger_id' => '40000000-0000-4000-8000-000000000001',
         'balance_minor_units' => 25000000,

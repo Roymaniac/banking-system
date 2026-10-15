@@ -195,6 +195,7 @@ it('reverses a posted operation and prevents a second reversal', function (): vo
 
 it('fails safely when a settlement ledger is not configured', function (): void {
     $target = createTrustedOperationAccount('7734567890');
+    config(['banking.settlement_ledgers.deposit.NGN' => null]);
     allowTrustedOperations();
     Sanctum::actingAs(trustedOperationUser(), ['privileged']);
 
@@ -301,6 +302,7 @@ it('rejects an idempotency key reused for different money instructions', functio
 it('allows the same key to retry after an unsuccessful response', function (): void {
     $target = createTrustedOperationAccount('1134567890');
     $settlement = createTrustedOperationAccount('2134567890');
+    config(['banking.settlement_ledgers.deposit.NGN' => null]);
     allowTrustedOperations();
     Sanctum::actingAs(trustedOperationUser(), ['privileged']);
     $key = Uuid::generate()->value();

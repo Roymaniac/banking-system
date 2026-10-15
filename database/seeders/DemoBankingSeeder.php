@@ -34,13 +34,17 @@ final class DemoBankingSeeder extends Seeder
 
     private const RECIPIENT_ACCOUNT_ID = '30000000-0000-4000-8000-000000000002';
 
-    private const SYSTEM_ACCOUNT_ID = '30000000-0000-4000-8000-000000000003';
+    private const NGN_DEPOSIT_SETTLEMENT_ACCOUNT_ID = '30000000-0000-4000-8000-000000000003';
+
+    private const NGN_WITHDRAWAL_SETTLEMENT_ACCOUNT_ID = '30000000-0000-4000-8000-000000000004';
 
     private const CUSTOMER_LEDGER_ID = '40000000-0000-4000-8000-000000000001';
 
     private const RECIPIENT_LEDGER_ID = '40000000-0000-4000-8000-000000000002';
 
-    private const SYSTEM_LEDGER_ID = '40000000-0000-4000-8000-000000000003';
+    private const NGN_DEPOSIT_SETTLEMENT_LEDGER_ID = '40000000-0000-4000-8000-000000000003';
+
+    private const NGN_WITHDRAWAL_SETTLEMENT_LEDGER_ID = '40000000-0000-4000-8000-000000000004';
 
     private const DEPARTMENT_ID = '80000000-0000-4000-8000-000000000001';
 
@@ -117,8 +121,8 @@ final class DemoBankingSeeder extends Seeder
             [self::CUSTOMER_USER_ID, 'Demo Customer', 'customer@example.com', $password],
             [self::RECIPIENT_USER_ID, 'Demo Recipient', 'recipient@example.com', $password],
             [self::ADMIN_USER_ID, 'Demo Administrator', 'admin@example.com', $password],
-            // This identity owns the balancing ledger and cannot be signed in
-            // with any published demo credential.
+            // This identity owns the bank's internal settlement ledgers and
+            // cannot be signed in with any published demo credential.
             [self::SYSTEM_USER_ID, 'Demo Settlement Identity', 'settlement@example.invalid', Hash::make(Str::random(64))],
         ];
 
@@ -167,12 +171,14 @@ final class DemoBankingSeeder extends Seeder
         $accounts = [
             [self::CUSTOMER_ACCOUNT_ID, self::CUSTOMER_ID, '1000000001'],
             [self::RECIPIENT_ACCOUNT_ID, self::RECIPIENT_ID, '1000000002'],
-            [self::SYSTEM_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000001'],
+            [self::NGN_DEPOSIT_SETTLEMENT_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000001'],
+            [self::NGN_WITHDRAWAL_SETTLEMENT_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000002'],
         ];
         $ledgers = [
             [self::CUSTOMER_LEDGER_ID, self::CUSTOMER_ACCOUNT_ID],
             [self::RECIPIENT_LEDGER_ID, self::RECIPIENT_ACCOUNT_ID],
-            [self::SYSTEM_LEDGER_ID, self::SYSTEM_ACCOUNT_ID],
+            [self::NGN_DEPOSIT_SETTLEMENT_LEDGER_ID, self::NGN_DEPOSIT_SETTLEMENT_ACCOUNT_ID],
+            [self::NGN_WITHDRAWAL_SETTLEMENT_LEDGER_ID, self::NGN_WITHDRAWAL_SETTLEMENT_ACCOUNT_ID],
         ];
 
         foreach ($accounts as [$id, $customerId, $number]) {
@@ -350,7 +356,7 @@ final class DemoBankingSeeder extends Seeder
                 [
                     'id' => $deposit['debit_posting_id'],
                     'entry_id' => $deposit['entry_id'],
-                    'ledger_id' => self::SYSTEM_LEDGER_ID,
+                    'ledger_id' => self::NGN_DEPOSIT_SETTLEMENT_LEDGER_ID,
                     'side' => 'debit',
                     'minor_units' => $deposit['minor_units'],
                     'currency' => 'NGN',
@@ -367,7 +373,7 @@ final class DemoBankingSeeder extends Seeder
             DB::table('ledger_balance_contributions')->insert([
                 [
                     'entry_id' => $deposit['entry_id'],
-                    'ledger_id' => self::SYSTEM_LEDGER_ID,
+                    'ledger_id' => self::NGN_DEPOSIT_SETTLEMENT_LEDGER_ID,
                     'side' => 'debit',
                     'minor_units' => $deposit['minor_units'],
                     'projected_at' => $now,
@@ -396,7 +402,7 @@ final class DemoBankingSeeder extends Seeder
         // overwrite balances changed by real local testing activity.
         DB::table('ledger_balances')->insertOrIgnore([
             [
-                'ledger_id' => self::SYSTEM_LEDGER_ID,
+                'ledger_id' => self::NGN_DEPOSIT_SETTLEMENT_LEDGER_ID,
                 'currency' => 'NGN',
                 'debit_minor_units' => 30000000,
                 'credit_minor_units' => 0,

@@ -22,6 +22,7 @@ final class ListAdministrationRecordsRequest extends FormRequest
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'search' => ['sometimes', 'string', 'max:100'],
             'status' => ['sometimes', 'string', 'in:active,inactive'],
+            'department_id' => ['sometimes', 'uuid'],
         ];
     }
 
@@ -47,5 +48,12 @@ final class ListAdministrationRecordsRequest extends FormRequest
         $status = $this->string('status')->toString();
 
         return $status === '' ? null : $status;
+    }
+
+    public function departmentId(): ?string
+    {
+        return $this->filled('department_id')
+            ? $this->string('department_id')->toString()
+            : null;
     }
 }

@@ -341,6 +341,12 @@ Documentation is freely accessible only in the `local` environment. In other env
 
 Only `/api/v1` routes are included in the generated contract. Internal health and documentation routes are deliberately excluded.
 
+The operations portal's searchable account, customer, staff-candidate, and
+reversal-entry selectors are documented in
+[`docs/operator-resource-lookups.md`](docs/operator-resource-lookups.md),
+including permissions, eligibility hints, response examples, and audit ID
+namespaces.
+
 ## Money and dates
 
 API money values use integer minor units and always include or derive a currency. For example, `1050` represents 10.50 in a currency with two decimal places. Floating-point values are not used for financial calculations.

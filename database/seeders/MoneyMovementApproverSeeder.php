@@ -72,7 +72,7 @@ final class MoneyMovementApproverSeeder extends Seeder
             DB::table('departments')->updateOrInsert(
                 ['id' => self::DEPARTMENT_ID],
                 [
-                    'code' => 'DEMO-OPS',
+                    'code' => 'DEMO_OPS',
                     'name' => 'Demo Banking Operations',
                     'status' => 'active',
                     'created_at' => $now,

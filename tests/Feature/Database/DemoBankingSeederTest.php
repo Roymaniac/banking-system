@@ -62,6 +62,12 @@ it('creates repeatable funded customer and authorized administrator demo data', 
     ])->assertDatabaseHas('ledgers', [
         'id' => '40000000-0000-4000-8000-000000000004',
         'currency' => 'NGN',
+    ])->assertDatabaseHas('accounts', [
+        'id' => '30000000-0000-4000-8000-000000000003',
+        'is_internal' => true,
+    ])->assertDatabaseHas('accounts', [
+        'id' => '30000000-0000-4000-8000-000000000004',
+        'is_internal' => true,
     ])->assertDatabaseHas('ledger_balances', [
         'ledger_id' => '40000000-0000-4000-8000-000000000001',
         'balance_minor_units' => 25000000,

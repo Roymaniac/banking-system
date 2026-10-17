@@ -16,11 +16,23 @@ use Administration\Domain\Staff\Exception\StaffAlreadyExists;
 use Administration\Domain\Staff\Repository\StaffRepository;
 use Administration\Domain\Staff\ValueObject\StaffStatus;
 use Administration\Infrastructure\Persistence\DatabaseStaffRepository;
+use App\Models\User;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
+
+function verifiedStaffIdentity(): UserId
+{
+    $userId = UserId::generate();
+    User::factory()->create([
+        'identity_user_id' => $userId->value(),
+        'email_verified_at' => now(),
+    ]);
+
+    return $userId;
+}
 
 it('hires, transfers, persists, and deactivates staff', function (): void {
     $operations = app(CreateDepartment::class)->handle(
@@ -39,7 +51,7 @@ it('hires, transfers, persists, and deactivates staff', function (): void {
 
     $staff = app(HireStaff::class)->handle(
         new HireStaffCommand(
-            UserId::generate(),
+            verifiedStaffIdentity(),
             'emp-100',
             $operations->id(),
             'Analyst'
@@ -72,7 +84,7 @@ it('rejects duplicate employee identities and inactive departments', function ()
         )
     );
 
-    $userId = UserId::generate();
+    $userId = verifiedStaffIdentity();
     app(HireStaff::class)->handle(
         new HireStaffCommand(
             $userId,
@@ -99,7 +111,7 @@ it('rejects duplicate employee identities and inactive departments', function ()
 
     app(HireStaff::class)->handle(
         new HireStaffCommand(
-            UserId::generate(),
+            verifiedStaffIdentity(),
             'EMP-103',
             $department->id(),
             'Analyst'

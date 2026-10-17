@@ -14,7 +14,13 @@ interface AdministrationDirectoryQuery
     public function department(string $id): ?array;
 
     /** @return array{items: list<array<string, mixed>>, pagination: array<string, int>} */
-    public function staff(int $page, int $perPage, ?string $search, ?string $status): array;
+    public function staff(
+        int $page,
+        int $perPage,
+        ?string $search,
+        ?string $status,
+        ?string $departmentId,
+    ): array;
 
     /** @return array<string, mixed>|null */
     public function staffMember(string $id): ?array;

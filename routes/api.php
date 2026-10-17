@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Administration\PermissionController;
 use App\Http\Controllers\Api\V1\Administration\PermissionDirectoryController;
 use App\Http\Controllers\Api\V1\Administration\RoleController;
 use App\Http\Controllers\Api\V1\Administration\RoleDirectoryController;
+use App\Http\Controllers\Api\V1\Administration\StaffCandidateDirectoryController;
 use App\Http\Controllers\Api\V1\Administration\StaffController;
 use App\Http\Controllers\Api\V1\Administration\StaffDirectoryController;
 use App\Http\Controllers\Api\V1\Audit\ActivityController;
@@ -31,6 +32,9 @@ use App\Http\Controllers\Api\V1\Notification\EmailOutboxController;
 use App\Http\Controllers\Api\V1\Operation\AccountLifecycleController;
 use App\Http\Controllers\Api\V1\Operation\AccountProvisioningController;
 use App\Http\Controllers\Api\V1\Operation\MoneyMovementControlController;
+use App\Http\Controllers\Api\V1\Operation\OperatorAccountDirectoryController;
+use App\Http\Controllers\Api\V1\Operation\OperatorCustomerDirectoryController;
+use App\Http\Controllers\Api\V1\Operation\ReversalEntryDirectoryController;
 use App\Http\Controllers\Api\V1\Operation\SystemHealthController;
 use App\Http\Controllers\Api\V1\Operation\TransferRiskCaseController;
 use App\Http\Controllers\Api\V1\Operation\TrustedTransactionController;
@@ -109,6 +113,25 @@ Route::prefix('v1/auth')->group(function (): void {
 Route::prefix('v1/operations')
     ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
     ->group(function (): void {
+        Route::get('/accounts', [OperatorAccountDirectoryController::class, 'index'])
+            ->name('api.v1.operations.accounts.index');
+        Route::get('/accounts/{account}', [OperatorAccountDirectoryController::class, 'show'])
+            ->whereUuid('account')
+            ->name('api.v1.operations.accounts.show');
+        Route::get('/customers', [OperatorCustomerDirectoryController::class, 'index'])
+            ->middleware('permission:customer_reports.view')
+            ->name('api.v1.operations.customers.index');
+        Route::get('/customers/{customer}', [OperatorCustomerDirectoryController::class, 'show'])
+            ->whereUuid('customer')
+            ->middleware('permission:customer_reports.view')
+            ->name('api.v1.operations.customers.show');
+        Route::get('/ledger-entries', [ReversalEntryDirectoryController::class, 'index'])
+            ->middleware('permission:transactions.reverse')
+            ->name('api.v1.operations.ledger-entries.index');
+        Route::get('/ledger-entries/{entry}', [ReversalEntryDirectoryController::class, 'show'])
+            ->whereUuid('entry')
+            ->middleware('permission:transactions.reverse')
+            ->name('api.v1.operations.ledger-entries.show');
         Route::post('/accounts/{account}/provision', [AccountProvisioningController::class, 'store'])
             ->whereUuid('account')
             ->middleware('permission:accounts.provision')
@@ -234,6 +257,13 @@ Route::prefix('v1/compliance')
 Route::prefix('v1/administration')
     ->middleware(['auth:sanctum', 'throttle:operator-api', 'privileged-token'])
     ->group(function (): void {
+        Route::get('/staff-candidates', [StaffCandidateDirectoryController::class, 'index'])
+            ->middleware('permission:staff.manage')
+            ->name('api.v1.administration.staff-candidates.index');
+        Route::get('/staff-candidates/{user}', [StaffCandidateDirectoryController::class, 'show'])
+            ->whereUuid('user')
+            ->middleware('permission:staff.manage')
+            ->name('api.v1.administration.staff-candidates.show');
         Route::get('/departments', [DepartmentDirectoryController::class, 'index'])
             ->middleware('permission:administration.view')
             ->name('api.v1.administration.departments.index');

@@ -12,6 +12,7 @@ use Administration\Application\Role\CreateRole;
 use Administration\Application\Role\DeactivateRole;
 use Administration\Application\Staff\HireStaff;
 use Administration\Application\Staff\HireStaffCommand;
+use App\Models\User;
 use Identity\Application\Authorization\AuthorizationChecker;
 use Identity\Domain\Authorization\ValueObject\Permission;
 use Identity\Domain\User\ValueObject\UserId;
@@ -24,6 +25,13 @@ function permissionTestSetup(): array
 {
     $department = app(CreateDepartment::class)->handle(new CreateDepartmentCommand('OPS', 'Operations'));
     $userId = UserId::generate();
+
+    // Staff must belong to a real, verified sign-in identity.
+    User::factory()->create([
+        'identity_user_id' => $userId->value(),
+        'email_verified_at' => now(),
+    ]);
+
     $staff = app(HireStaff::class)->handle(new HireStaffCommand($userId, 'EMP-300', $department->id(), 'Approver'));
     $role = app(CreateRole::class)->handle('transfer_approver', 'Transfer Approver');
     app(AssignRoleToStaff::class)->handle($role->id(), $staff->id());

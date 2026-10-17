@@ -16,6 +16,7 @@ use Administration\Domain\Role\Repository\RoleAssignmentRepository;
 use Administration\Domain\Role\Repository\RoleRepository;
 use Administration\Domain\Role\ValueObject\RoleStatus;
 use Administration\Domain\Staff\Staff;
+use App\Models\User;
 use Identity\Domain\User\ValueObject\UserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -32,9 +33,17 @@ function roleTestStaff(): Staff
         )
     );
 
+    $userId = UserId::generate();
+
+    // Staff must belong to a real, verified sign-in identity.
+    User::factory()->create([
+        'identity_user_id' => $userId->value(),
+        'email_verified_at' => now(),
+    ]);
+
     return app(HireStaff::class)->handle(
         new HireStaffCommand(
-            UserId::generate(),
+            $userId,
             'EMP-200',
             $department->id(),
             'Operations Analyst'

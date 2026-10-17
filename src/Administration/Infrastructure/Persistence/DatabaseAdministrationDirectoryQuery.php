@@ -34,7 +34,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
         }
 
         return $this->paginate(
-            $query->orderBy('name'),
+            $query->orderBy('name')->orderBy('id'),
             $page,
             $perPage,
             fn (object $row): array => [
@@ -73,25 +73,38 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
         int $page,
         int $perPage,
         ?string $search,
-        ?string $status
+        ?string $status,
+        ?string $departmentId,
     ): array {
 
         $query = $this->connection->table('staff')
             ->join('departments', 'departments.id', '=', 'staff.department_id')
-            ->select('staff.*', 'departments.code as department_code', 'departments.name as department_name');
+            ->leftJoin('users', 'users.identity_user_id', '=', 'staff.user_id')
+            ->select(
+                'staff.*',
+                'departments.code as department_code',
+                'departments.name as department_name',
+                'users.name as identity_name',
+                'users.email as identity_email',
+            );
 
         if ($search !== null) {
             $query->where(function (Builder $query) use ($search): void {
                 $query->where('staff.employee_number', 'like', "%{$search}%")
-                    ->orWhere('staff.job_title', 'like', "%{$search}%");
+                    ->orWhere('staff.job_title', 'like', "%{$search}%")
+                    ->orWhere('users.name', 'like', "%{$search}%")
+                    ->orWhere('users.email', 'like', "%{$search}%");
             });
         }
         if ($status !== null) {
             $query->where('staff.status', $status);
         }
+        if ($departmentId !== null) {
+            $query->where('staff.department_id', $departmentId);
+        }
 
         return $this->paginate(
-            $query->orderBy('staff.employee_number'),
+            $query->orderBy('staff.employee_number')->orderBy('staff.id'),
             $page,
             $perPage,
             fn (object $row): array => $this->staffRow($row)
@@ -102,7 +115,14 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
     {
         $row = $this->connection->table('staff')
             ->join('departments', 'departments.id', '=', 'staff.department_id')
-            ->select('staff.*', 'departments.code as department_code', 'departments.name as department_name')
+            ->leftJoin('users', 'users.identity_user_id', '=', 'staff.user_id')
+            ->select(
+                'staff.*',
+                'departments.code as department_code',
+                'departments.name as department_name',
+                'users.name as identity_name',
+                'users.email as identity_email',
+            )
             ->where('staff.id', $id)
             ->first();
 
@@ -147,7 +167,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
         }
 
         return $this->paginate(
-            $query->orderBy('label'),
+            $query->orderBy('label')->orderBy('id'),
             $page,
             $perPage,
             fn (object $row): array => [
@@ -205,7 +225,7 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
         }
 
         return $this->paginate(
-            $query->orderBy('name'),
+            $query->orderBy('name')->orderBy('id'),
             $page,
             $perPage,
             fn (object $row): array => [
@@ -254,6 +274,11 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
             'id' => $row->id,
             'user_id' => $row->user_id,
             'employee_number' => $row->employee_number,
+            'display_name' => $row->identity_name,
+            'display_label' => $row->identity_name === null
+                ? $row->employee_number
+                : $row->identity_name.' · '.$row->employee_number,
+            'masked_email' => $row->identity_email === null ? null : $this->maskEmail($row->identity_email),
             'department' => [
                 'id' => $row->department_id,
                 'code' => $row->department_code,
@@ -302,5 +327,12 @@ final readonly class DatabaseAdministrationDirectoryQuery implements Administrat
     private function nullableDate(?string $value): ?string
     {
         return $value === null ? null : $this->date($value);
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($local, 0, 1).'•••@'.$domain;
     }
 }

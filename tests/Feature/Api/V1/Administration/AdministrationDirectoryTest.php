@@ -70,6 +70,10 @@ it('shows staff with its department and assigned roles', function (): void {
     Sanctum::actingAs(directoryApiUser(), ['privileged']);
     $departmentId = directoryDepartment('SEC', 'Security');
     $staffUser = directoryApiUser();
+    $staffUser->forceFill([
+        'name' => 'Grace Security',
+        'email' => 'grace.security@example.com',
+    ])->save();
     $staffId = $this->postJson('/api/v1/administration/staff', [
         'user_id' => $staffUser->identity_user_id,
         'employee_number' => 'EMP-DIR-1',
@@ -85,10 +89,17 @@ it('shows staff with its department and assigned roles', function (): void {
     $this->getJson("/api/v1/administration/staff/{$staffId}")
         ->assertOk()
         ->assertJsonPath('data.staff.employee_number', 'EMP-DIR-1')
+        ->assertJsonPath('data.staff.display_name', 'Grace Security')
+        ->assertJsonPath('data.staff.display_label', 'Grace Security · EMP-DIR-1')
+        ->assertJsonPath('data.staff.masked_email', 'g•••@example.com')
         ->assertJsonPath('data.staff.department.code', 'SEC')
         ->assertJsonPath('data.staff.roles.0.name', 'security_reader');
 
     $this->getJson('/api/v1/administration/staff?search=Analyst&status=active')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.staff');
+
+    $this->getJson("/api/v1/administration/staff?search=Grace&department_id={$departmentId}")
         ->assertOk()
         ->assertJsonCount(1, 'data.staff');
 });

@@ -11,6 +11,7 @@ use Administration\Application\Staff\TransferStaff;
 use Administration\Application\Staff\TransferStaffCommand;
 use Administration\Domain\Department\ValueObject\DepartmentId;
 use Administration\Domain\Staff\Exception\ActiveDepartmentRequired;
+use Administration\Domain\Staff\Exception\EligibleStaffIdentityRequired;
 use Administration\Domain\Staff\Exception\InactiveStaffCannotChange;
 use Administration\Domain\Staff\Exception\StaffAlreadyExists;
 use Administration\Domain\Staff\Exception\StaffNotFound;
@@ -36,7 +37,7 @@ final class StaffController extends Controller
                     $request->string('job_title')->toString(),
                 )
             );
-        } catch (ActiveDepartmentRequired $exception) {
+        } catch (ActiveDepartmentRequired|EligibleStaffIdentityRequired $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         } catch (StaffAlreadyExists $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);

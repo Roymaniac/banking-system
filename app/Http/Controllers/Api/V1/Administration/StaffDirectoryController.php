@@ -22,6 +22,7 @@ final class StaffDirectoryController extends Controller
             $request->pageSize(),
             $request->searchTerm(),
             $request->requestedStatus(),
+            $request->departmentId(),
         );
 
         return response()->json([

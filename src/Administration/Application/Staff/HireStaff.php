@@ -7,12 +7,14 @@ namespace Administration\Application\Staff;
 use Administration\Domain\Department\Repository\DepartmentRepository;
 use Administration\Domain\Department\ValueObject\DepartmentStatus;
 use Administration\Domain\Staff\Exception\ActiveDepartmentRequired;
+use Administration\Domain\Staff\Exception\EligibleStaffIdentityRequired;
 use Administration\Domain\Staff\Exception\StaffAlreadyExists;
 use Administration\Domain\Staff\Repository\StaffRepository;
 use Administration\Domain\Staff\Staff;
 use Administration\Domain\Staff\ValueObject\EmployeeNumber;
 use Administration\Domain\Staff\ValueObject\JobTitle;
 use Administration\Domain\Staff\ValueObject\StaffId;
+use Identity\Domain\User\Repository\UserRepository;
 use Shared\Contracts\Clock;
 use Shared\Contracts\EventPublisher;
 use Shared\Contracts\TransactionManager;
@@ -24,6 +26,7 @@ final readonly class HireStaff
     public function __construct(
         private DepartmentRepository $departments,
         private StaffRepository $staff,
+        private UserRepository $users,
         private Clock $clock,
         private UuidGenerator $ids,
         private TransactionManager $transactions,
@@ -37,6 +40,12 @@ final readonly class HireStaff
         if ($department === null || $department->status() !== DepartmentStatus::Active) {
             throw ActiveDepartmentRequired::create();
         }
+
+        $user = $this->users->findById($command->userId);
+        if ($user === null || ! $user->isEmailVerified()) {
+            throw EligibleStaffIdentityRequired::create();
+        }
+
         if ($this->staff->employeeNumberExists($number) || $this->staff->userExists($command->userId)) {
             throw StaffAlreadyExists::create();
         }

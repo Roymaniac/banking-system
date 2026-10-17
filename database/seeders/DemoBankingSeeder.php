@@ -169,10 +169,10 @@ final class DemoBankingSeeder extends Seeder
     private function seedAccountsAndLedgers(mixed $now): void
     {
         $accounts = [
-            [self::CUSTOMER_ACCOUNT_ID, self::CUSTOMER_ID, '1000000001'],
-            [self::RECIPIENT_ACCOUNT_ID, self::RECIPIENT_ID, '1000000002'],
-            [self::NGN_DEPOSIT_SETTLEMENT_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000001'],
-            [self::NGN_WITHDRAWAL_SETTLEMENT_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000002'],
+            [self::CUSTOMER_ACCOUNT_ID, self::CUSTOMER_ID, '1000000001', false],
+            [self::RECIPIENT_ACCOUNT_ID, self::RECIPIENT_ID, '1000000002', false],
+            [self::NGN_DEPOSIT_SETTLEMENT_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000001', true],
+            [self::NGN_WITHDRAWAL_SETTLEMENT_ACCOUNT_ID, self::SYSTEM_CUSTOMER_ID, '9000000002', true],
         ];
         $ledgers = [
             [self::CUSTOMER_LEDGER_ID, self::CUSTOMER_ACCOUNT_ID],
@@ -181,7 +181,7 @@ final class DemoBankingSeeder extends Seeder
             [self::NGN_WITHDRAWAL_SETTLEMENT_LEDGER_ID, self::NGN_WITHDRAWAL_SETTLEMENT_ACCOUNT_ID],
         ];
 
-        foreach ($accounts as [$id, $customerId, $number]) {
+        foreach ($accounts as [$id, $customerId, $number, $isInternal]) {
             DB::table('accounts')->updateOrInsert(
                 ['id' => $id],
                 [
@@ -190,6 +190,7 @@ final class DemoBankingSeeder extends Seeder
                     'currency' => 'NGN',
                     'number' => $number,
                     'status' => 'active',
+                    'is_internal' => $isInternal,
                     'created_at' => $now,
                     'version' => 2,
                 ],
@@ -254,7 +255,7 @@ final class DemoBankingSeeder extends Seeder
         DB::table('departments')->updateOrInsert(
             ['id' => self::DEPARTMENT_ID],
             [
-                'code' => 'DEMO-OPS',
+                'code' => 'DEMO_OPS',
                 'name' => 'Demo Banking Operations',
                 'status' => 'active',
                 'created_at' => $now,
